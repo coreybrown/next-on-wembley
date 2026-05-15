@@ -48,3 +48,6 @@ next-env.d.ts
 # editor / OS
 .obsidian/workspace*
 .trash/
+
+# claude code — machine-local permission allowlist
+.claude/settings.local.json
