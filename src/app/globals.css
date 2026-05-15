@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   Light mode tokens (default)
+   Per DESIGN_SPEC.md §2.1 — "newsprint cream"
+   ------------------------------------------------------------------ */
+:root {
+  /* Surfaces */
+  --surface: #F4EFE6;
+  --surface-elevated: #FBF7EE;
+  --surface-overlay: #ECE5D7;
+
+  /* Borders */
+  --border: rgba(42, 31, 44, 0.10);
+  --border-strong: rgba(42, 31, 44, 0.25);
+
+  /* Text */
+  --ink-primary: #1F1622;
+  --ink-secondary: #4B3A4F;
+  --ink-muted: #7A6A78;
+
+  /* Accents */
+  --accent: #3C1F4A;
+  --accent-fg: #FBF7EE;
+  --accent-sharp: #D9442A;
+
+  /* Semantic */
+  --success: #2F6F4A;
+  --warning: #B57A1B;
+  --danger: #B23A2A;
+
+  /* Vote palette */
+  --vote-agree: #2F6F4A;
+  --vote-disagree: #B23A2A;
+  --vote-maybe: #B57A1B;
+
+  /* Status palette */
+  --status-want: #3C1F4A;
+  --status-watching: #D9442A;
+  --status-paused: #7A6A78;
+  --status-completed: #2F6F4A;
+  --status-dropped: #4B3A4F;
+
+  /* Badge */
+  --badge-unavailable: #5C4A5E;
+
+  /* Radius */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 520ms;
+  --easing-editorial: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ------------------------------------------------------------------
+   Dark mode — explicit user override
+   Per DESIGN_SPEC.md §2.2 — "lamp-lit study"
+   ------------------------------------------------------------------ */
+[data-theme="dark"] {
+  --surface: #1A1218;
+  --surface-elevated: #241A25;
+  --surface-overlay: #2E2330;
+  --border: rgba(244, 239, 230, 0.12);
+  --border-strong: rgba(244, 239, 230, 0.25);
+  --ink-primary: #F1E8DA;
+  --ink-secondary: #C8B9AF;
+  --ink-muted: #8E8079;
+  --accent: #E9C9A1;
+  --accent-fg: #1A1218;
+  --accent-sharp: #F26A3D;
+  --success: #6DBE8C;
+  --warning: #E0A857;
+  --danger: #E07A66;
+  --vote-agree: #6DBE8C;
+  --vote-disagree: #E07A66;
+  --vote-maybe: #E0A857;
+  --status-want: #E9C9A1;
+  --status-watching: #F26A3D;
+  --status-paused: #8E8079;
+  --status-completed: #6DBE8C;
+  --status-dropped: #6B5A6B;
+  --badge-unavailable: #B0A2A8;
+}
+
+/* ------------------------------------------------------------------
+   Dark mode — OS preference fallback when no explicit override
+   ------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    --surface: #1A1218;
+    --surface-elevated: #241A25;
+    --surface-overlay: #2E2330;
+    --border: rgba(244, 239, 230, 0.12);
+    --border-strong: rgba(244, 239, 230, 0.25);
+    --ink-primary: #F1E8DA;
+    --ink-secondary: #C8B9AF;
+    --ink-muted: #8E8079;
+    --accent: #E9C9A1;
+    --accent-fg: #1A1218;
+    --accent-sharp: #F26A3D;
+    --success: #6DBE8C;
+    --warning: #E0A857;
+    --danger: #E07A66;
+    --vote-agree: #6DBE8C;
+    --vote-disagree: #E07A66;
+    --vote-maybe: #E0A857;
+    --status-want: #E9C9A1;
+    --status-watching: #F26A3D;
+    --status-paused: #8E8079;
+    --status-completed: #6DBE8C;
+    --status-dropped: #6B5A6B;
+    --badge-unavailable: #B0A2A8;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Tailwind theme bridge — exposes tokens as Tailwind utilities
+   Per DESIGN_SPEC.md §12
+   ------------------------------------------------------------------ */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-sharp: var(--accent-sharp);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-vote-agree: var(--vote-agree);
+  --color-vote-disagree: var(--vote-disagree);
+  --color-vote-maybe: var(--vote-maybe);
+  --color-status-want: var(--status-want);
+  --color-status-watching: var(--status-watching);
+  --color-status-paused: var(--status-paused);
+  --color-status-completed: var(--status-completed);
+  --color-status-dropped: var(--status-dropped);
+  --color-badge-unavailable: var(--badge-unavailable);
+
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-chivo);
+  --font-mono: var(--font-jetbrains-mono);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-pill: var(--radius-pill);
+
+  /* Type scale — overrides Tailwind defaults to match DESIGN_SPEC §2.3 */
+  --text-mono: 0.75rem;
+  --text-mono--line-height: 1.4;
+  --text-mono--letter-spacing: 0.04em;
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.5;
+  --text-xs--letter-spacing: 0.01em;
+
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.55;
+
+  --text-base: 1rem;
+  --text-base--line-height: 1.6;
+
+  --text-md: 1.0625rem;
+  --text-md--line-height: 1.5;
+
+  --text-lg: 1.375rem;
+  --text-lg--line-height: 1.3;
+  --text-lg--letter-spacing: -0.005em;
+
+  --text-2xl: 2rem;
+  --text-2xl--line-height: 1.15;
+  --text-2xl--letter-spacing: -0.01em;
+
+  --text-4xl: 3.5rem;
+  --text-4xl--line-height: 1;
+  --text-4xl--letter-spacing: -0.02em;
+}
+
+/* ------------------------------------------------------------------
+   Base
+   ------------------------------------------------------------------ */
+body {
+  background-color: var(--surface);
+  color: var(--ink-primary);
+  font-family: var(--font-chivo), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Reduced motion — collapse durations + transitions globally
+   Per DESIGN_SPEC §8.3 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Background atmosphere — paper-noise + 12-column rules
+   Per DESIGN_SPEC §3.(1)
+   ------------------------------------------------------------------ */
+.bg-page {
+  background-color: var(--surface);
+  background-image:
+    repeating-linear-gradient(
+      to right,
+      transparent 0 calc(100% / 12 - 1px),
+      var(--border) calc(100% / 12 - 1px) calc(100% / 12)
+    ),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.025 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-blend-mode: multiply;
+}
+
+/* Letterpress radial — for login card backdrop. DESIGN_SPEC §3.(2) */
+.bg-login {
+  background: radial-gradient(
+    120% 80% at 50% 0%,
+    color-mix(in oklab, var(--surface) 92%, var(--accent) 8%) 0%,
+    var(--surface) 60%
+  );
+}
+
+/* Printer's-mark dot grid — for empty states. DESIGN_SPEC §3.(3) */
+.bg-empty {
+  background-color: var(--surface);
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in oklab, var(--ink-muted) 60%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: 28px 28px;
+}
+
+/* ------------------------------------------------------------------
+   Focus ring utility — per DESIGN_SPEC §11
+   ------------------------------------------------------------------ */
+@layer utilities {
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}

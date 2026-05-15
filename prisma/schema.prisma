@@ -1,0 +1,89 @@
+// Next on Wembley — M1 schema
+// Models for M3+ (RecommendationRun, RecommendationItem, RecommendationVote,
+// ContinuationDetectionLog) are deferred until those milestones ship.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum WatchStatus {
+  want_to_watch
+  watching
+  paused
+  completed
+  dropped
+}
+
+enum UserRating {
+  like
+  dislike
+  meh
+}
+
+model User {
+  id            Int                @id @default(autoincrement())
+  username      String             @unique
+  displayName   String
+  passcodeHash  String
+  createdAt     DateTime           @default(now())
+  subscriptions UserSubscription[]
+  watchEntries  WatchEntry[]
+}
+
+model UserSubscription {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformKey String
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, platformKey])
+}
+
+model Show {
+  id               Int            @id @default(autoincrement())
+  tmdbId           Int            @unique
+  title            String
+  posterUrl        String?
+  genres           String?
+  totalSeasons     Int?
+  totalEpisodes    Int?
+  tmdbRating       Float?
+  trailerUrl       String?
+  productionStatus String?
+  lastSyncedAt     DateTime       @default(now())
+  watchEntries     WatchEntry[]
+  providers        ShowProvider[]
+}
+
+model ShowProvider {
+  id               Int    @id @default(autoincrement())
+  showId           Int
+  show             Show   @relation(fields: [showId], references: [id], onDelete: Cascade)
+  platformKey      String
+  region           String @default("CA")
+  monetizationType String @default("flatrate")
+
+  @@unique([showId, platformKey, region, monetizationType])
+}
+
+model WatchEntry {
+  id            Int          @id @default(autoincrement())
+  userId        Int
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  showId        Int
+  show          Show         @relation(fields: [showId], references: [id], onDelete: Cascade)
+  status        WatchStatus
+  currentSeason Int?
+  userRating    UserRating?
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([userId, showId])
+}
