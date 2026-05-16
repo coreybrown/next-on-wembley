@@ -1,13 +1,30 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { UserRating } from "@prisma/client";
+import type { Prisma, UserRating } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getTvDetails, getTvProviders } from "@/lib/tmdb";
 import { daysSince } from "@/lib/in-progress";
 import { isValidRating } from "@/lib/watch-entries";
 import type { WatchEntryActionError } from "@/app/actions/watch-entries";
+
+export type InProgressEntry = Prisma.WatchEntryGetPayload<{
+  include: { show: { include: { providers: true } } };
+}>;
+
+export async function getInProgressEntries(): Promise<InProgressEntry[]> {
+  const session = await getSession();
+  if (!session.userId) return [];
+  return prisma.watchEntry.findMany({
+    where: {
+      userId: session.userId,
+      status: { in: ["watching", "paused"] },
+    },
+    include: { show: { include: { providers: true } } },
+    orderBy: [{ updatedAt: "desc" }],
+  });
+}
 
 const STALE_THRESHOLD_DAYS = 7;
 const REFRESH_CONCURRENCY = 2;

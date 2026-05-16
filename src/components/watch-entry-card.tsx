@@ -7,6 +7,7 @@ import {
   RATING_LABELS,
   RATING_GLYPHS,
 } from "@/lib/watch-entries";
+import { InProgressActions } from "@/components/in-progress-actions";
 
 const STATUS_PILL_COLOR: Record<string, string> = {
   want_to_watch: "bg-status-want",
@@ -23,10 +24,11 @@ type Props = {
 
 export function WatchEntryCard({ entry, onEdit }: Props) {
   const { show, status, currentSeason, userRating } = entry;
+  const isInProgress = status === "watching" || status === "paused";
   return (
     <article
       className="
-        group flex items-center gap-4
+        group flex items-start gap-4
         rounded-md border border-border bg-surface-elevated
         px-4 py-3
         transition-colors hover:border-border-strong
@@ -82,13 +84,18 @@ export function WatchEntryCard({ entry, onEdit }: Props) {
             </span>
           )}
         </div>
+        {isInProgress && (
+          <div className="mt-3">
+            <InProgressActions entry={entry} />
+          </div>
+        )}
       </div>
       <button
         type="button"
         onClick={onEdit}
         aria-label={`Edit ${show.title}`}
         className="
-          inline-flex h-9 w-9 items-center justify-center
+          inline-flex h-9 w-9 flex-shrink-0 items-center justify-center
           rounded-sm border border-border bg-surface
           text-ink-secondary
           transition-colors hover:border-accent hover:text-accent

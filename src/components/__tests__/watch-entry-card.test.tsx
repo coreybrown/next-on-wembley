@@ -21,6 +21,7 @@ const baseEntry = {
     genres: "Drama",
     totalSeasons: 2,
     totalEpisodes: 19,
+    seasonsJson: null,
     tmdbRating: 8.7,
     trailerUrl: null,
     productionStatus: "Returning Series",

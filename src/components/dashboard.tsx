@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "@phosphor-icons/react";
 import type { WatchStatus } from "@prisma/client";
 import { SearchInput } from "@/components/search-input";
 import { WatchEntryCard } from "@/components/watch-entry-card";
@@ -77,10 +79,29 @@ export function Dashboard({ entries, displayName }: Props) {
         <div className="space-y-12">
           {grouped.map(({ status, items }) => (
             <section key={status}>
-              <h2 className="mb-4 font-mono text-mono uppercase tracking-wide text-ink-muted">
-                {STATUS_LABELS[status]}
-                <span className="ml-2 text-ink-muted/60">({items.length})</span>
-              </h2>
+              <div className="mb-4 flex items-baseline justify-between gap-2">
+                <h2 className="font-mono text-mono uppercase tracking-wide text-ink-muted">
+                  {STATUS_LABELS[status]}
+                  <span className="ml-2 text-ink-muted/60">
+                    ({items.length})
+                  </span>
+                </h2>
+                {status === "watching" && items.length > 0 && (
+                  <Link
+                    href="/in-progress"
+                    className="
+                      inline-flex items-center gap-1
+                      font-mono text-mono uppercase text-ink-muted
+                      transition-colors hover:text-ink
+                      focus-visible:outline-2 focus-visible:outline-accent
+                      focus-visible:outline-offset-2
+                    "
+                  >
+                    <span>View In-Progress</span>
+                    <ArrowRight size={12} weight="regular" aria-hidden />
+                  </Link>
+                )}
+              </div>
               {items.length === 0 ? (
                 <p className="font-body text-sm italic text-ink-muted">
                   {EMPTY_COPY[status]}
