@@ -39,8 +39,8 @@ describe("<IdentityChip />", () => {
     );
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/enter jaimie's passcode/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/jaimie's passcode/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter jaimie’s passcode/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/jaimie’s passcode/i)).toBeInTheDocument();
   });
 
   it("names Corey as the other user when Jaimie is signed in", async () => {
@@ -51,7 +51,7 @@ describe("<IdentityChip />", () => {
     );
 
     expect(
-      await screen.findByText(/enter corey's passcode/i),
+      await screen.findByText(/enter corey’s passcode/i),
     ).toBeInTheDocument();
   });
 
@@ -62,7 +62,7 @@ describe("<IdentityChip />", () => {
       screen.getByRole("button", { name: /currently signed in as corey/i }),
     );
     await user.type(
-      await screen.findByLabelText(/jaimie's passcode/i),
+      await screen.findByLabelText(/jaimie’s passcode/i),
       "jaimie-pass",
     );
     await user.click(screen.getByRole("button", { name: /switch to jaimie/i }));

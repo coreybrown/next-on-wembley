@@ -59,7 +59,7 @@ export function IdentityChip({ currentUser }: Props) {
             Switch user
           </Dialog.Title>
           <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
-            Enter {other.displayName}'s passcode to hand off the device.
+            Enter {other.displayName}&rsquo;s passcode to hand off the device.
           </Dialog.Description>
 
           <SwitchForm other={other} />
@@ -100,7 +100,7 @@ function SwitchForm({
           htmlFor="switch-passcode"
           className="block font-mono text-mono uppercase text-ink-muted mb-2"
         >
-          {other.displayName}'s passcode
+          {other.displayName}&rsquo;s passcode
         </label>
         <input
           id="switch-passcode"

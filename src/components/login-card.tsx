@@ -41,7 +41,7 @@ export function LoginCard() {
       <form action={formAction} className="space-y-6" noValidate>
         <fieldset>
           <legend className="font-mono text-mono uppercase text-ink-muted mb-3">
-            Who's signing in?
+            Who&rsquo;s signing in?
           </legend>
           <div className="grid grid-cols-2 gap-3">
             {[
