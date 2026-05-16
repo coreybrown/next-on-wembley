@@ -5,7 +5,11 @@ import type { Prisma, UserRating } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getTvDetails, getTvProviders } from "@/lib/tmdb";
-import { daysSince } from "@/lib/in-progress";
+import {
+  daysSince,
+  parseSeasonsJson,
+  releasedSeasonsCount,
+} from "@/lib/in-progress";
 import { isValidRating } from "@/lib/watch-entries";
 import type { WatchEntryActionError } from "@/app/actions/watch-entries";
 
@@ -60,13 +64,47 @@ export async function bumpSeasonAction(
   const current = entry.currentSeason ?? 1;
   const next = current + delta;
   if (next < 1) return { ok: false, error: "invalid_season" };
-  if (entry.show.totalSeasons != null && next > entry.show.totalSeasons) {
+  const ceiling = releasedSeasonsCount(
+    parseSeasonsJson(entry.show.seasonsJson),
+    entry.show.totalSeasons,
+  );
+  if (ceiling != null && next > ceiling) {
     return { ok: false, error: "invalid_season" };
   }
 
   await prisma.watchEntry.update({
     where: { id: entryId },
-    data: { currentSeason: next },
+    // Crossing a season boundary resets the "done with current season"
+    // flag — the new season is by definition not yet finished.
+    data: { currentSeason: next, currentSeasonCompleted: false },
+  });
+  revalidatePath("/");
+  revalidatePath("/in-progress");
+  return { ok: true };
+}
+
+// Mark the current season as finished (or un-finish it). Independent of
+// currentSeason — toggles only the boolean. This is how a user signals
+// "I'm done with S2, waiting for S3" without having to bump to a
+// season that doesn't exist yet.
+export async function setSeasonCompletedAction(
+  entryId: number,
+  completed: boolean,
+): Promise<InProgressActionResult> {
+  const session = await getSession();
+  if (!session.userId) return { ok: false, error: "unauthorized" };
+
+  const entry = await prisma.watchEntry.findUnique({ where: { id: entryId } });
+  if (!entry || entry.userId !== session.userId) {
+    return { ok: false, error: "not_found" };
+  }
+  if (entry.status !== "watching" && entry.status !== "paused") {
+    return { ok: false, error: "invalid_status" };
+  }
+
+  await prisma.watchEntry.update({
+    where: { id: entryId },
+    data: { currentSeasonCompleted: completed },
   });
   revalidatePath("/");
   revalidatePath("/in-progress");
@@ -165,11 +203,22 @@ export async function refreshStaleInProgress(): Promise<{ refreshed: number }> {
       userId: session.userId,
       status: { in: ["watching", "paused"] },
     },
-    include: { show: { select: { id: true, lastSyncedAt: true } } },
+    include: {
+      show: {
+        select: { id: true, lastSyncedAt: true, seasonsJson: true },
+      },
+    },
   });
+  // Refresh shows that are time-stale OR pre-Phase-6 rows (no seasonsJson yet).
+  // The latter is a one-time backfill so legacy entries get the new per-season
+  // data on next /in-progress visit without manual intervention.
   const stale = entries
     .map((e) => e.show)
-    .filter((s) => daysSince(s.lastSyncedAt) >= STALE_THRESHOLD_DAYS);
+    .filter(
+      (s) =>
+        s.seasonsJson == null ||
+        daysSince(s.lastSyncedAt) >= STALE_THRESHOLD_DAYS,
+    );
   // dedupe by show id in case both users share the same show
   const uniqueIds = Array.from(new Set(stale.map((s) => s.id)));
 

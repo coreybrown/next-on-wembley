@@ -6,6 +6,7 @@ import type { UserRating } from "@prisma/client";
 import {
   bumpSeasonAction,
   finishItAction,
+  setSeasonCompletedAction,
 } from "@/app/actions/in-progress";
 import type { WatchEntryWithShow } from "@/app/actions/watch-entries";
 import {
@@ -13,6 +14,10 @@ import {
   RATING_GLYPHS,
   RATING_LABELS,
 } from "@/lib/watch-entries";
+import {
+  parseSeasonsJson,
+  releasedSeasonsCount,
+} from "@/lib/in-progress";
 
 type Props = {
   entry: WatchEntryWithShow;
@@ -24,14 +29,30 @@ export function InProgressActions({ entry }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const current = entry.currentSeason ?? 1;
-  const total = entry.show.totalSeasons;
+  // Ceiling = highest released season number, not TMDb's
+  // `number_of_seasons` (which counts announced-but-unaired seasons).
+  const ceiling = releasedSeasonsCount(
+    parseSeasonsJson(entry.show.seasonsJson),
+    entry.show.totalSeasons,
+  );
   const canMinus = current > 1;
-  const canPlus = total == null || current < total;
+  const canPlus = ceiling == null || current < ceiling;
 
   const bump = (delta: 1 | -1) => {
     setError(null);
     startTransition(async () => {
       const r = await bumpSeasonAction(entry.id, delta);
+      if (!r.ok) setError("Couldn’t update season.");
+    });
+  };
+
+  const toggleSeasonDone = () => {
+    setError(null);
+    startTransition(async () => {
+      const r = await setSeasonCompletedAction(
+        entry.id,
+        !entry.currentSeasonCompleted,
+      );
       if (!r.ok) setError("Couldn’t update season.");
     });
   };
@@ -156,6 +177,28 @@ export function InProgressActions({ entry }: Props) {
           <CaretRight size={16} weight="bold" />
         </button>
       </div>
+      <button
+        type="button"
+        onClick={toggleSeasonDone}
+        disabled={isPending}
+        aria-pressed={entry.currentSeasonCompleted}
+        className="
+          inline-flex items-center gap-2
+          rounded-md border border-border bg-surface
+          px-3 py-1.5
+          font-body text-sm text-ink
+          transition-colors hover:border-accent hover:text-accent
+          aria-pressed:border-accent aria-pressed:bg-accent
+          aria-pressed:text-accent-fg aria-pressed:hover:text-accent-fg
+          disabled:cursor-not-allowed disabled:opacity-50
+          focus-visible:outline-2 focus-visible:outline-accent
+          focus-visible:outline-offset-2
+        "
+      >
+        {entry.currentSeasonCompleted
+          ? `Resume S${current}`
+          : `Done with S${current}`}
+      </button>
       <button
         type="button"
         onClick={() => setShowRatingPrompt(true)}

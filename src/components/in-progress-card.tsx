@@ -7,7 +7,6 @@ import { InProgressActions } from "@/components/in-progress-actions";
 export type InProgressCardData = {
   entry: InProgressEntry;
   label: string | null;
-  episodesRemaining: number | null;
   unavailable: boolean;
 };
 
@@ -22,7 +21,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export function InProgressCard({ data, onEdit }: Props) {
-  const { entry, label, episodesRemaining, unavailable } = data;
+  const { entry, label, unavailable } = data;
   const { show } = entry;
 
   return (
@@ -82,22 +81,8 @@ export function InProgressCard({ data, onEdit }: Props) {
           )}
         </p>
 
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          {episodesRemaining != null && (
-            <span
-              className="
-                inline-flex items-center rounded-pill
-                border border-border bg-surface
-                px-2 py-0.5
-                font-mono text-mono uppercase text-ink-secondary
-              "
-            >
-              {episodesRemaining === 0
-                ? "All caught up"
-                : `${episodesRemaining} episode${episodesRemaining === 1 ? "" : "s"} remaining`}
-            </span>
-          )}
-          {unavailable && (
+        {unavailable && (
+          <div className="mt-2">
             <span
               className="
                 inline-flex items-center rounded-pill
@@ -107,8 +92,8 @@ export function InProgressCard({ data, onEdit }: Props) {
             >
               Unavailable on your subscriptions
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="mt-3">
           <InProgressActions entry={entry} />

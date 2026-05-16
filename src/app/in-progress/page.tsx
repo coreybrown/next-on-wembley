@@ -9,8 +9,8 @@ import {
 } from "@/app/actions/in-progress";
 import {
   parseSeasonsJson,
-  episodesRemaining,
-  inProgressLabel,
+  progressLabel,
+  releasedSeasonsCount,
   isUnavailableOnSubscriptions,
 } from "@/lib/in-progress";
 import { InProgressList } from "@/components/in-progress-list";
@@ -35,14 +35,18 @@ export default async function InProgressPage() {
 
   const cards: InProgressCardData[] = entries.map((entry) => {
     const seasons = parseSeasonsJson(entry.show.seasonsJson);
+    const releasedCeiling = releasedSeasonsCount(
+      seasons,
+      entry.show.totalSeasons,
+    );
     return {
       entry,
-      label: inProgressLabel(entry.currentSeason, entry.show.totalSeasons),
-      episodesRemaining: episodesRemaining(
-        entry.currentSeason,
-        seasons,
-        entry.show.totalEpisodes,
-      ),
+      label: progressLabel({
+        currentSeason: entry.currentSeason,
+        currentSeasonCompleted: entry.currentSeasonCompleted,
+        totalSeasons: entry.show.totalSeasons,
+        releasedCeiling,
+      }),
       unavailable: isUnavailableOnSubscriptions(
         entry.show.providers.map((p) => p.platformKey),
         userSubs,

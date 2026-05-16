@@ -30,6 +30,7 @@ const card = (
     showId: 100 + id,
     status,
     currentSeason: 1,
+    currentSeasonCompleted: false,
     userRating: null,
     notes: null,
     createdAt: new Date(),
@@ -51,7 +52,6 @@ const card = (
     },
   },
   label: "Season 1 of 2",
-  episodesRemaining: 5,
   unavailable: false,
 });
 

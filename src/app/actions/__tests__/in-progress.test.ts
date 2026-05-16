@@ -141,7 +141,7 @@ describe("bumpSeasonAction", () => {
     expect(await bumpSeasonAction(1, 1)).toEqual({ ok: true });
     expect(mockPrisma.watchEntry.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { currentSeason: 6 },
+      data: { currentSeason: 6, currentSeasonCompleted: false },
     });
   });
 
@@ -152,6 +152,46 @@ describe("bumpSeasonAction", () => {
     expect(await bumpSeasonAction(1, 1)).toEqual({ ok: true });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/in-progress");
+  });
+});
+
+describe("setSeasonCompletedAction", () => {
+  it("rejects unauthenticated", async () => {
+    const { setSeasonCompletedAction } = await import(
+      "@/app/actions/in-progress"
+    );
+    expect(await setSeasonCompletedAction(1, true)).toEqual({
+      ok: false,
+      error: "unauthorized",
+    });
+  });
+
+  it("rejects when entry is not Watching/Paused", async () => {
+    const { setSeasonCompletedAction } = await import(
+      "@/app/actions/in-progress"
+    );
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findUnique.mockResolvedValueOnce(
+      entry({ status: "completed" }) as never,
+    );
+    expect(await setSeasonCompletedAction(1, true)).toEqual({
+      ok: false,
+      error: "invalid_status",
+    });
+  });
+
+  it("toggles the flag + revalidates", async () => {
+    const { setSeasonCompletedAction } = await import(
+      "@/app/actions/in-progress"
+    );
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findUnique.mockResolvedValueOnce(entry() as never);
+    mockPrisma.watchEntry.update.mockResolvedValueOnce(entry() as never);
+    expect(await setSeasonCompletedAction(1, true)).toEqual({ ok: true });
+    expect(mockPrisma.watchEntry.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { currentSeasonCompleted: true },
+    });
   });
 });
 
@@ -264,25 +304,52 @@ describe("refreshStaleInProgress", () => {
     expect(mockPrisma.watchEntry.findMany).not.toHaveBeenCalled();
   });
 
-  it("skips shows synced within the threshold", async () => {
+  it("skips shows synced within the threshold (with seasonsJson present)", async () => {
     mockSession.userId = 7;
     mockPrisma.watchEntry.findMany.mockResolvedValueOnce([
       {
         id: 1,
-        show: { id: 100, lastSyncedAt: new Date() }, // fresh
+        show: {
+          id: 100,
+          lastSyncedAt: new Date(),
+          seasonsJson: "[]",
+        },
       },
     ] as never);
     expect(await refreshStaleInProgress()).toEqual({ refreshed: 0 });
     expect(mockPrisma.show.findUnique).not.toHaveBeenCalled();
   });
 
+  it("refreshes pre-Phase-6 rows that still have seasonsJson=null, even if fresh", async () => {
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([
+      {
+        id: 1,
+        show: {
+          id: 100,
+          lastSyncedAt: new Date(), // very fresh — would normally skip
+          seasonsJson: null, // but pre-migration; force refresh
+        },
+      },
+    ] as never);
+    mockPrisma.show.findUnique.mockResolvedValueOnce({
+      id: 100,
+      tmdbId: 12,
+    } as never);
+    mockGetTvDetails.mockResolvedValueOnce(metadataFixture);
+    mockGetTvProviders.mockResolvedValueOnce([]);
+    mockPrisma.show.update.mockResolvedValueOnce({} as never);
+    mockPrisma.showProvider.deleteMany.mockResolvedValueOnce({ count: 0 } as never);
+    expect(await refreshStaleInProgress()).toEqual({ refreshed: 1 });
+  });
+
   it("refreshes stale shows and dedupes by show id", async () => {
     mockSession.userId = 7;
     const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     mockPrisma.watchEntry.findMany.mockResolvedValueOnce([
-      { id: 1, show: { id: 100, lastSyncedAt: stale } },
-      { id: 2, show: { id: 100, lastSyncedAt: stale } }, // dup
-      { id: 3, show: { id: 200, lastSyncedAt: stale } },
+      { id: 1, show: { id: 100, lastSyncedAt: stale, seasonsJson: "[]" } },
+      { id: 2, show: { id: 100, lastSyncedAt: stale, seasonsJson: "[]" } }, // dup
+      { id: 3, show: { id: 200, lastSyncedAt: stale, seasonsJson: "[]" } },
     ] as never);
     // each refresh call: show.findUnique returns truthy, TMDb resolves OK
     mockPrisma.show.findUnique.mockResolvedValue({

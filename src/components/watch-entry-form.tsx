@@ -22,6 +22,10 @@ type Props = {
   isPending: boolean;
   errorMessage: string | null;
   submitLabel: string;
+  // Optional upper bound on currentSeason input. Caller computes this
+  // from the show's released seasons; null means unbounded (ongoing
+  // show or no per-season data).
+  maxSeason?: number | null;
   onSubmit: (values: WatchEntryFormValues) => void;
   onCancel: () => void;
 };
@@ -31,6 +35,7 @@ export function WatchEntryForm({
   isPending,
   errorMessage,
   submitLabel,
+  maxSeason,
   onSubmit,
   onCancel,
 }: Props) {
@@ -52,12 +57,20 @@ export function WatchEntryForm({
 
   const handleSubmit = () => {
     const parsedSeason = seasonVisible ? parseInt(season, 10) : null;
+    let clamped: number | null = null;
+    if (
+      seasonVisible &&
+      Number.isFinite(parsedSeason) &&
+      parsedSeason! > 0
+    ) {
+      clamped =
+        maxSeason != null && parsedSeason! > maxSeason
+          ? maxSeason
+          : parsedSeason!;
+    }
     onSubmit({
       status,
-      currentSeason:
-        seasonVisible && Number.isFinite(parsedSeason) && parsedSeason! > 0
-          ? parsedSeason
-          : null,
+      currentSeason: clamped,
       userRating: rating,
     });
   };
@@ -126,15 +139,27 @@ export function WatchEntryForm({
             type="number"
             inputMode="numeric"
             min={1}
+            max={maxSeason ?? undefined}
             step={1}
             value={season}
             onChange={onSeasonChange}
+            aria-describedby={
+              maxSeason != null ? `${seasonId}-hint` : undefined
+            }
             className="
               w-24 rounded-sm border border-border bg-surface
               px-3 py-2 font-body text-base text-ink
               focus:outline-2 focus:outline-accent focus:outline-offset-2
             "
           />
+          {maxSeason != null && (
+            <p
+              id={`${seasonId}-hint`}
+              className="mt-1 font-mono text-mono text-ink-muted"
+            >
+              1–{maxSeason} released
+            </p>
+          )}
         </div>
       )}
 

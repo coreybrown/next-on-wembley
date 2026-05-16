@@ -47,6 +47,7 @@ const entryFixture = (overrides: Record<string, unknown> = {}) => ({
   showId: 100,
   status: "watching",
   currentSeason: 2,
+  currentSeasonCompleted: false,
   userRating: null,
   notes: null,
   createdAt: new Date(),
@@ -112,7 +113,7 @@ describe("<InProgressPage />", () => {
     expect(screen.getByText(/nothing in progress/i)).toBeInTheDocument();
   });
 
-  it("computes per-card display data (label, episodes remaining, unavailable)", async () => {
+  it("computes per-card display data (state-aware label, unavailable)", async () => {
     mockGetCurrentUser.mockResolvedValueOnce({
       id: 7,
       username: "jaimie",
@@ -123,12 +124,39 @@ describe("<InProgressPage />", () => {
     mockGetUserSubscriptions.mockResolvedValueOnce(["netflix"]); // not apple
     render(await Page());
     expect(screen.getByText("Severance")).toBeInTheDocument();
+    // currentSeason=2, !completed → "Season 2 of 3" per progressLabel
     expect(screen.getByText(/season 2 of 3/i)).toBeInTheDocument();
-    // Episodes remaining: seasons 3 only = 10
-    expect(screen.getByText(/10 episodes remaining/i)).toBeInTheDocument();
     // Unavailable: show only on apple_tv_plus, user has netflix
     expect(
       screen.getByText(/unavailable on your subscriptions/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the caught-up label when current season is finished and S3 is teased", async () => {
+    mockGetCurrentUser.mockResolvedValueOnce({
+      id: 7,
+      username: "corey",
+      displayName: "Corey",
+    });
+    mockRefreshStale.mockResolvedValueOnce({ refreshed: 0 });
+    // Severance-like state: currentSeason=2 done, only S1+S2 released
+    // (S3 announced but unaired, so seasonsJson has 2 entries), totalSeasons=3.
+    mockGetInProgressEntries.mockResolvedValueOnce([
+      entryFixture({
+        currentSeasonCompleted: true,
+        show: {
+          ...entryFixture().show,
+          seasonsJson: JSON.stringify([
+            { seasonNumber: 1, episodeCount: 9 },
+            { seasonNumber: 2, episodeCount: 10 },
+          ]),
+        },
+      }),
+    ]);
+    mockGetUserSubscriptions.mockResolvedValueOnce(["apple_tv_plus"]);
+    render(await Page());
+    expect(
+      screen.getByText(/caught up — waiting for season 3/i),
     ).toBeInTheDocument();
   });
 

@@ -19,6 +19,7 @@ const entry = (overrides: Record<string, unknown> = {}) => ({
   showId: 100,
   status: "watching" as const,
   currentSeason: 2,
+  currentSeasonCompleted: false,
   userRating: null,
   notes: null,
   createdAt: new Date(),

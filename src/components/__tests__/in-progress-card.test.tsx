@@ -14,6 +14,7 @@ const baseEntry = {
   showId: 100,
   status: "watching" as const,
   currentSeason: 2,
+  currentSeasonCompleted: false,
   userRating: null,
   notes: null,
   createdAt: new Date(),
@@ -38,7 +39,6 @@ const baseEntry = {
 const data = (overrides: Record<string, unknown> = {}) => ({
   entry: baseEntry,
   label: "Season 2 of 3",
-  episodesRemaining: 10,
   unavailable: false,
   ...overrides,
 });
@@ -67,30 +67,16 @@ describe("InProgressCard", () => {
     expect(screen.queryByText(/may change/i)).not.toBeInTheDocument();
   });
 
-  it("renders 'N episodes remaining'", () => {
-    render(<InProgressCard data={data({ episodesRemaining: 12 })} onEdit={() => {}} />);
-    expect(screen.getByText(/12 episodes remaining/i)).toBeInTheDocument();
-  });
-
-  it("renders 'All caught up' when 0 remaining", () => {
+  it("renders the progress label verbatim (state-aware copy lives in the helper)", () => {
     render(
       <InProgressCard
-        data={data({ episodesRemaining: 0 })}
+        data={data({ label: "Caught up — waiting for Season 3" })}
         onEdit={() => {}}
       />,
     );
-    expect(screen.getByText(/all caught up/i)).toBeInTheDocument();
-  });
-
-  it("hides the remaining badge when episodesRemaining is null", () => {
-    render(
-      <InProgressCard
-        data={data({ episodesRemaining: null })}
-        onEdit={() => {}}
-      />,
-    );
-    expect(screen.queryByText(/episodes remaining/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/all caught up/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/caught up — waiting for season 3/i),
+    ).toBeInTheDocument();
   });
 
   it("renders the Unavailable badge when unavailable", () => {

@@ -11,6 +11,10 @@ import {
   isSeasonValidForStatus,
   shouldClearSeason,
 } from "@/lib/watch-entries";
+import {
+  parseSeasonsJson,
+  releasedSeasonsCount,
+} from "@/lib/in-progress";
 
 export type WatchEntryActionError =
   | "unauthorized"
@@ -130,7 +134,10 @@ export async function updateWatchEntry(
   const session = await getSession();
   if (!session.userId) return { ok: false, error: "unauthorized" };
 
-  const entry = await prisma.watchEntry.findUnique({ where: { id: input.id } });
+  const entry = await prisma.watchEntry.findUnique({
+    where: { id: input.id },
+    include: { show: true },
+  });
   if (!entry || entry.userId !== session.userId) {
     return { ok: false, error: "not_found" };
   }
@@ -157,6 +164,17 @@ export async function updateWatchEntry(
       : entry.currentSeason;
   if (!isSeasonValidForStatus(nextStatus, nextSeason)) {
     return { ok: false, error: "invalid_season" };
+  }
+  // Cap at the highest released season; TMDb's totalSeasons can be ahead
+  // of reality (announced-but-unaired seasons).
+  if (nextSeason != null) {
+    const ceiling = releasedSeasonsCount(
+      parseSeasonsJson(entry.show.seasonsJson),
+      entry.show.totalSeasons,
+    );
+    if (ceiling != null && nextSeason > ceiling) {
+      return { ok: false, error: "invalid_season" };
+    }
   }
 
   const patch: Prisma.WatchEntryUpdateInput = {};

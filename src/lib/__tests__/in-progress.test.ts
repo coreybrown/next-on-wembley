@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   parseSeasonsJson,
   episodesRemaining,
-  inProgressLabel,
+  progressLabel,
   isUnavailableOnSubscriptions,
   daysSince,
+  releasedSeasonsCount,
 } from "@/lib/in-progress";
 
 describe("parseSeasonsJson", () => {
@@ -76,19 +77,95 @@ describe("episodesRemaining", () => {
   });
 });
 
-describe("inProgressLabel", () => {
-  it("renders 'Season X of Y' when totalSeasons known", () => {
-    expect(inProgressLabel(2, 3)).toBe("Season 2 of 3");
+describe("progressLabel", () => {
+  it("mid-season denominator is the released ceiling, not totalSeasons", () => {
+    // Severance case: TMDb totalSeasons=3 (S3 announced), released ceiling=2.
+    // The label must match what the stepper allows.
+    expect(
+      progressLabel({
+        currentSeason: 2,
+        currentSeasonCompleted: false,
+        totalSeasons: 3,
+        releasedCeiling: 2,
+      }),
+    ).toBe("Season 2 of 2");
   });
 
-  it("renders 'Season X, ongoing' when totalSeasons unknown", () => {
-    expect(inProgressLabel(2, null)).toBe("Season 2, ongoing");
-    expect(inProgressLabel(2, 0)).toBe("Season 2, ongoing");
+  it("mid-season falls back to totalSeasons when releasedCeiling is unknown", () => {
+    expect(
+      progressLabel({
+        currentSeason: 1,
+        currentSeasonCompleted: false,
+        totalSeasons: 3,
+        releasedCeiling: null,
+      }),
+    ).toBe("Season 1 of 3");
+  });
+
+  it("mid-season with totalSeasons unknown", () => {
+    expect(
+      progressLabel({
+        currentSeason: 2,
+        currentSeasonCompleted: false,
+        totalSeasons: null,
+        releasedCeiling: null,
+      }),
+    ).toBe("Season 2, ongoing");
+  });
+
+  it("finished current season, more released available", () => {
+    expect(
+      progressLabel({
+        currentSeason: 1,
+        currentSeasonCompleted: true,
+        totalSeasons: 3,
+        releasedCeiling: 2,
+      }),
+    ).toBe("Finished Season 1 — Season 2 ready");
+  });
+
+  it("caught up at released ceiling with more announced (Severance case)", () => {
+    expect(
+      progressLabel({
+        currentSeason: 2,
+        currentSeasonCompleted: true,
+        totalSeasons: 3, // S3 announced but unaired
+        releasedCeiling: 2,
+      }),
+    ).toBe("Caught up — waiting for Season 3");
+  });
+
+  it("caught up at ceiling, nothing more teased — series ended", () => {
+    expect(
+      progressLabel({
+        currentSeason: 3,
+        currentSeasonCompleted: true,
+        totalSeasons: 3,
+        releasedCeiling: 3,
+      }),
+    ).toBe("Caught up — series ended");
+  });
+
+  it("finished current season but no released ceiling known", () => {
+    expect(
+      progressLabel({
+        currentSeason: 2,
+        currentSeasonCompleted: true,
+        totalSeasons: null,
+        releasedCeiling: null,
+      }),
+    ).toBe("Finished Season 2");
   });
 
   it("returns null when currentSeason is missing", () => {
-    expect(inProgressLabel(null, 3)).toBeNull();
-    expect(inProgressLabel(0, 3)).toBeNull();
+    expect(
+      progressLabel({
+        currentSeason: null,
+        currentSeasonCompleted: false,
+        totalSeasons: 3,
+        releasedCeiling: 2,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -112,6 +189,35 @@ describe("isUnavailableOnSubscriptions", () => {
       isUnavailableOnSubscriptions(["paramount_plus"], ["netflix"]),
     ).toBe(true);
     expect(isUnavailableOnSubscriptions(["netflix"], [])).toBe(true);
+  });
+});
+
+describe("releasedSeasonsCount", () => {
+  it("returns the max season number from seasons[] when available", () => {
+    const seasons = [
+      { seasonNumber: 1, episodeCount: 9 },
+      { seasonNumber: 2, episodeCount: 10 },
+    ];
+    expect(releasedSeasonsCount(seasons, 3)).toBe(2);
+  });
+
+  it("ignores totalSeasons (which may include unaired) when seasons[] is present", () => {
+    // Severance scenario: TMDb says 3 seasons, but S3 is unaired
+    // (episode_count: 0) and filtered out, so seasons[] only has S1/S2.
+    const seasons = [
+      { seasonNumber: 1, episodeCount: 9 },
+      { seasonNumber: 2, episodeCount: 10 },
+    ];
+    expect(releasedSeasonsCount(seasons, 3)).toBe(2);
+  });
+
+  it("falls back to totalSeasons when seasons[] is empty", () => {
+    expect(releasedSeasonsCount([], 2)).toBe(2);
+  });
+
+  it("returns null when both seasons[] and totalSeasons are empty/null", () => {
+    expect(releasedSeasonsCount([], null)).toBeNull();
+    expect(releasedSeasonsCount([], undefined)).toBeNull();
   });
 });
 

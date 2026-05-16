@@ -12,6 +12,10 @@ import {
   WatchEntryForm,
   type WatchEntryFormValues,
 } from "@/components/watch-entry-form";
+import {
+  parseSeasonsJson,
+  releasedSeasonsCount,
+} from "@/lib/in-progress";
 
 const ERROR_COPY: Record<WatchEntryActionError, string> = {
   unauthorized: "Session expired — please sign in again.",
@@ -96,6 +100,10 @@ export function WatchEntryEditDialog({ entry, onOpenChange }: Props) {
                 currentSeason: entry.currentSeason,
                 userRating: entry.userRating,
               }}
+              maxSeason={releasedSeasonsCount(
+                parseSeasonsJson(entry.show.seasonsJson),
+                entry.show.totalSeasons,
+              )}
               isPending={isPending}
               errorMessage={error}
               submitLabel="Save"

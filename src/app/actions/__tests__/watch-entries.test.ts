@@ -73,6 +73,12 @@ const entryRow = (overrides: Partial<{
   currentSeason: 2,
   userRating: null,
   notes: null,
+  show: {
+    id: 100,
+    tmdbId: 12,
+    totalSeasons: null,
+    seasonsJson: null,
+  },
   createdAt: new Date(),
   updatedAt: new Date(),
   ...overrides,

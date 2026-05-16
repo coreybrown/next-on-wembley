@@ -9,6 +9,7 @@ const baseEntry = {
   showId: 100,
   status: "watching" as const,
   currentSeason: 2,
+  currentSeasonCompleted: false,
   userRating: "like" as const,
   notes: null,
   createdAt: new Date(),

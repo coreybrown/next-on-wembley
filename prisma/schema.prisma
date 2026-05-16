@@ -76,17 +76,21 @@ model ShowProvider {
 }
 
 model WatchEntry {
-  id            Int          @id @default(autoincrement())
-  userId        Int
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  showId        Int
-  show          Show         @relation(fields: [showId], references: [id], onDelete: Cascade)
-  status        WatchStatus
-  currentSeason Int?
-  userRating    UserRating?
-  notes         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                      Int          @id @default(autoincrement())
+  userId                  Int
+  user                    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  showId                  Int
+  show                    Show         @relation(fields: [showId], references: [id], onDelete: Cascade)
+  status                  WatchStatus
+  currentSeason           Int?
+  // Whether the user has finished `currentSeason`. Captures the
+  // mid-season vs. between-seasons distinction without doing
+  // episode-by-episode tracking.
+  currentSeasonCompleted  Boolean      @default(false)
+  userRating              UserRating?
+  notes                   String?
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 
   @@unique([userId, showId])
 }
