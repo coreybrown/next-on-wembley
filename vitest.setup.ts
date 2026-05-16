@@ -1,5 +1,20 @@
 import "@testing-library/jest-dom/vitest";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+
+// Vitest 4 + RTL 16: auto-cleanup isn't registered automatically. Do it manually.
+afterEach(() => {
+  cleanup();
+});
+
+// Test env defaults — set before any module reads process.env at import time.
+process.env.SESSION_SECRET ??=
+  "test-session-secret-must-be-at-least-32-chars-long";
+process.env.BCRYPT_COST ??= "4"; // fast hashing in tests
+
+// server-only is a Next.js build-time guard; stub it out for Vitest so
+// modules that import it can be loaded in jsdom.
+vi.mock("server-only", () => ({}));
 
 // Auto-cleanup: Vitest 3 + RTL 16 auto-runs cleanup() after each test when
 // globals: true AND "@testing-library/jest-dom/vitest" is imported.

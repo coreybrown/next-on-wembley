@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces, Chivo, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
+import { getCurrentUser } from "@/lib/auth";
+import { IdentityChip } from "@/components/identity-chip";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -38,6 +40,7 @@ export default async function RootLayout({
   const themeCookie = cookieStore.get("theme")?.value;
   const dataTheme =
     themeCookie === "dark" || themeCookie === "light" ? themeCookie : undefined;
+  const user = await getCurrentUser();
 
   return (
     <html
@@ -46,7 +49,14 @@ export default async function RootLayout({
       suppressHydrationWarning
       className={`${fraunces.variable} ${chivo.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-svh bg-surface text-ink font-body">{children}</body>
+      <body className="min-h-svh bg-surface text-ink font-body">
+        {user && (
+          <header className="fixed right-4 top-4 z-30">
+            <IdentityChip currentUser={user} />
+          </header>
+        )}
+        {children}
+      </body>
     </html>
   );
 }
