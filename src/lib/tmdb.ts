@@ -141,6 +141,15 @@ type TmdbTvDetails = {
   number_of_episodes: number | null;
   vote_average: number | null;
   status: string | null;
+  seasons?: Array<{
+    season_number: number;
+    episode_count: number | null;
+  }>;
+};
+
+export type SeasonInfo = {
+  seasonNumber: number;
+  episodeCount: number;
 };
 
 export type TmdbShowMetadata = {
@@ -150,12 +159,26 @@ export type TmdbShowMetadata = {
   genres: string;
   totalSeasons: number | null;
   totalEpisodes: number | null;
+  seasonsJson: string | null;
   tmdbRating: number | null;
   productionStatus: string | null;
 };
 
 export async function getTvDetails(tmdbId: number): Promise<TmdbShowMetadata> {
   const d = await tmdbFetch<TmdbTvDetails>(`/tv/${tmdbId}`);
+  // Filter season 0 (specials) and any seasons with no aired episodes —
+  // they shouldn't count toward episodes-remaining.
+  const seasons: SeasonInfo[] = (d.seasons ?? [])
+    .filter(
+      (s) =>
+        s.season_number > 0 &&
+        typeof s.episode_count === "number" &&
+        s.episode_count > 0,
+    )
+    .map((s) => ({
+      seasonNumber: s.season_number,
+      episodeCount: s.episode_count as number,
+    }));
   return {
     tmdbId: d.id,
     title: d.name,
@@ -165,6 +188,7 @@ export async function getTvDetails(tmdbId: number): Promise<TmdbShowMetadata> {
     genres: d.genres.map((g) => g.name).join(", "),
     totalSeasons: d.number_of_seasons,
     totalEpisodes: d.number_of_episodes,
+    seasonsJson: seasons.length > 0 ? JSON.stringify(seasons) : null,
     tmdbRating: d.vote_average,
     productionStatus: d.status,
   };

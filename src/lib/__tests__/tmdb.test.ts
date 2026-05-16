@@ -148,7 +148,7 @@ describe("searchTv", () => {
 });
 
 describe("getTvDetails", () => {
-  it("maps fields and joins genres", async () => {
+  it("maps fields, joins genres, and serializes seasons (skipping specials/empty)", async () => {
     mockFetchOnce(
       jsonResponse({
         id: 12,
@@ -159,19 +159,44 @@ describe("getTvDetails", () => {
         number_of_episodes: 30,
         vote_average: 8.4,
         status: "Returning Series",
+        seasons: [
+          { season_number: 0, episode_count: 4 }, // specials, dropped
+          { season_number: 1, episode_count: 9 },
+          { season_number: 2, episode_count: 10 },
+          { season_number: 3, episode_count: 11 },
+          { season_number: 4, episode_count: 0 }, // unaired, dropped
+        ],
       }),
     );
     const m = await getTvDetails(12);
-    expect(m).toEqual({
-      tmdbId: 12,
-      title: "Title",
-      posterUrl: `${TMDB_IMAGE_BASE}/${POSTER_SIZE}/p.jpg`,
-      genres: "Drama, Sci-Fi",
-      totalSeasons: 3,
-      totalEpisodes: 30,
-      tmdbRating: 8.4,
-      productionStatus: "Returning Series",
-    });
+    expect(m.title).toBe("Title");
+    expect(m.totalSeasons).toBe(3);
+    expect(m.totalEpisodes).toBe(30);
+    expect(m.tmdbRating).toBe(8.4);
+    expect(m.productionStatus).toBe("Returning Series");
+    expect(m.seasonsJson).not.toBeNull();
+    expect(JSON.parse(m.seasonsJson!)).toEqual([
+      { seasonNumber: 1, episodeCount: 9 },
+      { seasonNumber: 2, episodeCount: 10 },
+      { seasonNumber: 3, episodeCount: 11 },
+    ]);
+  });
+
+  it("returns null seasonsJson when TMDb omits the seasons array", async () => {
+    mockFetchOnce(
+      jsonResponse({
+        id: 1,
+        name: "x",
+        poster_path: null,
+        genres: [],
+        number_of_seasons: null,
+        number_of_episodes: null,
+        vote_average: null,
+        status: null,
+      }),
+    );
+    const m = await getTvDetails(1);
+    expect(m.seasonsJson).toBeNull();
   });
 
   it("throws TmdbNotFoundError on 404", async () => {

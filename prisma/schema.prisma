@@ -1,4 +1,4 @@
-// Next on Wembley — M1 schema
+// Next on Wembley — schema through M2.
 // Models for M3+ (RecommendationRun, RecommendationItem, RecommendationVote,
 // ContinuationDetectionLog) are deferred until those milestones ship.
 
@@ -53,6 +53,9 @@ model Show {
   genres           String?
   totalSeasons     Int?
   totalEpisodes    Int?
+  // JSON-encoded `[{ season_number, episode_count }, ...]` excluding season 0
+  // specials. Used by M2's episodes-remaining math.
+  seasonsJson      String?
   tmdbRating       Float?
   trailerUrl       String?
   productionStatus String?
