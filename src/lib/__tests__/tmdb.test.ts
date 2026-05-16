@@ -78,6 +78,20 @@ describe("searchTv", () => {
     });
   });
 
+  it("re-sorts the page by popularity descending before slicing", async () => {
+    mockFetchOnce(
+      jsonResponse({
+        results: [
+          { id: 1, name: "Niche A", popularity: 1.0, poster_path: null },
+          { id: 2, name: "Popular", popularity: 50.0, poster_path: null },
+          { id: 3, name: "Niche B", popularity: 0.5, poster_path: null },
+        ],
+      }),
+    );
+    const out = await searchTv("anything");
+    expect(out.map((r) => r.title)).toEqual(["Popular", "Niche A", "Niche B"]);
+  });
+
   it("handles missing poster + missing first_air_date", async () => {
     mockFetchOnce(
       jsonResponse({

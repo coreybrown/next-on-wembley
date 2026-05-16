@@ -91,6 +91,7 @@ type TmdbSearchTvResponse = {
     name: string;
     first_air_date?: string;
     poster_path?: string | null;
+    popularity?: number;
   }>;
 };
 
@@ -112,14 +113,21 @@ export async function searchTv(
     { query: trimmed, include_adult: "false" },
     signal,
   );
-  return data.results.slice(0, 8).map((r) => ({
-    tmdbId: r.id,
-    title: r.name,
-    year: r.first_air_date ? r.first_air_date.slice(0, 4) : null,
-    posterUrl: r.poster_path
-      ? `${TMDB_IMAGE_BASE}/${POSTER_SIZE}${r.poster_path}`
-      : null,
-  }));
+  // TMDb's default order favors substring-position over popularity, which
+  // buries well-known shows (e.g. "Severance" for query "seve" ranks below
+  // a wall of low-popularity "Seven..." anime). Re-sorting the first page
+  // by popularity before slicing to 8 surfaces what a human actually wants.
+  return [...data.results]
+    .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
+    .slice(0, 8)
+    .map((r) => ({
+      tmdbId: r.id,
+      title: r.name,
+      year: r.first_air_date ? r.first_air_date.slice(0, 4) : null,
+      posterUrl: r.poster_path
+        ? `${TMDB_IMAGE_BASE}/${POSTER_SIZE}${r.poster_path}`
+        : null,
+    }));
 }
 
 // ---------- details ----------
