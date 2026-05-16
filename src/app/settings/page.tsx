@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { ThemeSelect } from "@/components/theme-select";
 import { SubscriptionEditor } from "@/components/subscription-editor";
 import { getThemeOverride, getUserSubscriptions } from "@/lib/settings";
@@ -16,7 +18,21 @@ export default async function SettingsPage() {
   return (
     <main className="bg-page min-h-svh px-6 py-16">
       <div className="mx-auto max-w-2xl">
-        <header className="text-center">
+        <Link
+          href="/"
+          className="
+            inline-flex items-center gap-2
+            font-mono text-mono uppercase text-ink-muted
+            transition-colors hover:text-ink
+            focus-visible:outline-2 focus-visible:outline-accent
+            focus-visible:outline-offset-2
+          "
+        >
+          <ArrowLeft size={14} weight="regular" aria-hidden />
+          <span>Back to list</span>
+        </Link>
+
+        <header className="mt-8 text-center">
           <p className="font-mono text-mono uppercase text-ink-muted">
             [Settings · {user.displayName}]
           </p>

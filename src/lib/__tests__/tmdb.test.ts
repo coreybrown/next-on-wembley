@@ -190,7 +190,7 @@ describe("getTvProviders", () => {
               { provider_id: 8, provider_name: "Netflix" },
               { provider_id: 8, provider_name: "Netflix dupe" },
               { provider_id: 119, provider_name: "Prime" },
-              { provider_id: 531, provider_name: "Paramount+ (deferred)" },
+              { provider_id: 531, provider_name: "Paramount+" },
               { provider_id: 9999, provider_name: "Unknown" },
             ],
             rent: [{ provider_id: 230, provider_name: "Crave" }],
@@ -203,6 +203,7 @@ describe("getTvProviders", () => {
     expect(out).toEqual([
       { platformKey: "netflix", monetizationType: "flatrate" },
       { platformKey: "prime_video", monetizationType: "flatrate" },
+      { platformKey: "paramount_plus", monetizationType: "flatrate" },
     ]);
   });
 

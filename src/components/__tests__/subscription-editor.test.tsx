@@ -14,13 +14,14 @@ describe("<SubscriptionEditor />", () => {
     vi.mocked(toggleSubscriptionAction).mockClear();
   });
 
-  it("renders all five platforms as toggle buttons", () => {
+  it("renders all platforms as toggle buttons", () => {
     render(<SubscriptionEditor active={[]} />);
     expect(screen.getByRole("button", { name: /netflix/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /disney\+/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /apple tv\+/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /crave/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /prime video/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /paramount\+/i })).toBeInTheDocument();
   });
 
   it("marks active platforms with aria-pressed=true and inactive with false", () => {

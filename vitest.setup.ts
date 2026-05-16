@@ -16,6 +16,12 @@ process.env.BCRYPT_COST ??= "4"; // fast hashing in tests
 // modules that import it can be loaded in jsdom.
 vi.mock("server-only", () => ({}));
 
+// jsdom doesn't implement Element.scrollIntoView; polyfill as a no-op so
+// components that auto-scroll on keyboard nav (e.g. SearchInput) don't crash.
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // Auto-cleanup: Vitest 3 + RTL 16 auto-runs cleanup() after each test when
 // globals: true AND "@testing-library/jest-dom/vitest" is imported.
 // No manual afterEach(cleanup) needed.

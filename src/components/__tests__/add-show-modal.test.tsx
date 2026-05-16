@@ -19,10 +19,19 @@ beforeEach(() => {
 });
 
 describe("AddShowModal", () => {
-  it("renders show title + year in description when open", () => {
-    render(<AddShowModal show={fixture} onOpenChange={() => {}} />);
+  it("renders show title + year (and poster when available) when open", () => {
+    render(
+      <AddShowModal
+        show={{ ...fixture, posterUrl: "https://example.com/poster.jpg" }}
+        onOpenChange={() => {}}
+      />,
+    );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/severance \(2022\)/i)).toBeInTheDocument();
+    expect(screen.getByText("Severance")).toBeInTheDocument();
+    expect(screen.getByText("2022")).toBeInTheDocument();
+    expect(
+      document.querySelector('img[src="https://example.com/poster.jpg"]'),
+    ).not.toBeNull();
   });
 
   it("submits the form, calls addWatchEntry with tmdbId + values, and closes", async () => {

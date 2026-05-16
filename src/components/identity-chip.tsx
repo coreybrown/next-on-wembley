@@ -16,10 +16,17 @@ const ALL_USERS = [
   { username: "jaimie", displayName: "Jaimie" },
 ];
 
+const USER_CHIP_COLOR: Record<string, string> = {
+  corey: "bg-user-corey text-user-corey-fg",
+  jaimie: "bg-user-jaimie text-user-jaimie-fg",
+};
+
 export function IdentityChip({ currentUser }: Props) {
   const [open, setOpen] = useState(false);
   const other = ALL_USERS.find((u) => u.username !== currentUser.username) ?? ALL_USERS[0];
   const monogram = currentUser.displayName.charAt(0);
+  const chipColor =
+    USER_CHIP_COLOR[currentUser.username] ?? "bg-accent text-accent-fg";
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -27,15 +34,15 @@ export function IdentityChip({ currentUser }: Props) {
         <button
           type="button"
           aria-label={`Currently signed in as ${currentUser.displayName}. Tap to switch user.`}
-          className="
+          className={`
             inline-flex h-10 w-10 items-center justify-center
             rounded-sm border border-border-strong
-            bg-accent text-accent-fg
+            ${chipColor}
             font-display text-xl font-bold italic
             transition-transform hover:scale-105
             focus-visible:outline-2 focus-visible:outline-accent-sharp
             focus-visible:outline-offset-2
-          "
+          `}
         >
           {monogram}
         </button>

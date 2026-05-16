@@ -2,12 +2,12 @@ import { describe, it, expect } from "vitest";
 import { PLATFORMS, isValidPlatformKey } from "@/lib/platforms";
 
 describe("PLATFORMS", () => {
-  it("has 5 platforms with distinct keys", () => {
-    expect(PLATFORMS).toHaveLength(5);
-    expect(new Set(PLATFORMS.map((p) => p.key)).size).toBe(5);
+  it("has 6 platforms with distinct keys", () => {
+    expect(PLATFORMS).toHaveLength(6);
+    expect(new Set(PLATFORMS.map((p) => p.key)).size).toBe(6);
   });
 
-  it("includes the Canadian-subscription baseline (Netflix, Disney+, Apple TV+, Crave, Prime Video)", () => {
+  it("includes the Canadian-subscription baseline", () => {
     const keys = PLATFORMS.map((p) => p.key);
     expect(keys).toEqual(
       expect.arrayContaining([
@@ -16,6 +16,7 @@ describe("PLATFORMS", () => {
         "apple_tv_plus",
         "crave",
         "prime_video",
+        "paramount_plus",
       ]),
     );
   });

@@ -3,7 +3,8 @@ export type PlatformKey =
   | "disney_plus"
   | "apple_tv_plus"
   | "crave"
-  | "prime_video";
+  | "prime_video"
+  | "paramount_plus";
 
 export type Platform = { key: PlatformKey; displayName: string };
 
@@ -13,6 +14,7 @@ export const PLATFORMS: readonly Platform[] = [
   { key: "apple_tv_plus", displayName: "Apple TV+" },
   { key: "crave", displayName: "Crave" },
   { key: "prime_video", displayName: "Prime Video" },
+  { key: "paramount_plus", displayName: "Paramount+" },
 ] as const;
 
 const PLATFORM_KEY_SET = new Set<string>(PLATFORMS.map((p) => p.key));

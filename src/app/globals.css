@@ -44,6 +44,12 @@
   /* Badge */
   --badge-unavailable: #5C4A5E;
 
+  /* User identity (per-user monogram chip + future per-user surfaces) */
+  --user-corey: #2E4F73;
+  --user-corey-fg: #FBF7EE;
+  --user-jaimie: #B85A6B;
+  --user-jaimie-fg: #FBF7EE;
+
   /* Radius */
   --radius-sm: 2px;
   --radius-md: 4px;
@@ -86,6 +92,10 @@
   --status-completed: #6DBE8C;
   --status-dropped: #6B5A6B;
   --badge-unavailable: #B0A2A8;
+  --user-corey: #86A8D1;
+  --user-corey-fg: #1A1218;
+  --user-jaimie: #E5A0AC;
+  --user-jaimie-fg: #1A1218;
 }
 
 /* ------------------------------------------------------------------
@@ -116,6 +126,10 @@
     --status-completed: #6DBE8C;
     --status-dropped: #6B5A6B;
     --badge-unavailable: #B0A2A8;
+    --user-corey: #86A8D1;
+    --user-corey-fg: #1A1218;
+    --user-jaimie: #E5A0AC;
+    --user-jaimie-fg: #1A1218;
   }
 }
 
@@ -147,6 +161,10 @@
   --color-status-completed: var(--status-completed);
   --color-status-dropped: var(--status-dropped);
   --color-badge-unavailable: var(--badge-unavailable);
+  --color-user-corey: var(--user-corey);
+  --color-user-corey-fg: var(--user-corey-fg);
+  --color-user-jaimie: var(--user-jaimie);
+  --color-user-jaimie-fg: var(--user-jaimie-fg);
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-chivo);

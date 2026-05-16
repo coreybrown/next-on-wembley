@@ -39,6 +39,14 @@ export function SearchInput({
     [],
   );
 
+  // Keep the highlighted option scrolled into view during keyboard nav.
+  // block:"nearest" no-ops when the option is already on screen.
+  useEffect(() => {
+    if (!isOpen || status !== "results") return;
+    const el = document.getElementById(`${listboxId}-opt-${highlighted}`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [highlighted, isOpen, status, listboxId]);
+
   const handleChange = (value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);

@@ -74,10 +74,35 @@ export function AddShowModal({ show, onOpenChange, onAdded }: Props) {
             Add to your list
           </Dialog.Title>
           {show && (
-            <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
-              {show.title}
-              {show.year ? ` (${show.year})` : ""}
-            </Dialog.Description>
+            <div className="mt-4 flex items-start gap-4">
+              {show.posterUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={show.posterUrl}
+                  alt=""
+                  width={72}
+                  height={108}
+                  className="h-[108px] w-18 flex-shrink-0 rounded-sm bg-surface-overlay object-cover"
+                />
+              ) : (
+                <div
+                  aria-hidden
+                  className="h-[108px] w-18 flex-shrink-0 rounded-sm bg-surface-overlay"
+                />
+              )}
+              <Dialog.Description asChild>
+                <div className="font-body text-base text-ink">
+                  <p className="font-display text-lg font-bold leading-tight">
+                    {show.title}
+                  </p>
+                  {show.year && (
+                    <p className="mt-1 font-mono text-mono uppercase text-ink-muted">
+                      {show.year}
+                    </p>
+                  )}
+                </div>
+              </Dialog.Description>
+            </div>
           )}
           <WatchEntryForm
             isPending={isPending}
