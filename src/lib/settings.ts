@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isValidPlatformKey } from "@/lib/platforms";
 import { isValidRecModel } from "@/lib/rec-models";
+import { regenerateAllLists } from "@/app/actions/recommendations";
 
 export type ThemeOverride = "light" | "dark" | "system";
 const VALID_THEMES = ["light", "dark", "system"] as const satisfies readonly ThemeOverride[];
@@ -91,14 +92,28 @@ export async function setRecModelAction(model: string): Promise<void> {
   if (!isValidRecModel(model)) {
     throw new Error(`Invalid rec model: ${model}`);
   }
+  const current = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { recModel: true },
+  });
+  const changed = current?.recModel !== model;
   await prisma.user.update({
     where: { id: session.userId },
     data: { recModel: model },
   });
   revalidatePath("/settings");
-  // /recs is gated behind future Phase 11; revalidating now is harmless and
-  // ready for when that route exists.
   revalidatePath("/recs");
+  // Auto-regen all three lists when the model changes. Blocks the action —
+  // the latency UX polish (background gen + nav pill) lands in Phase 13.
+  // No-op (and silently absorbs failures) when nothing changed.
+  if (changed) {
+    try {
+      await regenerateAllLists();
+    } catch {
+      // Don't fail the settings update if rec gen errors; the user can
+      // retry from the Refresh button on /recs once it ships.
+    }
+  }
 }
 
 export async function getRecModel(): Promise<RecModel | null> {
