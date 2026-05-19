@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { Gear, FilmReel, Sparkle } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { IdentityChip } from "@/components/identity-chip";
+import { RefreshProvider } from "@/components/refresh-context";
+import { RefreshIndicator } from "@/components/refresh-indicator";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -52,8 +54,10 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${chivo.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-svh bg-surface text-ink font-body">
+        <RefreshProvider>
         {user && (
           <header className="fixed right-4 top-4 z-30 flex items-center gap-2">
+            <RefreshIndicator />
             <Link
               href="/recs"
               aria-label="Recommendations"
@@ -100,6 +104,7 @@ export default async function RootLayout({
           </header>
         )}
         {children}
+        </RefreshProvider>
       </body>
     </html>
   );

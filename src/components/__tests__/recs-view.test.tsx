@@ -14,6 +14,11 @@ vi.mock("@/app/actions/recommendations", async () => {
 });
 
 const { RecsView } = await import("@/components/recs-view");
+const { RefreshProvider } = await import("@/components/refresh-context");
+
+function renderWithProvider(ui: React.ReactNode) {
+  return render(<RefreshProvider>{ui}</RefreshProvider>);
+}
 
 const makeItem = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
@@ -27,6 +32,9 @@ const makeItem = (overrides: Record<string, unknown> = {}) => ({
   isContinuation: false,
   providerKeys: ["netflix"],
   unavailable: false,
+  currentVote: null,
+  canVote: true,
+  inWatchHistory: false,
   ...overrides,
 });
 
@@ -45,7 +53,7 @@ beforeEach(() => {
 
 describe("RecsView — empty state", () => {
   it("shows the empty state when no lists exist", () => {
-    render(
+    renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
       />,
@@ -65,7 +73,7 @@ describe("RecsView — populated lists", () => {
   };
 
   it("defaults to Co-watch and shows its items", () => {
-    render(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} />);
     expect(
       screen.getByRole("tab", { name: /co-watch/i }),
     ).toHaveAttribute("aria-selected", "true");
@@ -74,7 +82,7 @@ describe("RecsView — populated lists", () => {
 
   it("switches to Corey's tab on click", async () => {
     const user = userEvent.setup();
-    render(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} />);
     await user.click(screen.getByRole("tab", { name: /corey's picks/i }));
     expect(screen.getByText("Corey Show")).toBeInTheDocument();
     expect(screen.queryByText("Co-watch Show")).not.toBeInTheDocument();
@@ -82,13 +90,13 @@ describe("RecsView — populated lists", () => {
 
   it("shows the empty state on Jaimie's tab (no list)", async () => {
     const user = userEvent.setup();
-    render(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} />);
     await user.click(screen.getByRole("tab", { name: /jaimie's picks/i }));
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
   });
 
   it("shows the run header (date + model)", () => {
-    render(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} />);
     expect(screen.getByText(/claude-haiku-4-5/i)).toBeInTheDocument();
   });
 });
@@ -101,7 +109,7 @@ describe("RecsView — refresh", () => {
       { ok: true },
       { ok: true },
     ]);
-    render(
+    renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
       />,
@@ -116,7 +124,7 @@ describe("RecsView — refresh", () => {
   it("omits mood when the textarea is whitespace-only", async () => {
     const user = userEvent.setup();
     mockRegenerate.mockResolvedValueOnce([{ ok: true }, { ok: true }, { ok: true }]);
-    render(
+    renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
       />,
@@ -133,7 +141,7 @@ describe("RecsView — refresh", () => {
       { ok: false, error: "anthropic_failed" },
       { ok: false, error: "anthropic_failed" },
     ]);
-    render(
+    renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
       />,
@@ -151,7 +159,7 @@ describe("RecsView — refresh", () => {
       { ok: false, error: "anthropic_failed" },
       { ok: true },
     ]);
-    render(
+    renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
       />,

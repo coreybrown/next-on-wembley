@@ -194,9 +194,9 @@ Next on Wembley fills that gap for personal household use.
 - **Last-generated timestamp** is displayed at the top of each list (e.g., "Generated 4 hours ago") so the user always has visible freshness context.
 - **Latency thresholds and error handling:**
   - 0–15s: normal "Refreshing…" state (dimmed stale list + skeleton cards + nav pill).
-  - At 30s: an inline note appears near the skeletons — *"Taking longer than usual — the LLM is busy. Hang tight."*
-  - At 60s: hard timeout. Show an error card in place of the new lists with a **Retry** button. The dimmed stale list remains intact and visible so the user is never stranded with nothing.
-  - On transient errors (HTTP 5xx, Anthropic rate-limit responses): auto-retry **once** silently before surfacing the error card. On the second failure, show the error.
+  - At 30s: an inline note appears near the skeletons — *"Taking longer than usual — the LLM is busy. Hang tight."* (Nav pill switches to "Still generating…")
+  - At 60s: client-side timeout. Show an error card in place of the skeletons with **Retry** + **Dismiss** buttons. The dimmed stale list remains intact and visible so the user is never stranded with nothing. The underlying server action keeps running; a stale result that lands after the client timed out is dropped via an invocation token so it doesn't stomp the new state.
+  - On transient errors (HTTP 5xx): the Anthropic SDK auto-retries **once** silently before surfacing the error card (`src/lib/anthropic.ts`). Rate-limit responses propagate directly without retry — they need user attention.
 - **Failure messages surface the underlying cause** so the user (or operator) knows what to act on, rather than a generic "try again":
   - When every list shares the same error code, the message folds in the typed error from the SDK — e.g., *"All three lists failed to generate. Anthropic authentication failed — check ANTHROPIC_API_KEY."*
   - When TMDb resolution or the subscription gate drops every candidate (`no_valid_items`), the message reads *"…the recommendation service returned picks, but none could be matched against TMDb or your subscriptions. Try a different mood, or check your active subscriptions in /settings."*

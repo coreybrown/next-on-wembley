@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import type { RecScope } from "@prisma/client";
 import { ArrowsClockwise } from "@phosphor-icons/react";
-import {
-  regenerateAllLists,
-  type RecListView,
-} from "@/app/actions/recommendations";
+import { type RecListView } from "@/app/actions/recommendations";
 import { RecCard } from "@/components/rec-card";
+import { RecCardSkeleton } from "@/components/rec-card-skeleton";
+import {
+  useRefresh,
+  isRefreshActive,
+} from "@/components/refresh-context";
 
 const TAB_LABELS: Record<RecScope, string> = {
   co_watch: "Co-watch",
@@ -17,44 +19,6 @@ const TAB_LABELS: Record<RecScope, string> = {
 
 const TAB_ORDER: readonly RecScope[] = ["co_watch", "corey", "jaimie"] as const;
 
-type FailureResult = {
-  ok: false;
-  error: "unauthorized" | "not_found" | "anthropic_failed" | "no_valid_items";
-  errorMessage?: string;
-};
-
-// Maps action-level error codes to user-facing copy. We collapse to a
-// single message when every failure shares a code so the user gets a
-// specific hint ("check your API key"); on mixed-code failures we fall
-// back to a generic summary.
-function formatFailureMessage(
-  failures: FailureResult[],
-  allFailed: boolean,
-): string {
-  const codes = new Set(failures.map((f) => f.error));
-  const prefix = allFailed
-    ? "All three lists failed to generate."
-    : `${failures.length} of 3 lists failed — others succeeded.`;
-  if (codes.size !== 1) return `${prefix} Try again in a moment.`;
-  const code = [...codes][0]!;
-  switch (code) {
-    case "anthropic_failed": {
-      // The action surfaces the typed error message from the SDK
-      // (auth / rate-limit / transient). Prefer it if present.
-      const detail = failures.find((f) => f.errorMessage)?.errorMessage;
-      return detail
-        ? `${prefix} ${detail}`
-        : `${prefix} Recommendation service is unreachable. Check your API key or try again in a moment.`;
-    }
-    case "no_valid_items":
-      return `${prefix} The recommendation service returned picks, but none could be matched against TMDb or your subscriptions. Try a different mood, or check your active subscriptions in /settings.`;
-    case "unauthorized":
-      return `${prefix} You're signed out — refresh the page and sign in again.`;
-    case "not_found":
-      return `${prefix} A user account couldn't be found. Re-seed the database or sign back in.`;
-  }
-}
-
 type Props = {
   initial: Record<RecScope, RecListView | null>;
 };
@@ -62,26 +26,16 @@ type Props = {
 export function RecsView({ initial }: Props) {
   const [active, setActive] = useState<RecScope>("co_watch");
   const [mood, setMood] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const { state, errorMessage, refresh, clearError } = useRefresh();
 
-  const refresh = () => {
-    setError(null);
+  const pending = isRefreshActive(state);
+
+  const onRefresh = async () => {
     const moodValue = mood.trim();
-    startTransition(async () => {
-      const results = await regenerateAllLists(moodValue || undefined);
-      const failures = results.filter((r) => !r.ok) as Array<
-        Extract<(typeof results)[number], { ok: false }>
-      >;
-      if (failures.length === 0) {
-        // Clear mood after a fully successful refresh; otherwise keep it so
-        // the user can retry without retyping (PRD §6 latency UX).
-        setMood("");
-      } else {
-        const allFailed = failures.length === results.length;
-        setError(formatFailureMessage(failures, allFailed));
-      }
-    });
+    await refresh(moodValue || undefined);
+    // Clear mood only on a fully clean refresh — keep it across failures so
+    // the user can retry without retyping (PRD §6.4.7).
+    if (state === "success") setMood("");
   };
 
   const list = initial[active];
@@ -133,8 +87,8 @@ export function RecsView({ initial }: Props) {
         <div className="ml-auto">
           <button
             type="button"
-            onClick={refresh}
-            disabled={isPending}
+            onClick={onRefresh}
+            disabled={pending}
             className="
               inline-flex items-center gap-2
               rounded-md bg-accent px-4 py-2
@@ -149,9 +103,9 @@ export function RecsView({ initial }: Props) {
               size={16}
               weight="regular"
               aria-hidden
-              className={isPending ? "animate-spin" : undefined}
+              className={pending ? "animate-spin" : undefined}
             />
-            <span>{isPending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
+            <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
           </button>
         </div>
       </div>
@@ -169,7 +123,7 @@ export function RecsView({ initial }: Props) {
           placeholder="Slow burn, dark, character-driven…"
           value={mood}
           onChange={(e) => setMood(e.target.value)}
-          disabled={isPending}
+          disabled={pending}
           className="
             w-full rounded-sm border border-border bg-surface-elevated
             px-3 py-2
@@ -180,10 +134,63 @@ export function RecsView({ initial }: Props) {
         />
       </div>
 
-      {error && (
-        <p role="alert" className="font-mono text-mono text-danger">
-          [{error}]
-        </p>
+      {pending && (
+        <section
+          aria-label="Generating new recommendations"
+          className="space-y-3 rounded-md border border-dashed border-border bg-surface-elevated/40 p-4"
+        >
+          <p className="font-mono text-mono uppercase text-ink-muted">
+            Generating new recommendations…
+          </p>
+          <RecCardSkeleton />
+          <RecCardSkeleton />
+          <RecCardSkeleton />
+          {state === "long_running" && (
+            <p
+              role="status"
+              className="font-mono text-mono uppercase text-ink-muted"
+            >
+              Taking longer than usual — the LLM is busy. Hang tight.
+            </p>
+          )}
+        </section>
+      )}
+
+      {(state === "error" || state === "timed_out") && errorMessage && (
+        <section
+          role="alert"
+          className="rounded-md border border-danger bg-surface-elevated p-4 space-y-3"
+        >
+          <p className="font-mono text-mono text-danger">[{errorMessage}]</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="
+                rounded-md bg-accent px-4 py-2
+                font-body text-base text-accent-fg
+                transition-opacity hover:opacity-90
+                focus-visible:outline-2 focus-visible:outline-accent-sharp
+                focus-visible:outline-offset-2
+              "
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={clearError}
+              className="
+                rounded-md border border-border bg-surface px-4 py-2
+                font-body text-base text-ink-secondary
+                transition-colors hover:border-border-strong
+                focus-visible:outline-2 focus-visible:outline-accent
+                focus-visible:outline-offset-2
+              "
+            >
+              Dismiss
+            </button>
+          </div>
+        </section>
       )}
 
       {!list ? (
@@ -202,7 +209,9 @@ export function RecsView({ initial }: Props) {
           </p>
         </section>
       ) : (
-        <>
+        // Stale list stays visible during refresh, dimmed per PRD §6.4.7
+        // so the user can still inspect old recs while waiting.
+        <div className={pending ? "opacity-50" : undefined}>
           <p
             className="font-mono text-mono uppercase text-ink-muted"
             suppressHydrationWarning
@@ -211,14 +220,14 @@ export function RecsView({ initial }: Props) {
             {list.modelId}
             {list.mood ? ` · mood: ${list.mood}` : ""}
           </p>
-          <ul className="space-y-4">
+          <ul className="mt-4 space-y-4">
             {list.items.map((item) => (
               <li key={item.id}>
                 <RecCard item={item} />
               </li>
             ))}
           </ul>
-        </>
+        </div>
       )}
     </div>
   );

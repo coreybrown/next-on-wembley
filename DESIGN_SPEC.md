@@ -398,12 +398,14 @@ Mobile: wraps to two rows; MoodInput drops to its own row.
 
 | Window | UI state |
 |---|---|
-| Idle | Refresh button (primary), timestamp, MoodInput empty/filled |
-| 0–15s | Refresh disabled + loading; stale list dimmed `opacity: 0.5`; skeleton RecCards appear above stale list under a quiet "Updating…" sub-header; nav pill shows "Refreshing recommendations…" (see §9.1 for the pill's personality) |
-| 30s | Inline note adjacent to skeletons: "Taking longer than usual — the LLM is busy. Hang tight." Uses `--color-warning` + icon. |
-| 60s | Skeletons replaced by error card at top: "We couldn't refresh — try again" + Retry Button. Stale list **remains** dimmed-but-visible below. |
-| Transient errors | Silent auto-retry once (PRD §6.4.7); on second failure, surface the 60s error card. |
-| Off-page during refresh | Nav pill stays in header; on completion flips to "Edition ready — view ↗" as a tappable affordance. |
+| Idle | Refresh button (primary), timestamp, MoodInput empty/filled. Nav pill: hidden. |
+| 0–30s (pending) | Refresh disabled + spinning; stale list dimmed `opacity: 0.5`; skeleton RecCards (3 stacked) appear above stale list inside a `border-dashed` section labelled "Generating new recommendations…"; nav pill shows "Refreshing recommendations…" with a spinning glyph (see §9.1 for the pill's personality). |
+| 30–60s (long_running) | Inline note adjacent to skeletons: "Taking longer than usual — the LLM is busy. Hang tight." Nav pill copy switches to "Still generating…" |
+| 60s (timed_out) | Skeletons replaced by error card with the typed timeout message + **Retry** and **Dismiss** buttons. Stale list **remains** dimmed-but-visible below. Server action keeps running; stale results are dropped via an invocation token. |
+| Error (failure code) | Error card with the folded SDK message + Retry / Dismiss; layout pill switches to "Refresh failed" (danger border). |
+| Success | Layout pill briefly switches to "Recs updated — view" (Check glyph) for ~4s, then disappears. Inline error/timeout card is cleared. |
+| Transient errors | Anthropic SDK auto-retries once (PRD §6.4.7); on second failure surface the error card. Rate-limit responses propagate directly. |
+| Off-page during refresh | Nav pill stays in the layout header so a refresh fired from /recs is still observable from /settings, /in-progress, etc. (PRD §6.4.7 "navigate freely"). |
 
 #### Skeleton card spec
 
