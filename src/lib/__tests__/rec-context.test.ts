@@ -30,7 +30,16 @@ describe("getUserContext", () => {
           currentSeason: 2,
           currentSeasonCompleted: false,
           userRating: "like",
-          show: { title: "Severance", productionStatus: "Returning Series" },
+          show: {
+            tmdbId: 95396,
+            title: "Severance",
+            productionStatus: "Returning Series",
+            // S3 announced but not aired — seasonsJson only has S1+S2.
+            seasonsJson: JSON.stringify([
+              { seasonNumber: 1, episodeCount: 9 },
+              { seasonNumber: 2, episodeCount: 10 },
+            ]),
+          },
         },
       ],
       recVotes: [
@@ -46,11 +55,13 @@ describe("getUserContext", () => {
       subscriptions: ["netflix", "crave"],
       watchEntries: [
         {
+          tmdbId: 95396,
           title: "Severance",
           status: "watching",
           currentSeason: 2,
           currentSeasonCompleted: false,
           rating: "like",
+          airedSeasons: 2,
         },
       ],
       recentVotes: [

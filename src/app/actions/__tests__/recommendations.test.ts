@@ -36,6 +36,26 @@ vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
 const { generateRecommendations } = await import(
   "@/app/actions/recommendations"
 );
+const { titlesAreCompatible } = await import("@/lib/rec-titles");
+
+describe("titlesAreCompatible", () => {
+  it("matches case-insensitively after stripping articles + punctuation", () => {
+    expect(titlesAreCompatible("Severance", "severance")).toBe(true);
+    expect(titlesAreCompatible("The Bear", "Bear")).toBe(true);
+    expect(titlesAreCompatible("M*A*S*H", "mash")).toBe(true);
+    expect(titlesAreCompatible("A Million Little Things", "Million Little Things")).toBe(true);
+  });
+
+  it("rejects different shows that look similar", () => {
+    expect(titlesAreCompatible("Silicon Valley", "Dark")).toBe(false);
+    expect(titlesAreCompatible("Severance", "Insecure")).toBe(false);
+  });
+
+  it("rejects empty strings", () => {
+    expect(titlesAreCompatible("", "Severance")).toBe(false);
+    expect(titlesAreCompatible("Severance", "")).toBe(false);
+  });
+});
 
 const baseContext = (overrides: Record<string, unknown> = {}) => ({
   username: "corey",
@@ -110,7 +130,11 @@ describe("generateRecommendations — Anthropic failure", () => {
     mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
 
     const r = await generateRecommendations("corey");
-    expect(r).toEqual({ ok: false, error: "anthropic_failed" });
+    expect(r).toEqual({
+      ok: false,
+      error: "anthropic_failed",
+      errorMessage: "boom",
+    });
     expect(mockPrisma.recommendationRun.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -165,15 +189,32 @@ describe("generateRecommendations — happy path", () => {
   it("hard-excludes new picks with no provider overlap; keeps continuations", async () => {
     mockSession.userId = 1;
     mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
-    mockGetUserContext.mockResolvedValueOnce(baseContext({ subscriptions: ["netflix"] }));
+    mockGetUserContext.mockResolvedValueOnce(
+      baseContext({
+        subscriptions: ["netflix"],
+        // T102 is in the user's watch history mid-season, so it's a valid
+        // continuation candidate.
+        watchEntries: [
+          {
+            tmdbId: 102,
+            title: "T102",
+            status: "watching",
+            currentSeason: 1,
+            currentSeasonCompleted: false,
+            rating: null,
+            airedSeasons: 2,
+          },
+        ],
+      }),
+    );
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
         // 1: new pick, netflix → kept
-        { tmdbId: 100, title: "A", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
         // 2: new pick, only on apple_tv_plus → dropped
-        { tmdbId: 101, title: "B", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
         // 3: continuation, only on apple_tv_plus → kept (badged in UI)
-        { tmdbId: 102, title: "C", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+        { tmdbId: 102, title: "T102", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
@@ -196,6 +237,167 @@ describe("generateRecommendations — happy path", () => {
     }).data;
     expect(payload.map((p) => p.tmdbId)).toEqual([100, 102]);
     expect(payload.map((p) => p.position)).toEqual([1, 2]);
+  });
+
+  it("drops continuations when the user finished all aired seasons (Severance-S3-unaired bug)", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(
+      baseContext({
+        subscriptions: ["netflix"],
+        watchEntries: [
+          // User caught up: finished aired S2, TMDb has no S3 episodes yet.
+          {
+            tmdbId: 200,
+            title: "Severance",
+            status: "watching",
+            currentSeason: 2,
+            currentSeasonCompleted: true,
+            rating: "like",
+            airedSeasons: 2,
+          },
+        ],
+      }),
+    );
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 200, title: "Severance", year: "2022", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+      ],
+    });
+    mockGetTvDetails.mockImplementation(async (id) =>
+      tmdbDetails(id, id === 200 ? "Severance" : `T${id}`),
+    );
+    mockGetTvProviders.mockResolvedValue([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockImplementation(
+      (async (args: { where: { tmdbId: number } }) => ({
+        id: args.where.tmdbId,
+        tmdbId: args.where.tmdbId,
+      })) as never,
+    );
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r).toEqual({ ok: true, runId: 1, itemCount: 1 });
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number }>;
+    }).data;
+    expect(payload.map((p) => p.tmdbId)).toEqual([100]);
+  });
+
+  it("drops duplicate tmdbIds, keeping the higher-ranked occurrence", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(baseContext({ subscriptions: ["netflix"] }));
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "first", longExplanation: "l", isContinuation: false },
+        // Same tmdbId again — should drop with reason duplicate_of_higher_ranked.
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "second", longExplanation: "l", isContinuation: false },
+        { tmdbId: 200, title: "T200", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+      ],
+    });
+    mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
+    mockGetTvProviders.mockResolvedValue([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockImplementation(
+      (async (args: { where: { tmdbId: number } }) => ({
+        id: args.where.tmdbId,
+        tmdbId: args.where.tmdbId,
+      })) as never,
+    );
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r).toEqual({ ok: true, runId: 1, itemCount: 2 });
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number; shortExplanation: string }>;
+    }).data;
+    expect(payload.map((p) => p.tmdbId)).toEqual([100, 200]);
+    // Higher-ranked occurrence's text is the one kept.
+    expect(payload[0]!.shortExplanation).toBe("first");
+  });
+
+  it("drops continuations the LLM invented for shows not in any user's history", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(baseContext({ subscriptions: ["netflix"] }));
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        // Hallucinated continuation — show isn't in the user's history.
+        { tmdbId: 999, title: "T999", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+      ],
+    });
+    mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
+    mockGetTvProviders.mockResolvedValue([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockImplementation(
+      (async (args: { where: { tmdbId: number } }) => ({
+        id: args.where.tmdbId,
+        tmdbId: args.where.tmdbId,
+      })) as never,
+    );
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r).toEqual({ ok: true, runId: 1, itemCount: 1 });
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number }>;
+    }).data;
+    expect(payload.map((p) => p.tmdbId)).toEqual([100]);
+  });
+
+  it("falls back to searchTv when the tmdb hint resolves to a DIFFERENT show", async () => {
+    // The Silicon-Valley-with-Dark's-blurb scenario: LLM says title="Severance"
+    // with a hallucinated tmdbId that resolves to "Silicon Valley". We must
+    // reject the hint and fall through to a title search for "Severance".
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(baseContext());
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        {
+          tmdbId: 1396,
+          title: "Severance",
+          year: "2022",
+          shortExplanation: "s",
+          longExplanation: "l",
+          isContinuation: false,
+        },
+      ],
+    });
+    // Hint resolves — but to the wrong show.
+    mockGetTvDetails.mockResolvedValueOnce(
+      tmdbDetails(1396, "Silicon Valley"),
+    );
+    // Fallback search finds Severance.
+    mockSearchTv.mockResolvedValueOnce([
+      { tmdbId: 95396, title: "Severance", year: "2022", posterUrl: null },
+    ]);
+    mockGetTvDetails.mockResolvedValueOnce(tmdbDetails(95396, "Severance"));
+    mockGetTvProviders.mockResolvedValueOnce([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockResolvedValueOnce({
+      id: 9,
+      tmdbId: 95396,
+    } as never);
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({
+      id: 7,
+    } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r.ok).toBe(true);
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number; title: string }>;
+    }).data;
+    expect(payload[0]!.tmdbId).toBe(95396);
+    expect(payload[0]!.title).toBe("Severance");
   });
 
   it("falls back to searchTv when the tmdb hint 404s", async () => {
@@ -264,9 +466,9 @@ describe("generateRecommendations — co_watch scope", () => {
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
         // 1: on netflix (shared) → kept
-        { tmdbId: 100, title: "A", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
         // 2: only on crave (trigger only, not shared) → dropped
-        { tmdbId: 101, title: "B", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));

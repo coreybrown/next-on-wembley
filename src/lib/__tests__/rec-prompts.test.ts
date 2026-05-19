@@ -12,18 +12,22 @@ const corey: UserContext = {
   subscriptions: ["netflix", "apple_tv_plus"],
   watchEntries: [
     {
+      tmdbId: 95396,
       title: "Severance",
       status: "watching",
       currentSeason: 2,
       currentSeasonCompleted: false,
       rating: "like",
+      airedSeasons: 2,
     },
     {
+      tmdbId: 136315,
       title: "The Bear",
       status: "completed",
       currentSeason: null,
       currentSeasonCompleted: false,
       rating: "like",
+      airedSeasons: 3,
     },
   ],
   recentVotes: [
@@ -38,11 +42,13 @@ const jaimie: UserContext = {
   subscriptions: ["netflix", "crave"],
   watchEntries: [
     {
+      tmdbId: 124364,
       title: "Shogun",
       status: "completed",
       currentSeason: null,
       currentSeasonCompleted: false,
       rating: "like",
+      airedSeasons: 1,
     },
   ],
   recentVotes: [],
@@ -57,10 +63,20 @@ describe("REC_SYSTEM_PROMPT", () => {
     expect(a).toBe(b);
   });
 
-  it("declares the 10-item target, region, and JSON-only output constraint", () => {
-    expect(REC_SYSTEM_PROMPT).toMatch(/exactly 10/i);
+  it("declares the over-gen target, region, and JSON-only output constraint", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/exactly 16/i);
+    expect(REC_SYSTEM_PROMPT).toMatch(/trim.*10/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/canada/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/no prose|only the json|no preamble/i);
+  });
+
+  it("forbids platform name-drops in explanations", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/do not mention.*platform/i);
+    expect(REC_SYSTEM_PROMPT).toMatch(/netflix.*crave.*apple/i);
+  });
+
+  it("requires coherence between tmdbId / title / explanations", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/same show/i);
   });
 
   it("describes the three list scopes", () => {
@@ -152,9 +168,9 @@ describe("buildUserPrompt", () => {
     expect(out).not.toMatch(/^Mood:/m);
   });
 
-  it("trailing instruction reinforces the 10-item target", () => {
+  it("trailing instruction reinforces the over-gen target", () => {
     const out = buildUserPrompt({ scope: "corey", primary: corey });
-    expect(out).toMatch(/exactly 10 recommendations/i);
+    expect(out).toMatch(/exactly 16.*candidate/i);
   });
 });
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { parseSeasonsJson } from "@/lib/in-progress";
 import type { UserContext } from "@/lib/rec-prompts";
 
 const RECENT_VOTES_LIMIT = 30;
@@ -14,7 +15,16 @@ export async function getUserContext(userId: number): Promise<UserContext | null
       displayName: true,
       subscriptions: { select: { platformKey: true } },
       watchEntries: {
-        include: { show: { select: { title: true, productionStatus: true } } },
+        include: {
+          show: {
+            select: {
+              tmdbId: true,
+              title: true,
+              productionStatus: true,
+              seasonsJson: true,
+            },
+          },
+        },
         orderBy: { updatedAt: "desc" },
       },
       recVotes: {
@@ -29,13 +39,22 @@ export async function getUserContext(userId: number): Promise<UserContext | null
     username: user.username,
     displayName: user.displayName,
     subscriptions: user.subscriptions.map((s) => s.platformKey),
-    watchEntries: user.watchEntries.map((e) => ({
-      title: e.show.title,
-      status: e.status,
-      currentSeason: e.currentSeason,
-      currentSeasonCompleted: e.currentSeasonCompleted,
-      rating: e.userRating,
-    })),
+    watchEntries: user.watchEntries.map((e) => {
+      const seasons = parseSeasonsJson(e.show.seasonsJson);
+      const airedSeasons =
+        seasons.length > 0
+          ? Math.max(...seasons.map((s) => s.seasonNumber))
+          : 0;
+      return {
+        tmdbId: e.show.tmdbId,
+        title: e.show.title,
+        status: e.status,
+        currentSeason: e.currentSeason,
+        currentSeasonCompleted: e.currentSeasonCompleted,
+        rating: e.userRating,
+        airedSeasons,
+      };
+    }),
     recentVotes: user.recVotes.map((v) => ({
       title: v.item.title,
       vote: v.vote,

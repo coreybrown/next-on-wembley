@@ -17,6 +17,44 @@ const TAB_LABELS: Record<RecScope, string> = {
 
 const TAB_ORDER: readonly RecScope[] = ["co_watch", "corey", "jaimie"] as const;
 
+type FailureResult = {
+  ok: false;
+  error: "unauthorized" | "not_found" | "anthropic_failed" | "no_valid_items";
+  errorMessage?: string;
+};
+
+// Maps action-level error codes to user-facing copy. We collapse to a
+// single message when every failure shares a code so the user gets a
+// specific hint ("check your API key"); on mixed-code failures we fall
+// back to a generic summary.
+function formatFailureMessage(
+  failures: FailureResult[],
+  allFailed: boolean,
+): string {
+  const codes = new Set(failures.map((f) => f.error));
+  const prefix = allFailed
+    ? "All three lists failed to generate."
+    : `${failures.length} of 3 lists failed — others succeeded.`;
+  if (codes.size !== 1) return `${prefix} Try again in a moment.`;
+  const code = [...codes][0]!;
+  switch (code) {
+    case "anthropic_failed": {
+      // The action surfaces the typed error message from the SDK
+      // (auth / rate-limit / transient). Prefer it if present.
+      const detail = failures.find((f) => f.errorMessage)?.errorMessage;
+      return detail
+        ? `${prefix} ${detail}`
+        : `${prefix} Recommendation service is unreachable. Check your API key or try again in a moment.`;
+    }
+    case "no_valid_items":
+      return `${prefix} The recommendation service returned picks, but none could be matched against TMDb or your subscriptions. Try a different mood, or check your active subscriptions in /settings.`;
+    case "unauthorized":
+      return `${prefix} You're signed out — refresh the page and sign in again.`;
+    case "not_found":
+      return `${prefix} A user account couldn't be found. Re-seed the database or sign back in.`;
+  }
+}
+
 type Props = {
   initial: Record<RecScope, RecListView | null>;
 };
@@ -32,17 +70,16 @@ export function RecsView({ initial }: Props) {
     const moodValue = mood.trim();
     startTransition(async () => {
       const results = await regenerateAllLists(moodValue || undefined);
-      const failed = results.filter((r) => !r.ok);
-      if (failed.length === results.length) {
-        setError("All three lists failed to generate. Try again in a moment.");
-      } else if (failed.length > 0) {
-        setError(
-          `${failed.length} of ${results.length} lists failed — others succeeded.`,
-        );
-      } else {
+      const failures = results.filter((r) => !r.ok) as Array<
+        Extract<(typeof results)[number], { ok: false }>
+      >;
+      if (failures.length === 0) {
         // Clear mood after a fully successful refresh; otherwise keep it so
         // the user can retry without retyping (PRD §6 latency UX).
         setMood("");
+      } else {
+        const allFailed = failures.length === results.length;
+        setError(formatFailureMessage(failures, allFailed));
       }
     });
   };
@@ -166,7 +203,10 @@ export function RecsView({ initial }: Props) {
         </section>
       ) : (
         <>
-          <p className="font-mono text-mono uppercase text-ink-muted">
+          <p
+            className="font-mono text-mono uppercase text-ink-muted"
+            suppressHydrationWarning
+          >
             Generated {new Date(list.createdAt).toLocaleString()} ·{" "}
             {list.modelId}
             {list.mood ? ` · mood: ${list.mood}` : ""}

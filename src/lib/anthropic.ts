@@ -53,6 +53,11 @@ export type StructuredCallInput = {
   // Raw JSON schema (object). Used for output_config.format = json_schema.
   outputSchema: Record<string, unknown>;
   maxTokens?: number;
+  // Lower = more deterministic. Defaults to 0.4 — recommendations need
+  // some variety across refreshes but the worse Haiku failure mode is
+  // mixing-up explanations between shows in the same response (a
+  // coherence problem that lower temperature reins in).
+  temperature?: number;
   signal?: AbortSignal;
 };
 
@@ -69,6 +74,7 @@ export async function generateStructured<T>(
       {
         model: input.model,
         max_tokens: input.maxTokens ?? 4096,
+        temperature: input.temperature ?? 0.4,
         system: [
           {
             type: "text",

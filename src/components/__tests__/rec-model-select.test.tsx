@@ -21,19 +21,54 @@ describe("<RecModelSelect />", () => {
     expect(sonnet).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("calls setRecModelAction with the new value when switched", async () => {
+  it("opens a confirmation dialog when picking a different model — does not fire the action yet", async () => {
     const user = userEvent.setup();
     render(<RecModelSelect current="haiku" />);
     await user.click(screen.getByRole("button", { name: /sonnet 4\.6/i }));
-    await waitFor(() => expect(mockSet).toHaveBeenCalledWith("sonnet"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/switch to sonnet 4\.6/i)).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.12/)).toBeInTheDocument();
+    expect(mockSet).not.toHaveBeenCalled();
   });
 
-  it("does not call the action when clicking the currently-selected option", async () => {
+  it("does not open the dialog when clicking the currently-selected option", async () => {
     const user = userEvent.setup();
     render(<RecModelSelect current="haiku" />);
     await user.click(screen.getByRole("button", { name: /haiku 4\.5/i }));
-    // Give pending transitions a chance to settle
-    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it("Confirm fires the action with the pending model and closes the dialog", async () => {
+    const user = userEvent.setup();
+    render(<RecModelSelect current="haiku" />);
+    await user.click(screen.getByRole("button", { name: /sonnet 4\.6/i }));
+    await user.click(
+      screen.getByRole("button", { name: /switch & regenerate/i }),
+    );
+    await waitFor(() => expect(mockSet).toHaveBeenCalledWith("sonnet"));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("Cancel closes the dialog without firing the action", async () => {
+    const user = userEvent.setup();
+    render(<RecModelSelect current="haiku" />);
+    await user.click(screen.getByRole("button", { name: /sonnet 4\.6/i }));
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(mockSet).not.toHaveBeenCalled();
+  });
+
+  it("Escape (Radix dismiss) closes the dialog without firing the action", async () => {
+    const user = userEvent.setup();
+    render(<RecModelSelect current="haiku" />);
+    await user.click(screen.getByRole("button", { name: /sonnet 4\.6/i }));
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
     expect(mockSet).not.toHaveBeenCalled();
   });
 });

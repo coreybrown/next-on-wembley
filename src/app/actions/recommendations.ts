@@ -19,10 +19,29 @@ import {
   RECOMMENDATIONS_SCHEMA,
   type RecommendationsResponse,
   type RawRecommendation,
+  type WatchEntrySummary,
 } from "@/lib/rec-prompts";
 import { getUserContext, intersectSubscriptions } from "@/lib/rec-context";
+import { titlesAreCompatible } from "@/lib/rec-titles";
 
 const TARGET_LIST_LENGTH = 10;
+
+// Validates an LLM-flagged continuation against the user's actual watch
+// state. Drops the bug where a show with an announced-but-unaired next
+// season (e.g. Severance after S2 wraps, before S3 drops) gets re-pitched
+// to a user who's already finished everything that's aired.
+function isValidContinuation(entry: WatchEntrySummary): boolean {
+  // Only Watching/Paused can have a continuation per PRD §… ; Completed
+  // or Dropped shouldn't be re-suggested.
+  if (entry.status !== "watching" && entry.status !== "paused") return false;
+  // Missing season data — be lenient, defer to the LLM's judgement.
+  if (entry.airedSeasons === 0) return true;
+  // Mid-season: more episodes left in the current aired season.
+  if (!entry.currentSeasonCompleted) return true;
+  // Finished current season: valid only if a later season has aired.
+  const current = entry.currentSeason ?? 0;
+  return entry.airedSeasons > current;
+}
 
 export type GenerateRecommendationsError =
   | "unauthorized"
@@ -32,7 +51,14 @@ export type GenerateRecommendationsError =
 
 export type GenerateRecommendationsResult =
   | { ok: true; runId: number; itemCount: number }
-  | { ok: false; error: GenerateRecommendationsError };
+  | {
+      ok: false;
+      error: GenerateRecommendationsError;
+      // User-facing detail when available (e.g. "Anthropic authentication
+      // failed — check ANTHROPIC_API_KEY"). Set for anthropic_failed; the
+      // other codes are self-describing.
+      errorMessage?: string;
+    };
 
 // Tries to resolve an LLM-suggested tmdbId to a real TMDb show + current
 // CA providers. Falls back to a title search when the hint is bogus.
@@ -49,14 +75,28 @@ async function resolveTmdbHint(
   // Sequential rather than parallel so a bogus tmdbId doesn't burn a
   // wasted /watch/providers call. The savings vs an LLM-call-dominated
   // refresh are negligible.
-  let metadata: TmdbShowMetadata;
+  let metadata: TmdbShowMetadata | null = null;
   try {
-    metadata = await getTvDetails(tmdbId);
+    const fromHint = await getTvDetails(tmdbId);
+    if (titlesAreCompatible(fromHint.title, fallbackTitle)) {
+      metadata = fromHint;
+    }
+    // If the title doesn't match, the LLM hallucinated this tmdbId onto
+    // a different show — drop the hint and fall through to a title search.
   } catch {
+    // hint didn't resolve at all
+  }
+  if (metadata == null) {
     const results = await searchTv(fallbackTitle).catch(() => []);
     if (results.length === 0) return null;
+    // Pick the first result whose title actually matches — the popularity
+    // re-sort might surface a similarly-named-but-different show at #1.
+    const matched = results.find((r) =>
+      titlesAreCompatible(r.title, fallbackTitle),
+    );
+    if (!matched) return null;
     try {
-      metadata = await getTvDetails(results[0].tmdbId);
+      metadata = await getTvDetails(matched.tmdbId);
     } catch {
       return null;
     }
@@ -188,6 +228,7 @@ export async function generateRecommendations(
       outputSchema: RECOMMENDATIONS_SCHEMA as unknown as Record<string, unknown>,
     });
   } catch (err) {
+    const message = (err as Error).message;
     await prisma.recommendationRun.create({
       data: {
         triggeredBy: triggerUser.id,
@@ -195,10 +236,10 @@ export async function generateRecommendations(
         modelId,
         mood: mood ?? null,
         status: "failed",
-        errorMessage: (err as Error).message,
+        errorMessage: message,
       },
     });
-    return { ok: false, error: "anthropic_failed" };
+    return { ok: false, error: "anthropic_failed", errorMessage: message };
   }
 
   // Persist the run header now so items can FK to it.
@@ -218,6 +259,18 @@ export async function generateRecommendations(
       ? sharedSubs ?? []
       : primaryContext.subscriptions;
 
+  // Watch entries keyed by tmdbId for continuation validation. For
+  // user-scoped lists, only that user's history counts; for co_watch we
+  // accept either user having unwatched aired content.
+  const primaryEntriesByTmdbId = new Map<number, WatchEntrySummary>(
+    primaryContext.watchEntries.map((e) => [e.tmdbId, e]),
+  );
+  const otherEntriesByTmdbId = otherContext
+    ? new Map<number, WatchEntrySummary>(
+        otherContext.watchEntries.map((e) => [e.tmdbId, e]),
+      )
+    : null;
+
   // Validate, upsert, persist. Drop unresolvable hints and (for new picks)
   // shows that don't overlap with the relevant subs. Continuations stay
   // visible regardless of availability (PRD §162) — the UI badges them.
@@ -228,15 +281,77 @@ export async function generateRecommendations(
     providers: TmdbProviderInfo[];
   }> = [];
 
+  const dropped: Array<{
+    title: string;
+    tmdbId: number;
+    reason: string;
+  }> = [];
+
+  const persistedTmdbIds = new Set<number>();
+
   for (const rec of llmOut.recommendations) {
     if (persisted.length >= TARGET_LIST_LENGTH) break;
     const resolved = await resolveTmdbHint(rec.tmdbId, rec.title);
-    if (!resolved) continue;
+    if (!resolved) {
+      dropped.push({
+        title: rec.title,
+        tmdbId: rec.tmdbId,
+        reason: "tmdb_unresolved",
+      });
+      continue;
+    }
 
-    if (!rec.isContinuation) {
+    // The LLM occasionally emits the same show twice in its 16 candidates
+    // (often with near-identical explanations). Keep the higher-ranked
+    // occurrence and drop the rest.
+    if (persistedTmdbIds.has(resolved.metadata.tmdbId)) {
+      dropped.push({
+        title: resolved.metadata.title,
+        tmdbId: resolved.metadata.tmdbId,
+        reason: "duplicate_of_higher_ranked",
+      });
+      continue;
+    }
+
+    if (rec.isContinuation) {
+      const resolvedTmdbId = resolved.metadata.tmdbId;
+      const primaryEntry = primaryEntriesByTmdbId.get(resolvedTmdbId);
+      const otherEntry = otherEntriesByTmdbId?.get(resolvedTmdbId);
+      // The LLM occasionally invents continuations for shows nobody has
+      // watched. Drop those — they'd otherwise bypass the provider gate
+      // and show up as un-badged "continuations" that don't continue
+      // anything.
+      if (!primaryEntry && !otherEntry) {
+        dropped.push({
+          title: resolved.metadata.title,
+          tmdbId: resolvedTmdbId,
+          reason: "continuation_not_in_history",
+        });
+        continue;
+      }
+      const primaryValid = primaryEntry
+        ? isValidContinuation(primaryEntry)
+        : false;
+      const otherValid = otherEntry ? isValidContinuation(otherEntry) : false;
+      if (!primaryValid && !otherValid) {
+        dropped.push({
+          title: resolved.metadata.title,
+          tmdbId: resolvedTmdbId,
+          reason: "continuation_no_new_aired_content",
+        });
+        continue;
+      }
+    } else {
       const providerKeys = resolved.providers.map((p) => p.platformKey);
       const hasOverlap = providerKeys.some((k) => gateSubs.includes(k));
-      if (!hasOverlap) continue;
+      if (!hasOverlap) {
+        dropped.push({
+          title: resolved.metadata.title,
+          tmdbId: resolved.metadata.tmdbId,
+          reason: `no_provider_overlap (CA providers: ${providerKeys.join("|") || "none"})`,
+        });
+        continue;
+      }
     }
     const showId = await upsertResolvedShow(resolved);
     persisted.push({
@@ -245,6 +360,16 @@ export async function generateRecommendations(
       metadata: resolved.metadata,
       providers: resolved.providers,
     });
+    persistedTmdbIds.add(resolved.metadata.tmdbId);
+  }
+
+  if (dropped.length > 0) {
+    console.warn(
+      `[recs] scope=${scope} dropped ${dropped.length}/${llmOut.recommendations.length} (kept ${persisted.length}):\n` +
+        dropped
+          .map((d) => `  - "${d.title}" (tmdbId=${d.tmdbId}): ${d.reason}`)
+          .join("\n"),
+    );
   }
 
   if (persisted.length === 0) {

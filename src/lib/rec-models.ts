@@ -20,6 +20,15 @@ export const REC_MODEL_TO_API_ID: Record<RecModel, string> = {
   sonnet: "claude-sonnet-4-6",
 };
 
+// Rough per-refresh cost estimates surfaced in the model-swap confirmation
+// dialog. Calculated from current per-token list pricing (Haiku $1/$5,
+// Sonnet $3/$15 per MTok) × ~1.5K input + 2K output × 3 parallel lists.
+// Not load-bearing; update if pricing or rec list size shifts.
+export const REC_MODEL_REFRESH_COST: Record<RecModel, string> = {
+  haiku: "~$0.04",
+  sonnet: "~$0.12",
+};
+
 export function isValidRecModel(v: string): v is RecModel {
   return (REC_MODELS as readonly string[]).includes(v);
 }
