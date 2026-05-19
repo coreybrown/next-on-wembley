@@ -377,9 +377,14 @@ Per PRD §6.6.
 - **Mobile (≤768px):** bottom sheet, full width, top-anchored at ~85vh. Slides up from below (`--motion-base`). Drag handle at top edge, `--radius-xl` top corners. Swipe-down close threshold: >40% sheet height OR velocity > 0.5; below threshold snaps back. Scrim `--color-surface-overlay` at appropriate alpha; tap-to-close.
 - **Focus management:** on open focus moves to drawer close IconButton, Radix `Dialog` traps. On close restores focus to the originating card (`document.activeElement` snapshot) and `scrollY`.
 
-#### Inline-edit affordances (Phase 20c, deferred)
+#### Inline-edit affordances (Phase 20c — shipped)
 
-StatusSelect + SeasonStepper + Finished-it shortcut for users who already have the show on their list. Today the detail page is read-only for the WatchEntry and routes the user back to the dashboard for edits — those affordances live on WatchEntryCard / InProgressCard.
+`ShowDetailWatchControls` renders inside the "Your list" section. Two states:
+
+- **Empty:** "Not on your list yet. Add it as…" + a row of 5 quick-add status pills (Want to Watch / Watching / Paused / Completed / Dropped). Click fires `addWatchEntry`; Watching auto-seeds `currentSeason: 1`.
+- **Populated:** Status pill row (active pill filled-accent, others outline). Season stepper (− S{n} +, capped at the show's `airedSeasons`) renders only for Watching/Paused. Rating pills (Like / Dislike / Meh — click again to clear). A separate `Remove` button at the bottom-right opens a confirm dialog ("Removes this show from your list with no signal either way") matching the WatchEntryCard pattern.
+
+All edits auto-save inline (no Save/Cancel buttons) and trigger `router.refresh()` so the server-rendered page picks up new state. Inline error message appears below if an action fails.
 
 #### Rec-context variant
 

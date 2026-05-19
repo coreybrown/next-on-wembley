@@ -4,12 +4,8 @@ import { ArrowLeft, FilmSlate } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { loadShowDetail } from "@/lib/show-detail";
 import { PLATFORMS } from "@/lib/platforms";
-import {
-  STATUS_LABELS,
-  RATING_LABELS,
-  RATING_GLYPHS,
-} from "@/lib/watch-entries";
 import { VoteControlsRow } from "@/components/vote-controls-row";
+import { ShowDetailWatchControls } from "@/components/show-detail-watch-controls";
 
 const PLATFORM_NAME = new Map<string, string>(
   PLATFORMS.map((p) => [p.key, p.displayName]),
@@ -237,47 +233,12 @@ export default async function ShowDetailPage({
         <h2 className="font-mono text-mono uppercase text-ink-muted">
           Your list
         </h2>
-        {view.userEntry ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span
-              className="
-                inline-flex items-center rounded-pill
-                bg-accent px-3 py-1
-                font-mono text-mono uppercase tracking-wide text-accent-fg
-              "
-            >
-              {STATUS_LABELS[view.userEntry.status]}
-            </span>
-            {view.userEntry.currentSeason != null && (
-              <span className="font-mono text-mono uppercase text-ink-muted">
-                Season {view.userEntry.currentSeason}
-                {view.userEntry.currentSeasonCompleted ? " (finished)" : ""}
-              </span>
-            )}
-            {view.userEntry.userRating && (
-              <span
-                className="
-                  inline-flex items-center gap-1 rounded-pill
-                  border border-border bg-surface
-                  px-2 py-0.5
-                  font-mono text-mono uppercase tracking-wide text-ink-secondary
-                "
-              >
-                <span aria-hidden>
-                  {RATING_GLYPHS[view.userEntry.userRating]}
-                </span>
-                <span>{RATING_LABELS[view.userEntry.userRating]}</span>
-              </span>
-            )}
-            <span className="font-mono text-mono uppercase text-ink-muted">
-              Edit on the dashboard
-            </span>
-          </div>
-        ) : (
-          <p className="mt-2 font-body text-base text-ink-muted">
-            Not on your list yet.
-          </p>
-        )}
+        <ShowDetailWatchControls
+          tmdbId={view.tmdbId}
+          showTitle={view.title}
+          entry={view.userEntry}
+          maxSeason={view.airedSeasons > 0 ? view.airedSeasons : null}
+        />
       </section>
     </main>
   );

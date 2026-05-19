@@ -20,6 +20,7 @@ export type ShowDetailRecContext = {
 };
 
 export type ShowDetailUserEntry = {
+  id: number;
   status: WatchStatus;
   currentSeason: number | null;
   currentSeasonCompleted: boolean;
@@ -65,6 +66,7 @@ export async function loadShowDetail(
         watchEntries: {
           where: { userId: sessionUserId },
           select: {
+            id: true,
             status: true,
             currentSeason: true,
             currentSeasonCompleted: true,

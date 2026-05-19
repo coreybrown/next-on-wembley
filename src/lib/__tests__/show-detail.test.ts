@@ -77,6 +77,7 @@ describe("loadShowDetail", () => {
       showRow({
         watchEntries: [
           {
+            id: 99,
             status: "watching",
             currentSeason: 2,
             currentSeasonCompleted: true,
@@ -88,6 +89,7 @@ describe("loadShowDetail", () => {
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
     const view = await loadShowDetail(1396, 1, null);
     expect(view?.userEntry).toEqual({
+      id: 99,
       status: "watching",
       currentSeason: 2,
       currentSeasonCompleted: true,
