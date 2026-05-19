@@ -496,13 +496,24 @@ export async function getLatestRunsForCurrentUser(): Promise<
         },
       });
       if (!run) return;
+      // Disagree hard-excludes from user-scoped lists per PRD. Co-watch
+      // gets the M4 split-rule demote treatment later; for now leave it
+      // unchanged so a single user's disagree doesn't drop a co-watch
+      // pick the partner might still want. We renumber positions after
+      // filtering so the visible list doesn't show gaps.
+      const visibleItems =
+        scope === "co_watch"
+          ? run.items
+          : run.items.filter(
+              (item) => (item.votes[0]?.vote ?? null) !== "disagree",
+            );
       result[scope] = {
         scope,
         runId: run.id,
         modelId: run.modelId,
         mood: run.mood,
         createdAt: run.createdAt,
-        items: run.items.map((item) => {
+        items: visibleItems.map((item, index) => {
           const providerKeys =
             item.show?.providers.map((p) => p.platformKey) ?? [];
           const unavailable =
@@ -510,7 +521,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
             !providerKeys.some((k) => subKeys.includes(k));
           return {
             id: item.id,
-            position: item.position,
+            position: index + 1,
             tmdbId: item.tmdbId,
             title: item.title,
             year: item.year,

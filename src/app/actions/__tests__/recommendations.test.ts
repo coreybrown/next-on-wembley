@@ -33,7 +33,7 @@ vi.mock("@/lib/rec-context", async () => {
 });
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
 
-const { generateRecommendations } = await import(
+const { generateRecommendations, getLatestRunsForCurrentUser } = await import(
   "@/app/actions/recommendations"
 );
 const { titlesAreCompatible } = await import("@/lib/rec-titles");
@@ -486,5 +486,104 @@ describe("generateRecommendations — co_watch scope", () => {
 
     const r = await generateRecommendations("co_watch");
     expect(r).toEqual({ ok: true, runId: 11, itemCount: 1 });
+  });
+});
+
+describe("getLatestRunsForCurrentUser — disagree filter", () => {
+  beforeEach(() => {
+    mockPrisma.userSubscription.findMany.mockReset();
+    mockPrisma.watchEntry.findMany.mockReset();
+    mockPrisma.recommendationRun.findFirst.mockReset();
+  });
+
+  const runWithItems = (scope: "co_watch" | "corey" | "jaimie") => ({
+    id: 1,
+    scope,
+    modelId: "claude-haiku-4-5",
+    mood: null,
+    createdAt: new Date("2026-05-19T00:00:00Z"),
+    items: [
+      {
+        id: 10,
+        position: 1,
+        tmdbId: 100,
+        showId: 1000,
+        title: "Keeper",
+        year: "2024",
+        posterUrl: null,
+        shortExplanation: "s",
+        longExplanation: "l",
+        isContinuation: false,
+        show: { providers: [{ platformKey: "netflix" }] },
+        votes: [],
+      },
+      {
+        id: 11,
+        position: 2,
+        tmdbId: 200,
+        showId: 1001,
+        title: "Disliked",
+        year: "2024",
+        posterUrl: null,
+        shortExplanation: "s",
+        longExplanation: "l",
+        isContinuation: false,
+        show: { providers: [{ platformKey: "netflix" }] },
+        votes: [{ vote: "disagree" }],
+      },
+      {
+        id: 12,
+        position: 3,
+        tmdbId: 300,
+        showId: 1002,
+        title: "Still in",
+        year: "2024",
+        posterUrl: null,
+        shortExplanation: "s",
+        longExplanation: "l",
+        isContinuation: false,
+        show: { providers: [{ platformKey: "netflix" }] },
+        votes: [],
+      },
+    ],
+  });
+
+  it("hides disagreed items in user-scoped lists and renumbers positions", async () => {
+    mockSession.userId = 7;
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([
+      { platformKey: "netflix" },
+    ] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(runWithItems("co_watch") as never)
+      .mockResolvedValueOnce(runWithItems("corey") as never)
+      .mockResolvedValueOnce(null);
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.corey?.items.map((i) => i.title)).toEqual([
+      "Keeper",
+      "Still in",
+    ]);
+    expect(result.corey?.items.map((i) => i.position)).toEqual([1, 2]);
+  });
+
+  it("keeps disagreed items visible on the co_watch list (M4's split-rule will handle it)", async () => {
+    mockSession.userId = 7;
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([
+      { platformKey: "netflix" },
+    ] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(runWithItems("co_watch") as never)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.co_watch?.items.map((i) => i.title)).toEqual([
+      "Keeper",
+      "Disliked",
+      "Still in",
+    ]);
+    expect(result.co_watch?.items[1]?.currentVote).toBe("disagree");
   });
 });
