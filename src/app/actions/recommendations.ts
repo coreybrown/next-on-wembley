@@ -286,3 +286,99 @@ export async function regenerateAllLists(
     generateRecommendations("jaimie", mood),
   ]);
 }
+
+export type RecListItemView = {
+  id: number;
+  position: number;
+  tmdbId: number;
+  title: string;
+  year: string | null;
+  posterUrl: string | null;
+  shortExplanation: string;
+  longExplanation: string;
+  isContinuation: boolean;
+  providerKeys: string[];
+  unavailable: boolean;
+};
+
+export type RecListView = {
+  scope: RecScope;
+  runId: number;
+  modelId: string;
+  mood: string | null;
+  createdAt: Date;
+  items: RecListItemView[];
+};
+
+// Loads the most-recent ok-status run for each scope and shapes the items
+// for /recs rendering. `unavailable` flags are computed against the
+// trigger user's own subs (the most useful gate for personal lists; the
+// co-watch list uses the same single-user view since both households
+// share most platforms).
+export async function getLatestRunsForCurrentUser(): Promise<
+  Record<RecScope, RecListView | null>
+> {
+  const session = await getSession();
+  const empty: Record<RecScope, RecListView | null> = {
+    co_watch: null,
+    corey: null,
+    jaimie: null,
+  };
+  if (!session.userId) return empty;
+
+  const subs = await prisma.userSubscription.findMany({
+    where: { userId: session.userId },
+    select: { platformKey: true },
+  });
+  const subKeys = subs.map((s) => s.platformKey);
+
+  const scopes: RecScope[] = ["co_watch", "corey", "jaimie"];
+  const result = { ...empty };
+  await Promise.all(
+    scopes.map(async (scope) => {
+      const run = await prisma.recommendationRun.findFirst({
+        where: { scope, status: "ok" },
+        orderBy: { createdAt: "desc" },
+        include: {
+          items: {
+            orderBy: { position: "asc" },
+            include: {
+              show: {
+                include: { providers: { select: { platformKey: true } } },
+              },
+            },
+          },
+        },
+      });
+      if (!run) return;
+      result[scope] = {
+        scope,
+        runId: run.id,
+        modelId: run.modelId,
+        mood: run.mood,
+        createdAt: run.createdAt,
+        items: run.items.map((item) => {
+          const providerKeys =
+            item.show?.providers.map((p) => p.platformKey) ?? [];
+          const unavailable =
+            providerKeys.length > 0 &&
+            !providerKeys.some((k) => subKeys.includes(k));
+          return {
+            id: item.id,
+            position: item.position,
+            tmdbId: item.tmdbId,
+            title: item.title,
+            year: item.year,
+            posterUrl: item.posterUrl,
+            shortExplanation: item.shortExplanation,
+            longExplanation: item.longExplanation,
+            isContinuation: item.isContinuation,
+            providerKeys,
+            unavailable,
+          };
+        }),
+      };
+    }),
+  );
+  return result;
+}

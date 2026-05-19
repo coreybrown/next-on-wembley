@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Fraunces, Chivo, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import { Gear, FilmReel } from "@phosphor-icons/react/dist/ssr";
+import { Gear, FilmReel, Sparkle } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { IdentityChip } from "@/components/identity-chip";
 import "./globals.css";
@@ -54,6 +54,20 @@ export default async function RootLayout({
       <body className="min-h-svh bg-surface text-ink font-body">
         {user && (
           <header className="fixed right-4 top-4 z-30 flex items-center gap-2">
+            <Link
+              href="/recs"
+              aria-label="Recommendations"
+              className="
+                inline-flex h-10 w-10 items-center justify-center
+                rounded-sm border border-border-strong
+                bg-surface-elevated text-ink
+                transition-colors hover:border-accent hover:text-accent
+                focus-visible:outline-2 focus-visible:outline-accent-sharp
+                focus-visible:outline-offset-2
+              "
+            >
+              <Sparkle size={20} weight="regular" />
+            </Link>
             <Link
               href="/in-progress"
               aria-label="In Progress"
