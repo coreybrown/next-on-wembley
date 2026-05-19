@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 const mockVoteOnRec = vi.fn();
 const mockClearVote = vi.fn();
 const mockAddToWtw = vi.fn();
+const mockDisagreeOnContinuation = vi.fn();
 
 vi.mock("@/app/actions/rec-votes", () => ({
   voteOnRecAction: mockVoteOnRec,
@@ -12,6 +13,9 @@ vi.mock("@/app/actions/rec-votes", () => ({
 }));
 vi.mock("@/app/actions/rec-watchlist", () => ({
   addToWantToWatchAction: mockAddToWtw,
+}));
+vi.mock("@/app/actions/rec-continuation", () => ({
+  disagreeOnContinuationAction: mockDisagreeOnContinuation,
 }));
 
 const { RecCard } = await import("@/components/rec-card");
@@ -41,6 +45,7 @@ beforeEach(() => {
   mockVoteOnRec.mockReset().mockResolvedValue({ ok: true });
   mockClearVote.mockReset().mockResolvedValue({ ok: true });
   mockAddToWtw.mockReset().mockResolvedValue({ ok: true });
+  mockDisagreeOnContinuation.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("RecCard", () => {
@@ -177,6 +182,103 @@ describe("RecCard — voting", () => {
   it("omits the partner-vote indicator when partnerVote is null", () => {
     render(<RecCard item={item()} partnerLabel="Jaimie" />);
     expect(screen.queryByText(/^jaimie:$/i)).toBeNull();
+  });
+});
+
+describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
+  it("opens the prompt instead of voting when Disagree is clicked on a viewer-owned continuation", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: true })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^disagree$/i }));
+    // Dialog content is now visible.
+    expect(
+      await screen.findByRole("dialog", { name: /step back from/i }),
+    ).toBeInTheDocument();
+    // Vote action NOT called until the user resolves the prompt.
+    expect(mockVoteOnRec).not.toHaveBeenCalled();
+    expect(mockDisagreeOnContinuation).not.toHaveBeenCalled();
+  });
+
+  it("Move to Paused calls disagreeOnContinuationAction('paused')", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: true })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^disagree$/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /move to paused/i }),
+    );
+    await waitFor(() => {
+      expect(mockDisagreeOnContinuation).toHaveBeenCalledWith(1, "paused");
+    });
+  });
+
+  it("Move to Dropped calls disagreeOnContinuationAction('dropped')", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: true })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^disagree$/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /move to dropped/i }),
+    );
+    await waitFor(() => {
+      expect(mockDisagreeOnContinuation).toHaveBeenCalledWith(1, "dropped");
+    });
+  });
+
+  it("Cancel discards the vote — neither action fires", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: true })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^disagree$/i }));
+    await user.click(
+      await screen.findByRole("button", { name: /^cancel$/i }),
+    );
+    expect(mockVoteOnRec).not.toHaveBeenCalled();
+    expect(mockDisagreeOnContinuation).not.toHaveBeenCalled();
+  });
+
+  it("does not prompt when the continuation is in the partner's history (not the viewer's)", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: false })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^disagree$/i }));
+    // Normal vote path fires immediately, no dialog opens.
+    await waitFor(() => {
+      expect(mockVoteOnRec).toHaveBeenCalledWith(1, "disagree");
+    });
+    expect(
+      screen.queryByRole("dialog", { name: /step back from/i }),
+    ).toBeNull();
+  });
+
+  it("Agree on a continuation goes through normal voting (no prompt)", async () => {
+    const user = userEvent.setup();
+    render(
+      <RecCard
+        item={item({ isContinuation: true, inWatchHistory: true })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /^agree$/i }));
+    await waitFor(() => {
+      expect(mockVoteOnRec).toHaveBeenCalledWith(1, "agree");
+    });
+    expect(mockDisagreeOnContinuation).not.toHaveBeenCalled();
   });
 });
 

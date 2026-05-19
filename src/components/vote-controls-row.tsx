@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
 import {
   ThumbsUp,
   ThumbsDown,
@@ -11,6 +12,10 @@ import {
 import type { VoteValue } from "@prisma/client";
 import { voteOnRecAction, clearVoteAction } from "@/app/actions/rec-votes";
 import { addToWantToWatchAction } from "@/app/actions/rec-watchlist";
+import {
+  disagreeOnContinuationAction,
+  type ContinuationOutcome,
+} from "@/app/actions/rec-continuation";
 
 const VOTE_OPTIONS: Array<{
   value: VoteValue;
@@ -72,16 +77,46 @@ export function VoteControlsRow({
     (_, next: boolean) => next,
   );
   const [wtwError, setWtwError] = useState<string | null>(null);
+  // Phase 27. When the viewer clicks Disagree on a card they're currently
+  // Watching (continuation), open a "Move to Paused/Dropped?" dialog
+  // before recording the vote. The dialog gates the vote — Cancel
+  // discards it; Paused/Dropped commits both the status change and the
+  // Disagree atomically via disagreeOnContinuationAction.
+  const [continuationPromptOpen, setContinuationPromptOpen] = useState(false);
 
-  const onVote = (next: VoteValue) => {
-    if (!canVote) return;
-    const target: VoteValue | null = optimisticVote === next ? null : next;
+  const submitVote = (target: VoteValue | null) => {
     startTransition(async () => {
       setOptimisticVote(target);
       if (target == null) {
         await clearVoteAction(itemId);
       } else {
         await voteOnRecAction(itemId, target);
+      }
+    });
+  };
+
+  const onVote = (next: VoteValue) => {
+    if (!canVote) return;
+    const target: VoteValue | null = optimisticVote === next ? null : next;
+    // Disagree on a continuation the VIEWER owns → prompt first.
+    // Continuations the viewer doesn't personally own (e.g. co_watch
+    // continuation that's only in the partner's history) skip the
+    // prompt since there's no WatchEntry to update on this user.
+    if (target === "disagree" && isContinuation && inWatchHistory) {
+      setContinuationPromptOpen(true);
+      return;
+    }
+    submitVote(target);
+  };
+
+  const onResolveContinuation = (outcome: ContinuationOutcome) => {
+    startTransition(async () => {
+      setOptimisticVote("disagree");
+      setContinuationPromptOpen(false);
+      const r = await disagreeOnContinuationAction(itemId, outcome);
+      if (!r.ok) {
+        // Rollback the optimistic disagree if the server bailed.
+        setOptimisticVote(currentVote);
       }
     });
   };
@@ -104,6 +139,7 @@ export function VoteControlsRow({
   const showWtwButton = !isContinuation && !optimisticWtw;
 
   return (
+    <>
     <div className="mt-4 flex flex-wrap items-center gap-2">
       <div
         role="group"
@@ -217,5 +253,75 @@ export function VoteControlsRow({
         </span>
       )}
     </div>
+
+    <Dialog.Root open={continuationPromptOpen} onOpenChange={setContinuationPromptOpen}>
+      <Dialog.Portal>
+        <Dialog.Overlay
+          className="
+            fixed inset-0 z-40 bg-surface-overlay/70 backdrop-blur-sm
+          "
+        />
+        <Dialog.Content
+          className="
+            fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md
+            -translate-x-1/2 -translate-y-1/2
+            rounded-md border border-border bg-surface-elevated
+            p-6 shadow-lg focus:outline-none
+          "
+        >
+          <Dialog.Title className="font-display text-xl font-bold text-ink">
+            Step back from “{title}”?
+          </Dialog.Title>
+          <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
+            You&rsquo;re currently Watching this show. A Disagree usually
+            means you&rsquo;re done with it — pick how to update your list,
+            and we&rsquo;ll record the Disagree for future recs.
+          </Dialog.Description>
+          <div className="mt-6 flex flex-wrap justify-end gap-2">
+            <Dialog.Close asChild>
+              <button
+                type="button"
+                className="
+                  rounded-sm border border-border bg-surface px-4 py-2
+                  font-mono text-mono uppercase text-ink-secondary
+                  hover:border-border-strong
+                  focus-visible:outline-2 focus-visible:outline-accent
+                  focus-visible:outline-offset-2
+                "
+              >
+                Cancel
+              </button>
+            </Dialog.Close>
+            <button
+              type="button"
+              onClick={() => onResolveContinuation("paused")}
+              className="
+                rounded-sm border border-border bg-surface px-4 py-2
+                font-mono text-mono uppercase text-ink
+                hover:border-accent hover:text-accent
+                focus-visible:outline-2 focus-visible:outline-accent
+                focus-visible:outline-offset-2
+              "
+            >
+              Move to Paused
+            </button>
+            <button
+              type="button"
+              onClick={() => onResolveContinuation("dropped")}
+              className="
+                rounded-sm border border-danger bg-danger px-4 py-2
+                font-mono text-mono uppercase text-accent-fg
+                hover:opacity-90
+                focus-visible:outline-2 focus-visible:outline-danger
+                focus-visible:outline-offset-2
+              "
+            >
+              Move to Dropped
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+    </>
   );
 }
