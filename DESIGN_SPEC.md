@@ -426,7 +426,7 @@ Per PRD §6.1 + §7.2.
 
 #### Current shape (M3c — fixed top header)
 
-**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered as an inline-SVG React component (`src/components/logo.tsx`) so the strokes use `currentColor` — set the wrapping link's `text-…` class and the logo follows the theme without a CSS filter. Sized at `h-10` (40px) in the layout to match the icon-button rail; larger (`h-40` / `sm:h-48`) on the login card.
+**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered as an inline-SVG React component (`src/components/logo.tsx`) so the strokes use `currentColor` — set the wrapping link's `text-…` class and the logo follows the theme without a CSS filter. The wrapper carries the same `bg-surface-elevated border border-border-strong rounded-sm px-3` treatment as the icon buttons across the top so it stays self-contained against content scrolling underneath (it's `position: fixed`). Wrapper is `h-10`; the SVG inside is `h-8` with horizontal padding for breathing room. The login card uses the bare logo (no badge) at `h-40` / `sm:h-48` since there's no scroll-overlap concern on a centered hero.
 
 **Top-right:** three icon controls + IdentityChip, anchored on every authenticated page:
 

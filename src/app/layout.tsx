@@ -62,13 +62,15 @@ export default async function RootLayout({
             aria-label="Next on Wembley — back to your list"
             className="
               fixed left-4 top-4 z-30
-              inline-flex h-10 items-center text-ink
-              transition-colors hover:text-accent
+              inline-flex h-10 items-center
+              rounded-sm border border-border-strong bg-surface-elevated px-3
+              text-ink
+              transition-colors hover:border-accent hover:text-accent
               focus-visible:outline-2 focus-visible:outline-accent-sharp
               focus-visible:outline-offset-2
             "
           >
-            <Logo className="h-10 w-auto" title="" />
+            <Logo className="h-8 w-auto" title="" />
           </Link>
         )}
         {user && (
