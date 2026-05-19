@@ -1,7 +1,12 @@
 "use client";
 
-import { PencilSimple } from "@phosphor-icons/react";
-import type { WatchEntryWithShow } from "@/app/actions/watch-entries";
+import { useState, useTransition } from "react";
+import * as Dialog from "@radix-ui/react-dialog";
+import { PencilSimple, Trash } from "@phosphor-icons/react";
+import {
+  deleteWatchEntry,
+  type WatchEntryWithShow,
+} from "@/app/actions/watch-entries";
 import {
   STATUS_LABELS,
   RATING_LABELS,
@@ -25,6 +30,18 @@ type Props = {
 export function WatchEntryCard({ entry, onEdit }: Props) {
   const { show, status, currentSeason, userRating } = entry;
   const isInProgress = status === "watching" || status === "paused";
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [isRemoving, startRemove] = useTransition();
+
+  const onConfirmRemove = () => {
+    startRemove(async () => {
+      const r = await deleteWatchEntry(entry.id);
+      if (r.ok) {
+        setRemoveOpen(false);
+      }
+    });
+  };
+
   return (
     <article
       className="
@@ -90,21 +107,97 @@ export function WatchEntryCard({ entry, onEdit }: Props) {
           </div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        aria-label={`Edit ${show.title}`}
-        className="
-          inline-flex h-9 w-9 flex-shrink-0 items-center justify-center
-          rounded-sm border border-border bg-surface
-          text-ink-secondary
-          transition-colors hover:border-accent hover:text-accent
-          focus-visible:outline-2 focus-visible:outline-accent-sharp
-          focus-visible:outline-offset-2
-        "
-      >
-        <PencilSimple size={16} weight="regular" />
-      </button>
+      <div className="flex flex-shrink-0 flex-col gap-1">
+        <button
+          type="button"
+          onClick={onEdit}
+          aria-label={`Edit ${show.title}`}
+          className="
+            inline-flex h-9 w-9 items-center justify-center
+            rounded-sm border border-border bg-surface
+            text-ink-secondary
+            transition-colors hover:border-accent hover:text-accent
+            focus-visible:outline-2 focus-visible:outline-accent-sharp
+            focus-visible:outline-offset-2
+          "
+        >
+          <PencilSimple size={16} weight="regular" />
+        </button>
+        <Dialog.Root open={removeOpen} onOpenChange={setRemoveOpen}>
+          <Dialog.Trigger asChild>
+            <button
+              type="button"
+              aria-label={`Remove ${show.title}`}
+              className="
+                inline-flex h-9 w-9 items-center justify-center
+                rounded-sm border border-border bg-surface
+                text-ink-muted
+                transition-colors hover:border-danger hover:text-danger
+                focus-visible:outline-2 focus-visible:outline-danger
+                focus-visible:outline-offset-2
+              "
+            >
+              <Trash size={16} weight="regular" />
+            </button>
+          </Dialog.Trigger>
+          <Dialog.Portal>
+            <Dialog.Overlay
+              className="
+                fixed inset-0 z-40 bg-surface-overlay/70 backdrop-blur-sm
+              "
+            />
+            <Dialog.Content
+              className="
+                fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm
+                -translate-x-1/2 -translate-y-1/2
+                rounded-md border border-border bg-surface-elevated
+                p-6 shadow-lg focus:outline-none
+              "
+            >
+              <Dialog.Title className="font-display text-xl font-bold text-ink">
+                Remove “{show.title}”?
+              </Dialog.Title>
+              <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
+                Removes this show from your list with no signal either way —
+                it can still be recommended in the future.
+              </Dialog.Description>
+              <div className="mt-6 flex justify-end gap-2">
+                <Dialog.Close asChild>
+                  <button
+                    type="button"
+                    disabled={isRemoving}
+                    className="
+                      rounded-sm border border-border bg-surface px-4 py-2
+                      font-mono text-mono uppercase text-ink-secondary
+                      hover:border-border-strong
+                      focus-visible:outline-2 focus-visible:outline-accent
+                      focus-visible:outline-offset-2
+                      disabled:cursor-not-allowed disabled:opacity-60
+                    "
+                  >
+                    Cancel
+                  </button>
+                </Dialog.Close>
+                <button
+                  type="button"
+                  onClick={onConfirmRemove}
+                  disabled={isRemoving}
+                  className="
+                    rounded-sm border border-danger bg-danger px-4 py-2
+                    font-mono text-mono uppercase text-accent-fg
+                    hover:opacity-90
+                    focus-visible:outline-2 focus-visible:outline-danger
+                    focus-visible:outline-offset-2
+                    disabled:cursor-not-allowed disabled:opacity-60
+                  "
+                >
+                  {isRemoving ? "Removing…" : "Remove"}
+                </button>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </div>
     </article>
   );
 }

@@ -200,6 +200,10 @@ export async function deleteWatchEntry(
   }
   await prisma.watchEntry.delete({ where: { id } });
   revalidatePath("/");
+  // /recs derives the per-card WTW button visibility from a user's
+  // watch-history set, so a remove needs to flip that back to "show
+  // the Want to Watch button" on next render.
+  revalidatePath("/recs");
   return { ok: true };
 }
 

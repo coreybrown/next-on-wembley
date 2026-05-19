@@ -1,7 +1,23 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { WatchEntryCard } from "@/components/watch-entry-card";
+
+const mockDeleteWatchEntry = vi.fn();
+vi.mock("@/app/actions/watch-entries", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/app/actions/watch-entries")
+  >("@/app/actions/watch-entries");
+  return {
+    ...actual,
+    deleteWatchEntry: mockDeleteWatchEntry,
+  };
+});
+
+const { WatchEntryCard } = await import("@/components/watch-entry-card");
+
+beforeEach(() => {
+  mockDeleteWatchEntry.mockReset().mockResolvedValue({ ok: true });
+});
 
 const baseEntry = {
   id: 1,
@@ -68,5 +84,31 @@ describe("WatchEntryCard", () => {
       screen.getByRole("button", { name: /edit severance/i }),
     );
     expect(onEdit).toHaveBeenCalledOnce();
+  });
+
+  it("opens a confirmation dialog and removes the entry when confirmed", async () => {
+    const user = userEvent.setup();
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} />);
+    await user.click(
+      screen.getByRole("button", { name: /remove severance/i }),
+    );
+    // Dialog renders with explanation that no signal is added.
+    expect(
+      screen.getByText(/no signal either way/i),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^remove$/i }));
+    await waitFor(() => {
+      expect(mockDeleteWatchEntry).toHaveBeenCalledWith(1);
+    });
+  });
+
+  it("does not call delete when the user cancels the dialog", async () => {
+    const user = userEvent.setup();
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} />);
+    await user.click(
+      screen.getByRole("button", { name: /remove severance/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^cancel$/i }));
+    expect(mockDeleteWatchEntry).not.toHaveBeenCalled();
   });
 });
