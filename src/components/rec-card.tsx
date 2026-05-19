@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useOptimistic, useTransition } from "react";
-import {
-  CaretDown,
-  CaretUp,
-  ThumbsUp,
-  ThumbsDown,
-  Question,
-  Plus,
-  Check,
-} from "@phosphor-icons/react";
-import type { VoteValue } from "@prisma/client";
+import { useState } from "react";
+import Link from "next/link";
+import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
 import type { RecListItemView } from "@/app/actions/recommendations";
-import { voteOnRecAction, clearVoteAction } from "@/app/actions/rec-votes";
-import { addToWantToWatchAction } from "@/app/actions/rec-watchlist";
+import { VoteControlsRow } from "@/components/vote-controls-row";
 
 const PLATFORM_NAME = new Map<string, string>(
   PLATFORMS.map((p) => [p.key, p.displayName]),
@@ -22,71 +13,14 @@ const PLATFORM_NAME = new Map<string, string>(
 
 const VISIBLE_PROVIDERS = 2;
 
-const VOTE_OPTIONS: Array<{
-  value: VoteValue;
-  label: string;
-  Icon: typeof ThumbsUp;
-}> = [
-  { value: "agree", label: "Agree", Icon: ThumbsUp },
-  { value: "maybe", label: "Maybe", Icon: Question },
-  { value: "disagree", label: "Disagree", Icon: ThumbsDown },
-];
-
 type Props = { item: RecListItemView };
 
 export function RecCard({ item }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [, startTransition] = useTransition();
-  const [optimisticVote, setOptimisticVote] = useOptimistic<
-    VoteValue | null,
-    VoteValue | null
-  >(item.currentVote, (_, next) => next);
-  // Local optimistic flag for WTW since the server-revalidated state
-  // (inWatchHistory: true) flips the prop after the next render.
-  const [optimisticWtw, setOptimisticWtw] = useOptimistic(
-    item.inWatchHistory,
-    (_, next: boolean) => next,
-  );
-  const [wtwError, setWtwError] = useState<string | null>(null);
 
   const visibleProviders = item.providerKeys.slice(0, VISIBLE_PROVIDERS);
   const overflowCount = item.providerKeys.length - visibleProviders.length;
-
-  const onVote = (next: VoteValue) => {
-    if (!item.canVote) return;
-    // Toggle off when re-clicking the already-selected pill.
-    const target: VoteValue | null = optimisticVote === next ? null : next;
-    startTransition(async () => {
-      setOptimisticVote(target);
-      if (target == null) {
-        await clearVoteAction(item.id);
-      } else {
-        await voteOnRecAction(item.id, target);
-      }
-    });
-  };
-
-  const onAddToWtw = () => {
-    setWtwError(null);
-    startTransition(async () => {
-      setOptimisticWtw(true);
-      const r = await addToWantToWatchAction(item.id);
-      if (!r.ok) {
-        // Revalidation will revert optimisticWtw on the next render; show
-        // the error inline so the user knows why nothing changed.
-        const message =
-          r.error === "already_in_history"
-            ? "Already on your list under another status."
-            : "Couldn't add — try again.";
-        setWtwError(message);
-      }
-    });
-  };
-
-  // Continuations are by definition already on the user's list, so the
-  // WTW button is meaningless there. Otherwise hide once the show is
-  // already in history.
-  const showWtwButton = !item.isContinuation && !optimisticWtw;
+  const detailHref = `/show/${item.tmdbId}?recItem=${item.id}`;
 
   return (
     <article
@@ -104,27 +38,44 @@ export function RecCard({ item }: Props) {
         >
           {item.position}
         </span>
-        {item.posterUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={item.posterUrl}
-            alt=""
-            width={64}
-            height={96}
-            className="h-[96px] w-16 rounded-sm bg-surface-overlay object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="h-[96px] w-16 rounded-sm bg-surface-overlay"
-          />
-        )}
+        <Link
+          href={detailHref}
+          aria-label={`Open details for ${item.title}`}
+          className="
+            focus-visible:outline-2 focus-visible:outline-accent
+            focus-visible:outline-offset-2
+          "
+        >
+          {item.posterUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={item.posterUrl}
+              alt=""
+              width={64}
+              height={96}
+              className="h-[96px] w-16 rounded-sm bg-surface-overlay object-cover"
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="h-[96px] w-16 rounded-sm bg-surface-overlay"
+            />
+          )}
+        </Link>
       </div>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3 className="font-display text-lg font-bold text-ink">
-            {item.title}
+            <Link
+              href={detailHref}
+              className="
+                hover:underline focus-visible:underline
+                focus-visible:outline-none
+              "
+            >
+              {item.title}
+            </Link>
             {item.year && (
               <span className="ml-2 font-mono text-mono uppercase text-ink-muted">
                 {item.year}
@@ -211,90 +162,14 @@ export function RecCard({ item }: Props) {
           )}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label={
-              item.canVote
-                ? `Vote on ${item.title}`
-                : `${item.title} vote (read-only)`
-            }
-            className="flex items-center gap-1"
-          >
-            {VOTE_OPTIONS.map(({ value, label, Icon }) => {
-              const selected = optimisticVote === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => onVote(value)}
-                  disabled={!item.canVote}
-                  aria-pressed={selected}
-                  aria-label={label}
-                  title={
-                    item.canVote
-                      ? undefined
-                      : "Only the list owner can vote here"
-                  }
-                  className={`
-                    inline-flex items-center gap-1
-                    rounded-pill border px-3 py-1
-                    font-mono text-mono uppercase
-                    transition-colors
-                    focus-visible:outline-2 focus-visible:outline-accent
-                    focus-visible:outline-offset-2
-                    disabled:cursor-not-allowed disabled:opacity-60
-                    ${
-                      selected
-                        ? "border-accent bg-accent text-accent-fg"
-                        : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                    }
-                  `}
-                >
-                  <Icon size={14} weight={selected ? "fill" : "regular"} aria-hidden />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {showWtwButton && (
-            <button
-              type="button"
-              onClick={onAddToWtw}
-              className="
-                inline-flex items-center gap-1
-                rounded-pill border border-border bg-surface px-3 py-1
-                font-mono text-mono uppercase text-ink-secondary
-                transition-colors hover:border-border-strong
-                focus-visible:outline-2 focus-visible:outline-accent
-                focus-visible:outline-offset-2
-              "
-            >
-              <Plus size={14} weight="bold" aria-hidden />
-              <span>Want to Watch</span>
-            </button>
-          )}
-          {!showWtwButton && !item.isContinuation && optimisticWtw && (
-            <span
-              className="
-                inline-flex items-center gap-1
-                font-mono text-mono uppercase text-ink-muted
-              "
-            >
-              <Check size={14} weight="bold" aria-hidden />
-              <span>On your list</span>
-            </span>
-          )}
-          {wtwError && (
-            <span
-              role="status"
-              className="font-mono text-mono uppercase text-ink-muted"
-            >
-              {wtwError}
-            </span>
-          )}
-        </div>
+        <VoteControlsRow
+          itemId={item.id}
+          title={item.title}
+          currentVote={item.currentVote}
+          canVote={item.canVote}
+          isContinuation={item.isContinuation}
+          inWatchHistory={item.inWatchHistory}
+        />
       </div>
     </article>
   );

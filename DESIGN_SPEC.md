@@ -360,27 +360,27 @@ Adds in order: long LLM explanation (≤300 chars), seasons/episodes count, all 
 
 ### 5.2 ShowDetailPanel
 
-Per PRD §6.6 — hybrid route + drawer via Next.js intercepting + parallel routes.
+Per PRD §6.6.
 
-#### Drawer behavior
+#### Current shape (Phase 20) — full-page route only
+
+- Reached via direct route push (`/show/[tmdbId]`) from RecCard poster/title; full-page framed by the app shell. Optional `?recItem=N` adds the rec-context section.
+- **Back affordance:** persistent "Back to recs" link at the top-left of the main content. Browser back also works.
+- **Layout (vertical):** Title (Fraunces 700) + optional Continuation badge → poster + metadata grid (TMDb rating, genres, season-count split, status with caveat, trailer link) → Where-to-watch chip row with "Not on your subscriptions" badge → optional rec-context block (long LLM explanation + VoteControlsRow) → "Your list" read-only summary with pointer to dashboard for edits.
+
+#### Drawer + parallel-route variant (Phase 20b, deferred)
 
 - **Desktop (>768px):** right-side panel, ~480px wide, slides in from right (`--motion-base`, 240ms ease-out). No scrim — list stays scannable. Originating list scroll position preserved.
 - **Mobile (≤768px):** bottom sheet, full width, top-anchored at ~85vh. Slides up from below (`--motion-base`). Drag handle at top edge, `--radius-xl` top corners. Swipe-down close threshold: >40% sheet height OR velocity > 0.5; below threshold snaps back. Scrim `--color-surface-overlay` at appropriate alpha; tap-to-close.
+- **Focus management:** on open focus moves to drawer close IconButton, Radix `Dialog` traps. On close restores focus to the originating card (`document.activeElement` snapshot) and `scrollY`.
 
-#### Full-page behavior
+#### Inline-edit affordances (Phase 20c, deferred)
 
-- Reached via direct URL hit (`/show/[tmdb_id]`). Same component tree, framed by app shell (NavBar + page padding). Close affordance becomes a "Back" Button (browser back if history exists; explicit nav otherwise).
-
-#### Focus management
-
-- On open: focus moves to drawer close IconButton (or title `<h1>` for full-page).
-- Focus trap while open — use Radix `Dialog`.
-- On close: restore focus to the originating card or list item (snapshot `document.activeElement` at open time).
-- Esc closes. `scrollY` snapshotted on open, restored on close.
+StatusSelect + SeasonStepper + Finished-it shortcut for users who already have the show on their list. Today the detail page is read-only for the WatchEntry and routes the user back to the dashboard for edits — those affordances live on WatchEntryCard / InProgressCard.
 
 #### Rec-context variant
 
-Opened from a rec card. Adds at the top: long LLM explanation (≤300 chars) inside an outlined block, the VotePillGroup, partner-vote indicator (M4+). "Add to Want to Watch" Button replaces with full StatusSelect since the user is now in detail context.
+Opened with `?recItem=N`. Adds at the top: long LLM explanation (≤300 chars) inside its own section, plus the VoteControlsRow (same component the RecCard uses) carrying vote pills + "Add to Want to Watch". Pill `canVote` honors the Phase 15.1 ownership rule.
 
 ### 5.3 RefreshHeader + rec-gen flow
 

@@ -219,20 +219,18 @@ Next on Wembley fills that gap for personal household use.
 
 ### 6.6 Show Detail
 
-A single Show Detail surface is reached by tapping the poster or title from any of: a rec card, a watch history entry row, a search result, an In-Progress entry.
+A single Show Detail surface is reached by tapping the poster or title from a rec card. Linking from watch history rows and In-Progress entries is **deferred** — those cards already carry inline edit affordances on the dashboard so the round-trip isn't necessary.
 
 - **Content:**
-  - Full TMDb metadata: title, poster, genres, season + episode counts, air dates, TMDb community rating, production status (with "may change" caveat per §6.3), trailer.
-  - Canadian provider chips, filtered to the user's active subscriptions; shows not on any active sub display the "Unavailable on your subscriptions" badge.
-  - The current user's relationship to the show: if a `WatchEntry` exists, status + `current_season` + rating with inline edit controls (status change, +/- season, "Finished it" shortcut, rating). If no entry, action buttons to add it (Add to Want to Watch / Watching / Completed / Dropped).
-  - When entered from a recommendation context (rec card tap): vote pills (the user's vote + partner's vote per M4+), and the LLM explanation in its long form (≤300 chars per §6.4.3). Voting and Add-to-WTW work the same as from the rec card.
-- **Routing pattern: hybrid route + drawer.**
-  - URL always reflects the open show (`/show/[tmdb_id]`) so any state can be shared via a copied link.
-  - When entered from within the app (in-app navigation), Show Detail renders as a **drawer** over the originating list (right-side panel on desktop, bottom sheet on mobile) so the list stays visible and scroll position is preserved. Implementation: Next.js intercepting routes / parallel routes.
-  - When entered via a fresh URL (cold load, shared link), renders as a **full page**.
+  - Full TMDb metadata: title, poster, genres, season + episode counts (with aired-vs-announced split when they diverge), air dates, TMDb community rating, production status (with "may change" caveat per §6.3), trailer.
+  - Canadian provider chips, showing every CA platform the show is on with a "Not on your subscriptions" badge when there's no overlap with the user's active subs.
+  - The current user's relationship to the show: if a `WatchEntry` exists, status + `current_season` + rating displayed read-only with a pointer back to the dashboard for edits. Inline edit affordances (status change, +/- season, "Finished it" shortcut, rating) are **deferred** to a follow-up phase; the dashboard cards already handle these flows.
+  - When entered from a recommendation context (`?recItem=N`): vote pills (the owner's vote per Phase 15.1 ownership rules — partner sees read-only on user-scoped lists) + "Add to Want to Watch" button, plus the LLM explanation in its long form (≤300 chars per §6.4.3). Voting and Add-to-WTW work the same as from the rec card.
+- **Routing pattern (current — Phase 20):** full page only at `/show/[tmdbId]` (optionally `?recItem=N` for rec context). In-app navigation pushes a new route; the list page yields to the detail page rather than overlaying a drawer.
+- **Routing pattern (Phase 20b, deferred):** intercepting / parallel routes layer a drawer over the originating list when navigated in-app, preserving scroll position; the standalone full-page route still works for shared links and cold loads.
 - **Close behavior:**
-  - Drawer: Esc key, swipe-down (mobile), or X button. Returns to the originating list at the prior scroll position.
-  - Full page: browser back (or an explicit "Back" affordance if there's no history, e.g., link arrival).
+  - Full page: browser back, or the "Back to recs" affordance at the top of the page (always shown — useful when arriving from a shared link).
+  - Drawer (Phase 20b): Esc, swipe-down (mobile), or X. Returns to the originating list at the prior scroll position.
 
 ### 6.7 UI States
 
