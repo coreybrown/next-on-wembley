@@ -99,6 +99,7 @@ Next on Wembley fills that gap for personal household use.
   - **Paused:** the user has started the show but is on hold (drifted off, between seasons, lost the remote, etc.). Carries no negative signal to the LLM. Excluded from rec lists (no continuations surface) until the user moves it back to `Watching`.
   - **Dropped:** active rejection. Strong negative signal; excluded from all recommendations.
 - Edit and delete entries.
+- **Remove ≠ Dropped.** Each entry card carries a Remove button (with a confirm step) that deletes the `WatchEntry` outright. Remove is a **neutral** action — it carries no signal in either direction. Use it when the original add was accidental (a misclick on Want-to-Watch, an exploratory add). `Dropped` is the right status when the user actively rejects a show and wants future recs to treat it as a negative signal.
 - **In-Progress view:** shows with status `Watching` displayed prominently.
   - For each entry: title, poster, `current_season`, and an indicator of how many episodes/seasons remain (derived from TMDb's total episode count vs. user's current season).
   - Each entry also displays the show's **TMDb production status verbatim** (e.g., "Returning Series", "Ended", "Canceled") accompanied by a small caveat note (e.g., "Per TMDb — may change") to acknowledge that this status is not a permanent claim: shows are renewed, revived, or cancelled dynamically.
@@ -142,15 +143,17 @@ Next on Wembley fills that gap for personal household use.
 
 #### 6.4.4 Voting
 - For each recommendation, each user can vote **Agree / Disagree / Maybe**.
-- Votes are visible to the other user (e.g., "Jaimie: Agree, Corey: Maybe").
-- Vote effects:
+- **Votes are stored per `(user, show)`**, not per recommendation item. The same vote applies to the show across every list it appears on, and **persists across refreshes** — a new LLM run does not wipe prior votes.
+- **List-owner enforcement.** A vote on a user-scoped tab is the *owner's* vote: only the user named in the tab (Corey on Corey's Picks, Jaimie on Jaimie's Picks) can cast or clear it. The partner viewing that tab sees the owner's vote rendered **read-only** — same pills, with the active selection visible and the buttons disabled (with a "Only the list owner can vote here" tooltip). This makes the partner's view a faithful preview of what the owner sees, while preventing accidental cross-user vote writes.
+- **Co-watch voting** is per-viewer: each user casts their own vote on a Co-watch card, partner visibility is hidden until M4. The owner-enforcement rule above does not apply because there is no single owner.
+- **Vote effects:**
   - **Agree:** boosts ranking signal for that user in the next LLM run.
-  - **Disagree:** **excludes** the show from that user's individual Picks list permanently. In Co-watch, the show is *not* excluded — see the split rule below. The exclusion is reversible: re-voting Agree or Maybe on the show (reached via search or show detail) clears the exclusion.
+  - **Disagree:** **hides the show** from that user's individual Picks list on display (immediate effect; positions renumber to close the gap), and is included in the recent-votes context passed to the LLM so future runs don't re-suggest it. Reversible: re-voting Agree or Maybe (which still requires reaching the card; covered in M3c surfacing work) clears the hide. In Co-watch, the show is *not* hidden in M3 — see the M4 split rule below.
   - **Maybe:** neutral-positive — counted as mildly interested but not actively boosted.
-- **Re-casting votes:** votes are mutable. Each (user, recommendation_item) pair has at most one stored vote; clicking a different pill overwrites the previous value. No vote history is kept in v1.
-- **Voting on a continuation rec** (a show already in the user's `Watching` list): vote pills are present on the card, but clicking **Disagree** opens a small prompt — *"You're currently Watching this. Move to Paused or Dropped?"* — because a Disagree on something you're already watching usually means you're done with it. The Disagree vote itself is not recorded until the user resolves the prompt (Paused or Dropped); dismissing cancels the action. Agree and Maybe on continuations behave normally.
+- **Re-casting votes:** votes are mutable. Each `(user, show)` pair has at most one stored vote; clicking a different pill overwrites the previous value, and clicking the already-active pill clears it (no vote). No vote history is kept in v1.
+- **Voting on a continuation rec** (a show already in the user's `Watching` list): vote pills are present on the card, but clicking **Disagree** opens a small prompt — *"You're currently Watching this. Move to Paused or Dropped?"* — because a Disagree on something you're already watching usually means you're done with it. The Disagree vote itself is not recorded until the user resolves the prompt (Paused or Dropped); dismissing cancels the action. (The Disagree-on-continuation prompt itself ships in M4.) Agree and Maybe on continuations behave normally.
 - **Votes do not re-rank the current list.** They are recorded and fed into the next LLM run when the user hits Refresh. This keeps the displayed rank consistent with the LLM's stated explanation for that run.
-- **Co-watch split rule (overrides per-user exclude):** when partners cast opposing votes on a Co-watch recommendation (one Agree, one Disagree), the rec is **demoted** in the next Co-watch run — not excluded — so the Agreer's positive signal can still surface a co-watch candidate. Maybe + Agree is treated as positive; Maybe + Disagree is treated as negative.
+- **Co-watch split rule (M4 — overrides per-user exclude):** when partners cast opposing votes on a Co-watch recommendation (one Agree, one Disagree), the rec is **demoted** in the next Co-watch run — not excluded — so the Agreer's positive signal can still surface a co-watch candidate. Maybe + Agree is treated as positive; Maybe + Disagree is treated as negative.
 - A Disagree affects only the disagreeing user's individual Picks list. The partner can still see the show in their own Picks, and (subject to the split rule) in Co-watch.
 - The LLM does **not** generalize from a Disagree to similar shows in v1 (see §11 Future Considerations).
 
@@ -160,6 +163,9 @@ Next on Wembley fills that gap for personal household use.
 - If new episodes/seasons become available for a previously-Completed show, it re-enters the recommendation pool and is ranked accordingly.
 - **Subscription availability — new-show recs:** shows not available free-with-subscription in Canada on at least one of the relevant user's active subscriptions are **excluded** from new-show recs entirely. There's no commitment to break, and surfacing them would be unactionable.
 - **Subscription availability — continuation recs:** shows the user has already started (`Watching` status) but that are no longer available on their active subscriptions **still appear** as continuations, labeled **"Unavailable on your subscriptions."** The user has an existing investment in the show and may have an alternative way to watch.
+- **Continuation validation — aired-content check.** A continuation is only kept when the user has unwatched aired content remaining: either a later season has aired (per TMDb's listed per-season episode counts, which exclude announced-but-unaired seasons) or the user is mid-season. Shows where the user has finished the latest aired season are dropped from continuations even if TMDb's `totalSeasons` reflects a renewal — the next season exists on paper but has no episodes to watch yet. (Example: Severance S2 finished, S3 announced; not surfaced until S3 actually drops.)
+- **Continuation validation — must be in history.** A rec marked as a continuation is dropped if the show is not on any relevant user's list (`Watching` or `Paused`) — the LLM occasionally invents continuations for shows nobody has started. Without this guard the show would bypass the subscription gate and surface as a stranded "continuation" with no underlying entry.
+- **Per-list deduplication.** A single LLM response occasionally returns the same show twice (sometimes with near-identical explanations). The higher-ranked occurrence wins; subsequent duplicates are dropped before persistence.
 - **Search behaves differently from recs.** Search returns matching TMDb results regardless of availability so the user can look up externally-sourced suggestions; titles not on the user's active subscriptions are labeled **Unavailable on your subscriptions** in search results. Users can still **add unavailable shows to Want to Watch** (useful for tracking shows they'd watch via a future subscription or another means); the resulting `WatchEntry` carries the same "Unavailable on your subscriptions" badge until availability returns.
 
 #### 6.4.6 Filtering
@@ -191,6 +197,10 @@ Next on Wembley fills that gap for personal household use.
   - At 30s: an inline note appears near the skeletons — *"Taking longer than usual — the LLM is busy. Hang tight."*
   - At 60s: hard timeout. Show an error card in place of the new lists with a **Retry** button. The dimmed stale list remains intact and visible so the user is never stranded with nothing.
   - On transient errors (HTTP 5xx, Anthropic rate-limit responses): auto-retry **once** silently before surfacing the error card. On the second failure, show the error.
+- **Failure messages surface the underlying cause** so the user (or operator) knows what to act on, rather than a generic "try again":
+  - When every list shares the same error code, the message folds in the typed error from the SDK — e.g., *"All three lists failed to generate. Anthropic authentication failed — check ANTHROPIC_API_KEY."*
+  - When TMDb resolution or the subscription gate drops every candidate (`no_valid_items`), the message reads *"…the recommendation service returned picks, but none could be matched against TMDb or your subscriptions. Try a different mood, or check your active subscriptions in /settings."*
+  - On mixed error codes across the three lists, falls back to a generic *"N of 3 lists failed — try again in a moment."*
 - **Mood input persists across failures.** Typed mood text stays in the input box across failed Refresh attempts; it is cleared only on a successful generation or by the user manually clearing it.
 
 ### 6.5 External Data
@@ -199,6 +209,8 @@ Next on Wembley fills that gap for personal household use.
   - Production status (`status` field — e.g., "Returning Series", "Ended", "Canceled"; displayed verbatim with a "may change" caveat)
   - Trailers (`/tv/{id}/videos`)
   - Canadian streaming providers (`/tv/{id}/watch/providers` with region = `CA`, monetization = `flatrate`)
+- **Per-season aired episode counts** are kept on `Show.seasonsJson` (`[{ seasonNumber, episodeCount }, …]`, season 0 specials filtered, zero-episode seasons dropped). This is the canonical source for "has new content aired" decisions — `totalSeasons` can include announced-but-unaired renewals and is not safe to use for continuation eligibility.
+- **TMDb's CA provider data is uneven** — the same library surfaces under multiple `provider_id` values depending on access path (standalone app, Amazon Channel add-on, Apple TV Channel, ad-supported tier). We collapse every variant of each of the six supported platforms back to a single `PlatformKey` so subscription matching is robust even when only the channel-variant id is returned. Example: HBO content like *Succession* often returns only `2604` ("Crave Amazon Channel"), never `230` ("Crave") — both map to `crave`.
 - Metadata is cached locally to avoid repeated API hits and to keep ratings stable between recommendation runs.
 - Cache refresh policy:
   - Show metadata + ratings: weekly background refresh

@@ -275,7 +275,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 
 ### 4.2 Molecules
 
-- **VotePillGroup** — three pills (Agree / Disagree / Maybe), exclusive. *Props: `value`, `onChange`, `partnerVote?` (M4+), `isContinuation?` (gates Disagree prompt per PRD §6.4.4).* A11y: `role="radiogroup"` with `aria-label="Your vote"`; arrow keys move selection.
+- **VotePillGroup** — three pills (Agree / Disagree / Maybe), exclusive. *Props: `value`, `onChange`, `canVote` (false → renders read-only per PRD §6.4.4 list-owner rule), `partnerVote?` (M4+), `isContinuation?` (gates Disagree prompt per PRD §6.4.4).* When `canVote === false`, pills render with `disabled` + 60% opacity and a "Only the list owner can vote here" tooltip; `aria-pressed` still reflects the owner's selection so AT users see the value, just can't change it. A11y: `role="group"` with `aria-label="Vote on {title}"` (active) or `"{title} vote (read-only)"` (disabled); active pills use `aria-pressed`; arrow keys move selection when active.
 - **PlatformChipRow** — top-N platform chips + "+N more". *Props: `platforms`, `max=2` (compact) | `max=Infinity` (expanded), `unavailable?`.* Overflow trigger expands inline. A11y: `<button aria-expanded>`.
 - **StatusSelect** — 5-status picker (Want / Watching / Paused / Completed / Dropped). *Props: `value`, `onChange`, `compact?` (icon-only on mobile).* Each status paired with an icon. A11y: Radix Select or native; aria-label per status.
 - **SeasonStepper** — -1 / current / +1 control. *Props: `current`, `total?`, `onChange`.* States: -1 disabled at S1; +1 disabled at total. A11y: two `<button>` with `aria-label`; current value in a `<span aria-live="polite">`.
@@ -288,7 +288,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 
 - **RecCard** — see §5.1. Compact + expanded × mobile + desktop.
 - **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
-- **WatchHistoryRow** — full-history list row. Title, poster, status pill, rating, edit/delete overflow. Same row-pattern A11y as InProgressEntry.
+- **WatchHistoryRow** — full-history list row. Title, poster, status pill, rating, plus two IconButtons in the right-side rail: an **Edit** pencil (opens the edit dialog) and a **Remove** trash. Remove opens a Radix Dialog confirm with copy that spells out the neutral semantics — *"Removes this show from your list with no signal either way — it can still be recommended in the future."* — to distinguish it from the negative-signal `Dropped` status (PRD §6.3). Same row-pattern A11y as InProgressEntry.
 - **ShowDetailPanel** — see §5.2. Drawer + full-page variants; rec-context overlay adds long LLM explanation + VotePillGroup.
 - **RefreshHeader** — see §5.3. Timestamp + Refresh Button + MoodInput + nav pill state.
 - **FilterRail** (desktop) — persistent left/right rail, scrollable on overflow, sticky relative to rec list. A11y: `<aside aria-label="Filters">`.
@@ -348,6 +348,8 @@ Adds in order: long LLM explanation (≤300 chars), seasons/episodes count, all 
 | Stale (during rec-gen) | `opacity: 0.5`, `pointer-events: auto` — votes still recordable on stale cards (PRD §6.4.7) |
 | Continuation rec | Small "Continuing" Badge near title; Disagree opens prompt (M4+, PRD §6.4.4) |
 | Unavailable on subs | "Unavailable on your subscriptions" Badge under chips; poster gets duotone filter (see §9.4) |
+| Vote pills — read-only (partner viewing owner's tab) | Pills render with `disabled` + 60% opacity, `cursor: not-allowed`. The active selection still reads `aria-pressed="true"` so AT confirms the owner's pick. Tooltip on each pill: "Only the list owner can vote here." See PRD §6.4.4. |
+| Already on user's list | "Add to Want to Watch" button is replaced by an inline "On your list" tag (Check glyph + Chivo small caps). Continuations skip the WTW button entirely. |
 | Entrance animation | `ink-in` (see §8) on first paint after rec-gen |
 
 #### A11y
