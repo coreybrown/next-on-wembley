@@ -184,6 +184,38 @@ describe("buildUserPrompt", () => {
     });
     expect(out).toMatch(/exactly 32.*candidate/i);
   });
+
+  it("includes a 'Vote combinations on shared shows' section for co-watch when given (Phase 26)", () => {
+    const out = buildUserPrompt({
+      scope: "co_watch",
+      primary: corey,
+      other: jaimie,
+      sharedSubscriptions: [],
+      voteCombinations: [
+        { title: "The Sopranos", primaryVote: "agree", otherVote: "disagree" },
+        { title: "Yellowstone", primaryVote: "disagree", otherVote: "disagree" },
+      ],
+    });
+    expect(out).toMatch(/vote combinations on shared shows/i);
+    expect(out).toContain("The Sopranos: Corey: Agree, Jaimie: Disagree");
+    expect(out).toContain("Yellowstone: Corey: Disagree, Jaimie: Disagree");
+  });
+
+  it("omits the Vote-combinations section for user-scoped lists", () => {
+    const out = buildUserPrompt({
+      scope: "corey",
+      primary: corey,
+      voteCombinations: [
+        { title: "Anything", primaryVote: "agree", otherVote: "agree" },
+      ],
+    });
+    expect(out).not.toMatch(/vote combinations on shared shows/i);
+  });
+
+  it("system prompt teaches the co-watch split rule (Phase 26)", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/co-watch split rule/i);
+    expect(REC_SYSTEM_PROMPT).toMatch(/agree \+ disagree.*demote/i);
+  });
 });
 
 describe("RECOMMENDATIONS_SCHEMA", () => {

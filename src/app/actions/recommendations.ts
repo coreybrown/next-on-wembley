@@ -21,6 +21,7 @@ import {
   type RecommendationsResponse,
   type RawRecommendation,
   type WatchEntrySummary,
+  type VoteCombination,
 } from "@/lib/rec-prompts";
 import { getUserContext, intersectSubscriptions } from "@/lib/rec-context";
 import { titlesAreCompatible } from "@/lib/rec-titles";
@@ -185,6 +186,28 @@ async function resolveOwnerUserId(
   return u?.id ?? null;
 }
 
+// Co-watch only (Phase 26). Intersects the two users' recent votes by
+// show title so the LLM gets an explicit "split rule" input — each
+// entry says how Corey + Jaimie voted on the same show. The LLM
+// applies the CO-WATCH SPLIT RULE in the system prompt to demote splits
+// rather than excluding them.
+function computeVoteCombinations(
+  primary: { recentVotes: { title: string; vote: VoteValue }[] },
+  other: { recentVotes: { title: string; vote: VoteValue }[] },
+): VoteCombination[] {
+  const otherByTitle = new Map(
+    other.recentVotes.map((v) => [v.title, v.vote] as const),
+  );
+  const out: VoteCombination[] = [];
+  for (const pv of primary.recentVotes) {
+    const ov = otherByTitle.get(pv.title);
+    if (ov) {
+      out.push({ title: pv.title, primaryVote: pv.vote, otherVote: ov });
+    }
+  }
+  return out;
+}
+
 async function findOtherUserId(notUserId: number): Promise<number | null> {
   const u = await prisma.user.findFirst({
     where: { id: { not: notUserId } },
@@ -210,6 +233,7 @@ export async function generateRecommendations(
 
   // Build context per scope.
   let primaryContext, otherContext, sharedSubs;
+  let voteCombinations: VoteCombination[] | undefined;
   if (scope === "co_watch") {
     primaryContext = await getUserContext(triggerUser.id);
     const otherId = await findOtherUserId(triggerUser.id);
@@ -222,6 +246,7 @@ export async function generateRecommendations(
       primaryContext.subscriptions,
       otherContext.subscriptions,
     );
+    voteCombinations = computeVoteCombinations(primaryContext, otherContext);
   } else {
     const ownerId = await resolveOwnerUserId(scope, {
       id: triggerUser.id,
@@ -239,6 +264,7 @@ export async function generateRecommendations(
     primary: primaryContext,
     other: otherContext,
     sharedSubscriptions: sharedSubs,
+    voteCombinations,
     mood,
   });
 

@@ -59,6 +59,16 @@ CANDIDATE QUALITY
 - A "new pick" is a show NOT already on the user's list. Mark these with \`isContinuation: false\`.
 - Mix continuations with new picks in the same list when both apply. Rank by your judgement of fit.
 
+CO-WATCH SPLIT RULE (co_watch scope only)
+When the user prompt's "Vote combinations on shared shows" section lists shows where both Corey and Jaimie have voted, apply these treatments to the candidate's RANK in the Co-watch list:
+- Agree + Agree → strongly boost. Both want it.
+- Agree + Maybe (either order) → boost.
+- Maybe + Maybe → neutral.
+- Agree + Disagree (split — either order) → **DEMOTE** the rec (do not exclude). The agreer's positive signal still earns a slot, but rank it below unanimous picks.
+- Disagree + Maybe (either order) → demote-heavy. Lean negative; usually exclude unless very strong fit.
+- Disagree + Disagree → exclude. Neither wants it.
+This rule overrides the "don't recommend a show the user has Disagreed on" line above for co_watch only — a single Disagree on a Co-watch candidate demotes rather than excludes, so the partner's Agree still surfaces something for them together.
+
 OUTPUT FIELDS
 - \`tmdbId\` — TMDb id you believe is correct. Integer.
 - \`title\` — exact title as it appears on TMDb.
@@ -110,6 +120,15 @@ function formatSubs(subs: string[]): string {
   return subs.join(", ");
 }
 
+// Co-watch only. Each entry represents a show where BOTH household
+// members have voted; the prompt lists these so the LLM can apply the
+// CO-WATCH SPLIT RULE in the system prompt (Phase 26).
+export type VoteCombination = {
+  title: string;
+  primaryVote: VoteValue;
+  otherVote: VoteValue;
+};
+
 type BuildUserPromptInput = {
   scope: RecScope;
   primary: UserContext;
@@ -117,6 +136,9 @@ type BuildUserPromptInput = {
   other?: UserContext;
   // The intersection of subscriptions (co_watch only).
   sharedSubscriptions?: string[];
+  // Co-watch only — shows both users have voted on. Empty/omitted on
+  // user-scoped lists.
+  voteCombinations?: VoteCombination[];
   mood?: string;
   // How many raw candidates to ask the LLM for. Set by the action per
   // scope (co-watch asks for more). Defaults to 16 so test fixtures and
@@ -132,6 +154,7 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
     primary,
     other,
     sharedSubscriptions,
+    voteCombinations,
     mood,
     candidateCount = DEFAULT_CANDIDATE_COUNT,
   } = input;
@@ -159,6 +182,18 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
     lines.push(`${primary.displayName}'s recent votes:\n${formatVotes(primary.recentVotes)}`);
     lines.push("");
     lines.push(`${other.displayName}'s recent votes:\n${formatVotes(other.recentVotes)}`);
+    // CO-WATCH SPLIT RULE input (Phase 26). When both households have
+    // voted on the same show, list the combination so the LLM applies
+    // the rank treatment described in the system prompt.
+    if (voteCombinations && voteCombinations.length > 0) {
+      lines.push("");
+      lines.push("Vote combinations on shared shows:");
+      for (const c of voteCombinations) {
+        lines.push(
+          `- ${c.title}: ${primary.displayName}: ${VOTE_TEXT[c.primaryVote]}, ${other.displayName}: ${VOTE_TEXT[c.otherVote]}`,
+        );
+      }
+    }
   } else {
     lines.push(`${primary.displayName}'s active subscriptions: ${formatSubs(primary.subscriptions)}`);
     lines.push("");

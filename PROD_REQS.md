@@ -155,7 +155,15 @@ Next on Wembley fills that gap for personal household use.
 - **Re-casting votes:** votes are mutable. Each `(user, show)` pair has at most one stored vote; clicking a different pill overwrites the previous value, and clicking the already-active pill clears it (no vote). No vote history is kept in v1.
 - **Voting on a continuation rec** (a show already in the user's `Watching` list): vote pills are present on the card, but clicking **Disagree** opens a small prompt — *"You're currently Watching this. Move to Paused or Dropped?"* — because a Disagree on something you're already watching usually means you're done with it. The Disagree vote itself is not recorded until the user resolves the prompt (Paused or Dropped); dismissing cancels the action. (The Disagree-on-continuation prompt itself ships in M4.) Agree and Maybe on continuations behave normally.
 - **Votes do not re-rank the current list.** They are recorded and fed into the next LLM run when the user hits Refresh. This keeps the displayed rank consistent with the LLM's stated explanation for that run.
-- **Co-watch split rule (M4 — overrides per-user exclude):** when partners cast opposing votes on a Co-watch recommendation (one Agree, one Disagree), the rec is **demoted** in the next Co-watch run — not excluded — so the Agreer's positive signal can still surface a co-watch candidate. Maybe + Agree is treated as positive; Maybe + Disagree is treated as negative.
+- **Co-watch split rule (M4 Phase 26 — implemented):** when partners have voted on the same show, the LLM applies a combination rule at rank time. Implementation lives entirely in the prompt: `generateRecommendations` intersects both users' recent votes by show title and passes the pairs as a "Vote combinations on shared shows" section in the co_watch user prompt; the system prompt's CO-WATCH SPLIT RULE block tells the LLM how to treat each combo:
+  - Agree + Agree → strongly boost.
+  - Agree + Maybe (either order) → boost.
+  - Maybe + Maybe → neutral.
+  - Agree + Disagree (split, either order) → **demote** (not exclude) — the Agreer's positive signal still earns a slot, but ranked below unanimous picks.
+  - Disagree + Maybe (either order) → demote-heavy, usually exclude unless very strong fit.
+  - Disagree + Disagree → exclude.
+
+  This overrides the "don't recommend a Disagreed show" line for co_watch only — a single Disagree on a Co-watch candidate demotes rather than excludes. User-scoped lists keep the original hard-exclude semantics.
 - A Disagree affects only the disagreeing user's individual Picks list. The partner can still see the show in their own Picks, and (subject to the split rule) in Co-watch.
 - The LLM does **not** generalize from a Disagree to similar shows in v1 (see §11 Future Considerations).
 
