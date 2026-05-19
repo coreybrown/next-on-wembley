@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { RecScope } from "@prisma/client";
+import type { RecScope, VoteValue } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
@@ -424,6 +424,11 @@ export type RecListItemView = {
   isContinuation: boolean;
   providerKeys: string[];
   unavailable: boolean;
+  // The current user's vote on this item; null when they haven't voted.
+  currentVote: VoteValue | null;
+  // True when the current user already has the underlying show on their
+  // list (any status). Used to hide the Add-to-Want-to-Watch button.
+  inWatchHistory: boolean;
 };
 
 export type RecListView = {
@@ -451,11 +456,19 @@ export async function getLatestRunsForCurrentUser(): Promise<
   };
   if (!session.userId) return empty;
 
-  const subs = await prisma.userSubscription.findMany({
-    where: { userId: session.userId },
-    select: { platformKey: true },
-  });
+  const [subs, watchEntries] = await Promise.all([
+    prisma.userSubscription.findMany({
+      where: { userId: session.userId },
+      select: { platformKey: true },
+    }),
+    prisma.watchEntry.findMany({
+      where: { userId: session.userId },
+      select: { showId: true },
+    }),
+  ]);
   const subKeys = subs.map((s) => s.platformKey);
+  // O(1) lookup so the per-item RecCard view can hide the WTW button.
+  const watchedShowIds = new Set(watchEntries.map((e) => e.showId));
 
   const scopes: RecScope[] = ["co_watch", "corey", "jaimie"];
   const result = { ...empty };
@@ -470,6 +483,13 @@ export async function getLatestRunsForCurrentUser(): Promise<
             include: {
               show: {
                 include: { providers: { select: { platformKey: true } } },
+              },
+              // Eager-load just this user's vote on each item (the unique
+              // (itemId, userId) constraint guarantees 0 or 1 row).
+              votes: {
+                where: { userId: session.userId },
+                select: { vote: true },
+                take: 1,
               },
             },
           },
@@ -500,6 +520,9 @@ export async function getLatestRunsForCurrentUser(): Promise<
             isContinuation: item.isContinuation,
             providerKeys,
             unavailable,
+            currentVote: item.votes[0]?.vote ?? null,
+            inWatchHistory:
+              item.showId != null && watchedShowIds.has(item.showId),
           };
         }),
       };
