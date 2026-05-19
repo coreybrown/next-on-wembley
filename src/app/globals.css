@@ -99,23 +99,6 @@
 }
 
 /* ------------------------------------------------------------------
-   Theme-aware image inversion — for assets like the logo that are
-   dark strokes on transparent. Light theme leaves them alone; dark
-   theme inverts so the strokes read as the theme's cream ink.
-   ------------------------------------------------------------------ */
-.theme-invert-img {
-  filter: none;
-}
-[data-theme="dark"] .theme-invert-img {
-  filter: invert(1);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not([data-theme="dark"]) .theme-invert-img {
-    filter: invert(1);
-  }
-}
-
-/* ------------------------------------------------------------------
    Dark mode — OS preference fallback when no explicit override
    ------------------------------------------------------------------ */
 @media (prefers-color-scheme: dark) {

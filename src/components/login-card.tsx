@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { loginAction, type LoginState } from "@/lib/auth";
+import { Logo } from "@/components/logo";
 
 const initialState: LoginState = { error: null };
 
@@ -10,15 +11,8 @@ export function LoginCard() {
 
   return (
     <article className="w-full max-w-md">
-      <header className="mb-10 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="Next on Wembley"
-          width={120}
-          height={120}
-          className="theme-invert-img mx-auto mb-6 h-28 w-auto"
-        />
+      <header className="mb-10 text-center text-ink">
+        <Logo className="mx-auto mb-6 h-40 w-auto sm:h-48" />
         <p className="font-mono text-mono uppercase text-ink-muted">
           [a quiet borough · 2026]
         </p>

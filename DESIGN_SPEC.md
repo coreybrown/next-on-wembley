@@ -426,7 +426,7 @@ Per PRD §6.1 + §7.2.
 
 #### Current shape (M3c — fixed top header)
 
-**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered via `<img src="/logo.png">` plus the `theme-invert-img` class, which leaves strokes dark on the cream light theme and inverts them to cream on the aubergine dark theme.
+**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered as an inline-SVG React component (`src/components/logo.tsx`) so the strokes use `currentColor` — set the wrapping link's `text-…` class and the logo follows the theme without a CSS filter. Sized at `h-10` (40px) in the layout to match the icon-button rail; larger (`h-40` / `sm:h-48`) on the login card.
 
 **Top-right:** three icon controls + IdentityChip, anchored on every authenticated page:
 

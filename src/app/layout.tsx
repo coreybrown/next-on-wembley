@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { FilmReel, Sparkle } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { IdentityChip } from "@/components/identity-chip";
+import { Logo } from "@/components/logo";
 import { RefreshProvider } from "@/components/refresh-context";
 import { RefreshIndicator } from "@/components/refresh-indicator";
 import "./globals.css";
@@ -61,19 +62,13 @@ export default async function RootLayout({
             aria-label="Next on Wembley — back to your list"
             className="
               fixed left-4 top-4 z-30
-              inline-flex h-10 items-center
+              inline-flex h-10 items-center text-ink
+              transition-colors hover:text-accent
               focus-visible:outline-2 focus-visible:outline-accent-sharp
               focus-visible:outline-offset-2
             "
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt=""
-              width={40}
-              height={40}
-              className="theme-invert-img h-10 w-auto"
-            />
+            <Logo className="h-10 w-auto" title="" />
           </Link>
         )}
         {user && (
