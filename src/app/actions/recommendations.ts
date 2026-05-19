@@ -425,6 +425,9 @@ export type RecListItemView = {
   longExplanation: string;
   isContinuation: boolean;
   providerKeys: string[];
+  // Parsed from Show.genres (comma-separated). Used for the genre
+  // filter on /recs.
+  genres: string[];
   unavailable: boolean;
   // The vote shown on this card. For user-scoped lists (corey / jaimie)
   // this is the OWNER's vote — the partner sees the owner's selections
@@ -448,21 +451,42 @@ export type RecListView = {
   items: RecListItemView[];
 };
 
+export type RecsPageData = {
+  runs: Record<RecScope, RecListView | null>;
+  // Active subscription platform keys for the current user; the /recs
+  // filter UI uses this to render the platform chip group.
+  userSubKeys: string[];
+};
+
+// Parses Show.genres (comma-separated string per TMDb) into an array,
+// trimmed and deduped. Returns [] for null/empty input.
+function parseGenres(raw: string | null): string[] {
+  if (!raw) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(",")) {
+    const trimmed = part.trim();
+    if (trimmed && !seen.has(trimmed)) {
+      seen.add(trimmed);
+      out.push(trimmed);
+    }
+  }
+  return out;
+}
+
 // Loads the most-recent ok-status run for each scope and shapes the items
 // for /recs rendering. `unavailable` flags are computed against the
 // trigger user's own subs (the most useful gate for personal lists; the
 // co-watch list uses the same single-user view since both households
 // share most platforms).
-export async function getLatestRunsForCurrentUser(): Promise<
-  Record<RecScope, RecListView | null>
-> {
+export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
   const session = await getSession();
   const empty: Record<RecScope, RecListView | null> = {
     co_watch: null,
     corey: null,
     jaimie: null,
   };
-  if (!session.userId) return empty;
+  if (!session.userId) return { runs: empty, userSubKeys: [] };
 
   const [subs, watchEntries, coreyUser, jaimieUser] = await Promise.all([
     prisma.userSubscription.findMany({
@@ -511,7 +535,8 @@ export async function getLatestRunsForCurrentUser(): Promise<
             orderBy: { position: "asc" },
             include: {
               show: {
-                include: {
+                select: {
+                  genres: true,
                   providers: { select: { platformKey: true } },
                   // Owner's per-show vote, joined via Show so a vote
                   // cast in a prior run still applies here. The unique
@@ -574,6 +599,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
             longExplanation: item.longExplanation,
             isContinuation: item.isContinuation,
             providerKeys,
+            genres: parseGenres(item.show?.genres ?? null),
             unavailable,
             currentVote: item.show?.votes[0]?.vote ?? null,
             canVote,
@@ -584,5 +610,5 @@ export async function getLatestRunsForCurrentUser(): Promise<
       };
     }),
   );
-  return result;
+  return { runs: result, userSubKeys: subKeys };
 }

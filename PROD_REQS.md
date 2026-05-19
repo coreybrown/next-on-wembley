@@ -169,12 +169,13 @@ Next on Wembley fills that gap for personal household use.
 - **Search behaves differently from recs.** Search returns matching TMDb results regardless of availability so the user can look up externally-sourced suggestions; titles not on the user's active subscriptions are labeled **Unavailable on your subscriptions** in search results. Users can still **add unavailable shows to Want to Watch** (useful for tracking shows they'd watch via a future subscription or another means); the resulting `WatchEntry` carries the same "Unavailable on your subscriptions" badge until availability returns.
 
 #### 6.4.6 Filtering
-- Each list (recommendation or watch history) can be filtered by:
-  - **Platform** (subset of the user's subscribed platforms)
-  - **Genre**
-  - **Watched** / **In Progress** (status filter)
-  - **Corey Recommended** / **Jaimie Recommended** (whose pick the show is — for Co-watch list or combined views)
-- Filters **subset** the visible list; they do not reorder or expand it. The platform filter narrows the rec list further (e.g., "show me only Netflix picks from my Netflix + Crave subscriptions"); it cannot include platforms the user is not subscribed to (since those are already excluded by the §6.4.5 hard filter at rec generation time).
+- Each rec list can be filtered by:
+  - **Platform** (subset of the user's subscribed platforms — non-subscribed platforms aren't shown as filter options since they're already excluded by the §6.4.5 hard filter at rec generation time).
+  - **Genre** (derived from the genres present in the current list — empty when no items have parsed genres).
+- Filters **subset** the visible list; they do not reorder or expand it. The list header shows `showing N of M` while any filter is active so the user knows what's been hidden.
+- **Filters are URL-stateful.** Active filters serialize to query params (`?platform=netflix,crave&genre=Drama`) so the back button restores them and links can be shared with the filters applied. Multi-select (clicking a chip toggles it; the chip row + "Clear filters" affordance handle both directions).
+- **Multi-select semantics:** an item matches if it has at least one hit in each active facet (intersection across facets, union within a facet). Example: `platform=netflix,crave` + `genre=Drama` matches Drama shows available on Netflix OR Crave.
+- **Deferred filter facets:** Watched / In-Progress status filter (more relevant to Watch History views, which don't ship in M3); and Corey-recommended / Jaimie-recommended on Co-watch (depends on M4's whose-pick attribution).
 
 #### 6.4.7 Refresh Cadence & Generation UX
 - **Manual refresh** is the primary mechanism. A single **Refresh** button at the top of the Recommendations view regenerates all three lists (Co-watch, Corey, Jaimie) in parallel. There is no per-list refresh in v1 — this keeps Claude costs predictable, keeps the three lists consistent in age, and avoids refresh-fatigue.

@@ -28,6 +28,7 @@ const item = (overrides: Partial<RecListItemView> = {}): RecListItemView => ({
   longExplanation: "Longer pitch with more detail.",
   isContinuation: false,
   providerKeys: ["apple_tv_plus"],
+  genres: [],
   unavailable: false,
   currentVote: null,
   canVote: true,

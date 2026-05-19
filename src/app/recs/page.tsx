@@ -10,7 +10,7 @@ export default async function RecsPage() {
   if (!user) {
     redirect("/login");
   }
-  const initial = await getLatestRunsForCurrentUser();
+  const { runs, userSubKeys } = await getLatestRunsForCurrentUser();
 
   return (
     <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-16 sm:px-8 sm:py-20">
@@ -38,7 +38,7 @@ export default async function RecsPage() {
         <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />
       </header>
 
-      <RecsView initial={initial} />
+      <RecsView initial={runs} userSubKeys={userSubKeys} />
     </main>
   );
 }

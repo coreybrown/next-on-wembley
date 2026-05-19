@@ -31,6 +31,7 @@ const makeItem = (overrides: Record<string, unknown> = {}) => ({
   longExplanation: "Long.",
   isContinuation: false,
   providerKeys: ["netflix"],
+  genres: [],
   unavailable: false,
   currentVote: null,
   canVote: true,
@@ -56,6 +57,7 @@ describe("RecsView — empty state", () => {
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={[]}
       />,
     );
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
@@ -73,7 +75,7 @@ describe("RecsView — populated lists", () => {
   };
 
   it("defaults to Co-watch and shows its items", () => {
-    renderWithProvider(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
     expect(
       screen.getByRole("tab", { name: /co-watch/i }),
     ).toHaveAttribute("aria-selected", "true");
@@ -82,7 +84,7 @@ describe("RecsView — populated lists", () => {
 
   it("switches to Corey's tab on click", async () => {
     const user = userEvent.setup();
-    renderWithProvider(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
     await user.click(screen.getByRole("tab", { name: /corey's picks/i }));
     expect(screen.getByText("Corey Show")).toBeInTheDocument();
     expect(screen.queryByText("Co-watch Show")).not.toBeInTheDocument();
@@ -90,13 +92,13 @@ describe("RecsView — populated lists", () => {
 
   it("shows the empty state on Jaimie's tab (no list)", async () => {
     const user = userEvent.setup();
-    renderWithProvider(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
     await user.click(screen.getByRole("tab", { name: /jaimie's picks/i }));
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
   });
 
   it("shows the run header (date + model)", () => {
-    renderWithProvider(<RecsView initial={initial} />);
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
     expect(screen.getByText(/claude-haiku-4-5/i)).toBeInTheDocument();
   });
 });
@@ -112,6 +114,7 @@ describe("RecsView — refresh", () => {
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={[]}
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
@@ -127,6 +130,7 @@ describe("RecsView — refresh", () => {
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={[]}
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "   ");
@@ -144,6 +148,7 @@ describe("RecsView — refresh", () => {
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={[]}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -162,11 +167,72 @@ describe("RecsView — refresh", () => {
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={[]}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /1 of 3 lists failed/i,
     );
+  });
+});
+
+describe("RecsView — filters", () => {
+  const initial = {
+    co_watch: makeRun("co_watch", [
+      makeItem({
+        id: 1,
+        title: "Severance",
+        providerKeys: ["apple_tv_plus"],
+        genres: ["Drama", "Sci-Fi"],
+      }),
+      makeItem({
+        id: 2,
+        title: "Breaking Bad",
+        providerKeys: ["netflix"],
+        genres: ["Drama", "Crime"],
+      }),
+      makeItem({
+        id: 3,
+        title: "Ted Lasso",
+        providerKeys: ["apple_tv_plus"],
+        genres: ["Comedy"],
+      }),
+    ]),
+    corey: null,
+    jaimie: null,
+  };
+
+  it("renders platform chips for each of the user's active subs", () => {
+    renderWithProvider(
+      <RecsView
+        initial={initial}
+        userSubKeys={["netflix", "apple_tv_plus"]}
+      />,
+    );
+    const platformSection = screen.getByText(/^platform$/i).parentElement!;
+    expect(platformSection).toHaveTextContent(/netflix/i);
+    expect(platformSection).toHaveTextContent(/apple tv\+/i);
+  });
+
+  it("derives genre chips from the items in the current tab", () => {
+    renderWithProvider(
+      <RecsView initial={initial} userSubKeys={["netflix"]} />,
+    );
+    const genreSection = screen.getByText(/^genre$/i).parentElement!;
+    expect(genreSection).toHaveTextContent("Drama");
+    expect(genreSection).toHaveTextContent("Sci-Fi");
+    expect(genreSection).toHaveTextContent("Comedy");
+    expect(genreSection).toHaveTextContent("Crime");
+  });
+
+  it("hides the filter section when there's no list yet", () => {
+    renderWithProvider(
+      <RecsView
+        initial={{ co_watch: null, corey: null, jaimie: null }}
+        userSubKeys={["netflix"]}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: /filters/i })).toBeNull();
   });
 });

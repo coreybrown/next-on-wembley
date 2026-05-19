@@ -523,7 +523,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         shortExplanation: "s",
         longExplanation: "l",
         isContinuation: false,
-        show: { providers: [{ platformKey: "netflix" }], votes: [] },
+        show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
       },
       {
         id: 11,
@@ -537,6 +537,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         longExplanation: "l",
         isContinuation: false,
         show: {
+          genres: null,
           providers: [{ platformKey: "netflix" }],
           votes: [{ vote: "disagree" }],
         },
@@ -552,7 +553,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         shortExplanation: "s",
         longExplanation: "l",
         isContinuation: false,
-        show: { providers: [{ platformKey: "netflix" }], votes: [] },
+        show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
       },
     ],
   });
@@ -569,11 +570,11 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       .mockResolvedValueOnce(null);
 
     const result = await getLatestRunsForCurrentUser();
-    expect(result.corey?.items.map((i) => i.title)).toEqual([
+    expect(result.runs.corey?.items.map((i) => i.title)).toEqual([
       "Keeper",
       "Still in",
     ]);
-    expect(result.corey?.items.map((i) => i.position)).toEqual([1, 2]);
+    expect(result.runs.corey?.items.map((i) => i.position)).toEqual([1, 2]);
   });
 
   it("hides new picks that lost provider overlap after a sub toggle (stale-list filter)", async () => {
@@ -602,7 +603,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
           shortExplanation: "s",
           longExplanation: "l",
           isContinuation: false,
-          show: { providers: [{ platformKey: "netflix" }], votes: [] },
+          show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
         },
         // Still available on the user's current sub.
         {
@@ -630,7 +631,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
           shortExplanation: "s",
           longExplanation: "l",
           isContinuation: true,
-          show: { providers: [{ platformKey: "netflix" }], votes: [] },
+          show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
         },
       ],
     };
@@ -640,7 +641,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       .mockResolvedValueOnce(null); // jaimie
 
     const result = await getLatestRunsForCurrentUser();
-    expect(result.corey?.items.map((i) => i.title)).toEqual([
+    expect(result.runs.corey?.items.map((i) => i.title)).toEqual([
       "Crave Show",
       "Continuation on Netflix",
     ]);
@@ -658,11 +659,11 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       .mockResolvedValueOnce(null);
 
     const result = await getLatestRunsForCurrentUser();
-    expect(result.co_watch?.items.map((i) => i.title)).toEqual([
+    expect(result.runs.co_watch?.items.map((i) => i.title)).toEqual([
       "Keeper",
       "Disliked",
       "Still in",
     ]);
-    expect(result.co_watch?.items[1]?.currentVote).toBe("disagree");
+    expect(result.runs.co_watch?.items[1]?.currentVote).toBe("disagree");
   });
 });
