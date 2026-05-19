@@ -146,7 +146,6 @@ export function RecsView({ initial, userSubKeys }: Props) {
         <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
           {TAB_ORDER.map((scope) => {
             const selected = scope === active;
-            const count = initial[scope]?.items.length ?? 0;
             return (
               <button
                 key={scope}
@@ -155,7 +154,6 @@ export function RecsView({ initial, userSubKeys }: Props) {
                 aria-selected={selected}
                 onClick={() => setActive(scope)}
                 className={`
-                  inline-flex items-center gap-2
                   rounded-pill border px-4 py-2
                   font-body text-sm
                   transition-colors
@@ -168,17 +166,7 @@ export function RecsView({ initial, userSubKeys }: Props) {
                   focus-visible:outline-offset-2
                 `}
               >
-                <span>{TAB_LABELS[scope]}</span>
-                {count > 0 && (
-                  <span
-                    className={`
-                      font-mono text-mono uppercase
-                      ${selected ? "text-accent-fg/80" : "text-ink-muted"}
-                    `}
-                  >
-                    {count}
-                  </span>
-                )}
+                {TAB_LABELS[scope]}
               </button>
             );
           })}

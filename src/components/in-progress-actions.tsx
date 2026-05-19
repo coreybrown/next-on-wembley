@@ -182,18 +182,24 @@ export function InProgressActions({ entry }: Props) {
         onClick={toggleSeasonDone}
         disabled={isPending}
         aria-pressed={entry.currentSeasonCompleted}
-        className="
+        // Visual treatment tracks the action's POLARITY, not the toggle
+        // state: "Done with SX" is the forward CTA (filled accent),
+        // "Resume SX" is the backward action (outline / neutral) so it
+        // doesn't read as the inviting next step.
+        className={`
           inline-flex items-center gap-2
-          rounded-md border border-border bg-surface
-          px-3 py-1.5
-          font-body text-sm text-ink
-          transition-colors hover:border-accent hover:text-accent
-          aria-pressed:border-accent aria-pressed:bg-accent
-          aria-pressed:text-accent-fg aria-pressed:hover:text-accent-fg
+          rounded-md border px-3 py-1.5
+          font-body text-sm
+          transition-colors
           disabled:cursor-not-allowed disabled:opacity-50
           focus-visible:outline-2 focus-visible:outline-accent
           focus-visible:outline-offset-2
-        "
+          ${
+            entry.currentSeasonCompleted
+              ? "border-border bg-surface text-ink hover:border-accent hover:text-accent"
+              : "border-accent bg-accent text-accent-fg hover:opacity-90"
+          }
+        `}
       >
         {entry.currentSeasonCompleted
           ? `Resume S${current}`

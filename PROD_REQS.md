@@ -113,9 +113,10 @@ Next on Wembley fills that gap for personal household use.
 
 #### 6.4.1 Lists
 - Three distinct ranked lists:
-  1. **Co-watch (Global)** — shows predicted to satisfy both Corey and Jaimie based on combined watch history, ratings, and overlapping platforms.
-  2. **Corey's Picks** — personalized for Corey.
-  3. **Jaimie's Picks** — personalized for Jaimie.
+  1. **Co-watch (Global)** — shows predicted to satisfy both Corey and Jaimie based on combined watch history, ratings, and overlapping platforms. **Carries 25 picks** because it's the household's default browsing surface (and the landing tab on /recs).
+  2. **Corey's Picks** — personalized for Corey. **10 picks** to match the PRD §10 vote-on-top-10 metric.
+  3. **Jaimie's Picks** — personalized for Jaimie. **10 picks**, same rationale.
+- Per-scope sizes flow through the candidate-count parameter in the user prompt (system prompt stays generic so prompt caching survives the per-call variation). Co-watch asks the LLM for ~32 raw candidates and trims to 25; personal lists ask for 16 and trim to 10.
 - Each list also includes **continuations** — in-progress shows that have new episodes/seasons available — **interleaved by LLM rank** alongside new-show recommendations. A continuation can land anywhere in the list, including #1, if the LLM judges it the strongest pick. There is no separate "Continue Watching" header section in v1.
   - For individual Picks lists, a continuation is any of that user's `Watching` entries with aired-but-unwatched episodes.
   - For Co-watch, a continuation requires **both users to have `Watching` entries on the same show at the same `current_season`**. If one user has advanced ahead, the show is no longer surfaced as a Co-watch continuation until they sync up. No explicit "co-watch" flag is stored on `WatchEntry` — co-watch status is inferred from the intersection.

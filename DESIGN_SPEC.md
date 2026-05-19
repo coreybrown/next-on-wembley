@@ -281,13 +281,14 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 - **SeasonStepper** — -1 / current / +1 control. *Props: `current`, `total?`, `onChange`.* States: -1 disabled at S1; +1 disabled at total. A11y: two `<button>` with `aria-label`; current value in a `<span aria-live="polite">`.
 - **MoodInput** — single-line free-text "something light tonight" field. *Props: `value`, `onChange`, `persistsAcrossFailures: true`.* State held at the Recommendations route level so rec-gen failures don't lose it (PRD §6.4.7). Cleared only on `runStatus === "succeeded"` or explicit user clear. A11y: associated label "Mood for this refresh (optional)."
 - **FilterChipGroup** — multi-select chip set per facet (platform / genre; status / whose-pick are deferred per PRD §6.4.6). *Props: `facet`, `options`, `selected[]`, `onChange`.* On /recs the group lives inline above the list (a single bordered section with one row per facet + a Clear button); URL state via `?platform=…&genre=…`. The persistent FilterRail / FilterSheet variants are deferred — the inline row covers both breakpoints adequately for M3c. A11y: `role="group"` with `aria-label` naming the facet; each chip is `<button aria-pressed>`.
-- **IdentityChip** — current user monogram + name; tap opens switch dialog. *Props: `user`, `onSwitchRequest`.* See §9.3 for visual treatment. A11y: `<button aria-label="Currently signed in as Corey. Tap to switch user."/>`; opens a Radix Dialog with passcode entry.
+- **IdentityChip** — current user monogram; tap opens a Radix `DropdownMenu` with three items: **Settings** (link to /settings), **Switch user** (opens the Radix Dialog with passcode entry — the same flow as before), **Log out** (calls `logoutAction`). *Props: `currentUser`.* See §9.3 for visual treatment. A11y: trigger `<button aria-label="Signed in as Corey. Open user menu."/>`; menu items as `role="menuitem"`.
 - **SearchInput** — TMDb-debounced search (200ms per PRD §6.6.2). *Props: `value`, `onChange`, `onSelect(result)`, `loading`.* States: default, focus, loading (inline spinner), error ("Search unavailable — try again" inline). A11y: `role="combobox"` with `aria-expanded` + `aria-controls`.
 
 ### 4.3 Organisms
 
 - **RecCard** — see §5.1. Compact + expanded × mobile + desktop.
-- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
+- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, **Resume/Done toggle**, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
+- **Resume/Done toggle** — single button that flips `currentSeasonCompleted`. Visual treatment tracks **action polarity, not toggle state**: "Done with S{n}" (forward action when mid-season) renders filled-accent like a CTA; "Resume S{n}" (backward action when the season's marked finished) renders outline / neutral so it doesn't read as the inviting next step. `aria-pressed` still reflects the toggle state honestly for AT.
 - **WatchHistoryRow** — full-history list row. Title, poster, status pill, rating, plus two IconButtons in the right-side rail: an **Edit** pencil (opens the edit dialog) and a **Remove** trash. Remove opens a Radix Dialog confirm with copy that spells out the neutral semantics — *"Removes this show from your list with no signal either way — it can still be recommended in the future."* — to distinguish it from the negative-signal `Dropped` status (PRD §6.3). Same row-pattern A11y as InProgressEntry.
 - **ShowDetailPanel** — see §5.2. Drawer + full-page variants; rec-context overlay adds long LLM explanation + VotePillGroup.
 - **RefreshHeader** — see §5.3. Timestamp + Refresh Button + MoodInput + nav pill state.
@@ -423,7 +424,17 @@ State lives at the Recommendations route level, not inside RefreshHeader, so unm
 
 Per PRD §6.1 + §7.2.
 
-#### Mobile (≤768px)
+#### Current shape (M3c — fixed top-right cluster)
+
+Three icon controls + IdentityChip, anchored top-right on every page:
+
+1. **In-Progress** (FilmReel) — leftmost, the most-used affordance day-to-day.
+2. **Recommendations** (Sparkle).
+3. **IdentityChip** — dropdown menu (Radix `DropdownMenu`) carrying **Settings**, **Switch user** (opens the existing passcode dialog), **Log out**. Settings no longer has its own header icon — it lives behind the avatar to keep the rail at three slots.
+
+`RefreshIndicator` slots ahead of the icon row when an in-flight refresh is active (PRD §6.4.7). The deferred Mobile bottom-tab-bar + Desktop top-nav-row layouts below remain the longer-term target.
+
+#### Mobile (≤768px) — deferred bottom-tab variant
 
 - **Top header (fixed):** masthead "Next on Wembley" (left, Fraunces 700, smaller than the list-page title), IdentityChip (right), overflow IconButton (kebab) for Watch History / Search / Settings. `safe-area-inset-top` padding.
 - **Bottom tab bar (fixed):** three primary tabs — **Co-watch** (default) / Corey / Jaimie. Each tab is 44×44px min, icon + label, active state uses a 2px `--color-accent-sharp` indicator bar above the tab + `aria-current="page"`. `safe-area-inset-bottom` padding to clear the home indicator.

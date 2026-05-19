@@ -32,11 +32,12 @@ export type UserContext = {
 
 // Stable across all calls. Keeping this byte-identical is what makes the
 // 5-minute prompt cache pay off across the 3 parallel list-gen calls.
-// Do NOT interpolate timestamps, request IDs, or user-specific info here.
+// Do NOT interpolate timestamps, request IDs, or user-specific info here —
+// per-call counts live in the user prompt instead.
 export const REC_SYSTEM_PROMPT = `You are a television recommendation engine for two specific viewers, Corey and Jaimie, who watch together and separately in Canada.
 
 GOAL
-Recommend EXACTLY 16 candidate TV shows for the requested list. The system will validate every pick against TMDb and trim to the strongest 10, so over-generate to give it room (TMDb hint mismatches and unresolvable titles get dropped). Output is a JSON object matching the provided schema. No prose, no preamble, no markdown — only the JSON object.
+Recommend the exact number of candidate TV shows the user prompt requests. The system over-generates intentionally and then validates every pick against TMDb — unresolvable hints get dropped before the final list lands, so always meet the requested count. Output is a JSON object matching the provided schema. No prose, no preamble, no markdown — only the JSON object.
 
 LISTS
 - "co_watch" — picks both Corey and Jaimie will enjoy together. Lean toward shared genres + shared subscriptions.
@@ -117,10 +118,23 @@ type BuildUserPromptInput = {
   // The intersection of subscriptions (co_watch only).
   sharedSubscriptions?: string[];
   mood?: string;
+  // How many raw candidates to ask the LLM for. Set by the action per
+  // scope (co-watch asks for more). Defaults to 16 so test fixtures and
+  // ad-hoc callers don't have to thread it through.
+  candidateCount?: number;
 };
 
+const DEFAULT_CANDIDATE_COUNT = 16;
+
 export function buildUserPrompt(input: BuildUserPromptInput): string {
-  const { scope, primary, other, sharedSubscriptions, mood } = input;
+  const {
+    scope,
+    primary,
+    other,
+    sharedSubscriptions,
+    mood,
+    candidateCount = DEFAULT_CANDIDATE_COUNT,
+  } = input;
   const lines: string[] = [];
 
   lines.push(`List: ${scope}`);
@@ -160,7 +174,7 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
 
   lines.push("");
   lines.push(
-    "Return EXACTLY 16 candidate recommendations ranked best fit first. The system trims to 10 after TMDb validation.",
+    `Return EXACTLY ${candidateCount} candidate recommendations ranked best fit first. The system trims to a smaller final list after TMDb validation, so always meet this candidate count.`,
   );
 
   return lines.join("\n");

@@ -22,20 +22,38 @@ describe("<IdentityChip />", () => {
     vi.mocked(loginAction).mockImplementation(async () => ({ error: null }));
   });
 
+  const triggerLabel = /signed in as corey\. open user menu/i;
+  const triggerLabelJaimie = /signed in as jaimie\. open user menu/i;
+
   it("renders the user's monogram with an accessible label", () => {
     render(<IdentityChip currentUser={corey} />);
-    const btn = screen.getByRole("button", {
-      name: /currently signed in as corey/i,
-    });
+    const btn = screen.getByRole("button", { name: triggerLabel });
     expect(btn).toBeInTheDocument();
     expect(btn).toHaveTextContent("C");
   });
 
-  it("opens a dialog naming the OTHER user when clicked", async () => {
+  it("opens a menu with Settings / Switch user / Log out items", async () => {
     const user = userEvent.setup();
     render(<IdentityChip currentUser={corey} />);
+    await user.click(screen.getByRole("button", { name: triggerLabel }));
+
+    expect(
+      await screen.findByRole("menuitem", { name: /settings/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: /switch user/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("menuitem", { name: /log out/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the switch dialog naming the OTHER user when Switch user is chosen", async () => {
+    const user = userEvent.setup();
+    render(<IdentityChip currentUser={corey} />);
+    await user.click(screen.getByRole("button", { name: triggerLabel }));
     await user.click(
-      screen.getByRole("button", { name: /currently signed in as corey/i }),
+      await screen.findByRole("menuitem", { name: /switch user/i }),
     );
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
@@ -46,8 +64,9 @@ describe("<IdentityChip />", () => {
   it("names Corey as the other user when Jaimie is signed in", async () => {
     const user = userEvent.setup();
     render(<IdentityChip currentUser={jaimie} />);
+    await user.click(screen.getByRole("button", { name: triggerLabelJaimie }));
     await user.click(
-      screen.getByRole("button", { name: /currently signed in as jaimie/i }),
+      await screen.findByRole("menuitem", { name: /switch user/i }),
     );
 
     expect(
@@ -58,8 +77,9 @@ describe("<IdentityChip />", () => {
   it("submits the switch form with the other user's username and entered passcode", async () => {
     const user = userEvent.setup();
     render(<IdentityChip currentUser={corey} />);
+    await user.click(screen.getByRole("button", { name: triggerLabel }));
     await user.click(
-      screen.getByRole("button", { name: /currently signed in as corey/i }),
+      await screen.findByRole("menuitem", { name: /switch user/i }),
     );
     await user.type(
       await screen.findByLabelText(/jaimie’s passcode/i),
@@ -73,16 +93,22 @@ describe("<IdentityChip />", () => {
     expect(fd.get("passcode")).toBe("jaimie-pass");
   });
 
-  it("offers a sign-out option that calls logoutAction", async () => {
+  it("Log out menu item submits to logoutAction", async () => {
     const user = userEvent.setup();
     render(<IdentityChip currentUser={corey} />);
+    await user.click(screen.getByRole("button", { name: triggerLabel }));
     await user.click(
-      screen.getByRole("button", { name: /currently signed in as corey/i }),
-    );
-    await user.click(
-      await screen.findByRole("button", { name: /sign out completely/i }),
+      await screen.findByRole("menuitem", { name: /log out/i }),
     );
 
     expect(vi.mocked(logoutAction)).toHaveBeenCalledTimes(1);
+  });
+
+  it("Settings menu item links to /settings", async () => {
+    const user = userEvent.setup();
+    render(<IdentityChip currentUser={corey} />);
+    await user.click(screen.getByRole("button", { name: triggerLabel }));
+    const link = await screen.findByRole("menuitem", { name: /settings/i });
+    expect(link).toHaveAttribute("href", "/settings");
   });
 });

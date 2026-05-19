@@ -63,9 +63,10 @@ describe("REC_SYSTEM_PROMPT", () => {
     expect(a).toBe(b);
   });
 
-  it("declares the over-gen target, region, and JSON-only output constraint", () => {
-    expect(REC_SYSTEM_PROMPT).toMatch(/exactly 16/i);
-    expect(REC_SYSTEM_PROMPT).toMatch(/trim.*10/i);
+  it("defers the candidate count to the user prompt and declares the JSON-only constraint", () => {
+    // System prompt stays generic so per-scope counts (10 for personal,
+    // 25 for co-watch) can vary without invalidating the prompt cache.
+    expect(REC_SYSTEM_PROMPT).toMatch(/the user prompt requests/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/canada/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/no prose|only the json|no preamble/i);
   });
@@ -168,9 +169,20 @@ describe("buildUserPrompt", () => {
     expect(out).not.toMatch(/^Mood:/m);
   });
 
-  it("trailing instruction reinforces the over-gen target", () => {
+  it("trailing instruction reinforces the requested candidate count (default)", () => {
     const out = buildUserPrompt({ scope: "corey", primary: corey });
     expect(out).toMatch(/exactly 16.*candidate/i);
+  });
+
+  it("respects an explicit candidateCount (e.g. co-watch's larger pool)", () => {
+    const out = buildUserPrompt({
+      scope: "co_watch",
+      primary: corey,
+      other: jaimie,
+      sharedSubscriptions: ["netflix"],
+      candidateCount: 32,
+    });
+    expect(out).toMatch(/exactly 32.*candidate/i);
   });
 });
 

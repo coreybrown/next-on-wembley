@@ -25,7 +25,24 @@ import {
 import { getUserContext, intersectSubscriptions } from "@/lib/rec-context";
 import { titlesAreCompatible } from "@/lib/rec-titles";
 
-const TARGET_LIST_LENGTH = 10;
+// Final list size after TMDb validation, per scope. Co-watch carries
+// more picks because it's the household's default browsing surface (the
+// landing tab); the personal lists stay at 10 to match the PRD §10
+// "vote-on-top-10" metric.
+const TARGET_LIST_LENGTH_BY_SCOPE: Record<RecScope, number> = {
+  co_watch: 25,
+  corey: 10,
+  jaimie: 10,
+};
+
+// Raw candidates to request from the LLM, per scope. Larger than the
+// target by ~1.3× to absorb TMDb-resolution and provider-overlap drops
+// without under-filling.
+const CANDIDATE_COUNT_BY_SCOPE: Record<RecScope, number> = {
+  co_watch: 32,
+  corey: 16,
+  jaimie: 16,
+};
 
 // Validates an LLM-flagged continuation against the user's actual watch
 // state. Drops the bug where a show with an announced-but-unaired next
@@ -215,8 +232,10 @@ export async function generateRecommendations(
     if (!primaryContext) return { ok: false, error: "not_found" };
   }
 
+  const targetListLength = TARGET_LIST_LENGTH_BY_SCOPE[scope];
   const userPrompt = buildUserPrompt({
     scope,
+    candidateCount: CANDIDATE_COUNT_BY_SCOPE[scope],
     primary: primaryContext,
     other: otherContext,
     sharedSubscriptions: sharedSubs,
@@ -243,6 +262,12 @@ export async function generateRecommendations(
       systemPrompt: REC_SYSTEM_PROMPT,
       userPrompt,
       outputSchema: RECOMMENDATIONS_SCHEMA as unknown as Record<string, unknown>,
+      // ~250 output tokens per candidate (short + long explanation, year,
+      // tmdbId, title, isContinuation). 1.3× safety on top.
+      maxTokens: Math.max(
+        4096,
+        Math.ceil(CANDIDATE_COUNT_BY_SCOPE[scope] * 250 * 1.3),
+      ),
     });
     llmOut = result.data;
     // Per-call spend log feeds the PRD §10 monthly budget. Fire-and-
@@ -315,7 +340,7 @@ export async function generateRecommendations(
   const persistedTmdbIds = new Set<number>();
 
   for (const rec of llmOut.recommendations) {
-    if (persisted.length >= TARGET_LIST_LENGTH) break;
+    if (persisted.length >= targetListLength) break;
     const resolved = await resolveTmdbHint(rec.tmdbId, rec.title);
     if (!resolved) {
       dropped.push({

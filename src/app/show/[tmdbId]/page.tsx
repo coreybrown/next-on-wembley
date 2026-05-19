@@ -127,8 +127,8 @@ export default async function ShowDetailPage({
                 Status
               </dt>
               <dd>
-                {view.productionStatus}{" "}
-                <span className="font-mono text-mono uppercase text-ink-muted">
+                <span>{view.productionStatus}</span>
+                <span className="mt-1 block font-mono text-mono uppercase text-ink-muted">
                   per TMDb · may change
                 </span>
               </dd>
