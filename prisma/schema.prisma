@@ -57,7 +57,7 @@ model User {
   subscriptions     UserSubscription[]
   watchEntries      WatchEntry[]
   triggeredRecRuns  RecommendationRun[]
-  recVotes          RecommendationVote[]
+  showVotes         ShowVote[]
 }
 
 model UserSubscription {
@@ -88,6 +88,7 @@ model Show {
   watchEntries           WatchEntry[]
   providers              ShowProvider[]
   recItems               RecommendationItem[]
+  votes                  ShowVote[]
   continuationDetections ContinuationDetectionLog[]
 }
 
@@ -155,19 +156,23 @@ model RecommendationItem {
   shortExplanation String
   longExplanation  String
   isContinuation   Boolean              @default(false)
-  votes            RecommendationVote[]
 }
 
-model RecommendationVote {
-  id        Int                @id @default(autoincrement())
-  itemId    Int
-  item      RecommendationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+// Per-(user, show) vote. Keyed on Show so the signal survives across
+// RecommendationRun refreshes — if Corey agreed with Severance once, the
+// agree shows on every future rec for Severance and the prompt-side
+// filter keeps Disagrees out of his next pass. Replaces the M3 Phase 9
+// RecommendationVote table (keyed on the ephemeral RecommendationItem).
+model ShowVote {
+  id        Int       @id @default(autoincrement())
+  showId    Int
+  show      Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
   userId    Int
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   vote      VoteValue
-  createdAt DateTime           @default(now())
+  createdAt DateTime  @default(now())
 
-  @@unique([itemId, userId])
+  @@unique([showId, userId])
 }
 
 // Powers the §10 success metric: "continuations surfaced within one week of

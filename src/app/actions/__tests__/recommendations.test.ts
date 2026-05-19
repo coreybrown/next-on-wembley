@@ -522,8 +522,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         shortExplanation: "s",
         longExplanation: "l",
         isContinuation: false,
-        show: { providers: [{ platformKey: "netflix" }] },
-        votes: [],
+        show: { providers: [{ platformKey: "netflix" }], votes: [] },
       },
       {
         id: 11,
@@ -536,8 +535,10 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         shortExplanation: "s",
         longExplanation: "l",
         isContinuation: false,
-        show: { providers: [{ platformKey: "netflix" }] },
-        votes: [{ vote: "disagree" }],
+        show: {
+          providers: [{ platformKey: "netflix" }],
+          votes: [{ vote: "disagree" }],
+        },
       },
       {
         id: 12,
@@ -550,8 +551,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         shortExplanation: "s",
         longExplanation: "l",
         isContinuation: false,
-        show: { providers: [{ platformKey: "netflix" }] },
-        votes: [],
+        show: { providers: [{ platformKey: "netflix" }], votes: [] },
       },
     ],
   });

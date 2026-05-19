@@ -42,9 +42,9 @@ describe("getUserContext", () => {
           },
         },
       ],
-      recVotes: [
-        { vote: "disagree", item: { title: "Yellowstone" } },
-        { vote: "agree", item: { title: "The Sopranos" } },
+      showVotes: [
+        { vote: "disagree", show: { title: "Yellowstone" } },
+        { vote: "agree", show: { title: "The Sopranos" } },
       ],
     } as never);
 
@@ -77,11 +77,11 @@ describe("getUserContext", () => {
       displayName: "Corey",
       subscriptions: [],
       watchEntries: [],
-      recVotes: [],
+      showVotes: [],
     } as never);
     await getUserContext(7);
     const call = mockPrisma.user.findUnique.mock.calls[0]![0];
-    expect(call?.select?.recVotes).toMatchObject({ take: expect.any(Number) });
+    expect(call?.select?.showVotes).toMatchObject({ take: expect.any(Number) });
   });
 });
 

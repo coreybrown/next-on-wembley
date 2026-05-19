@@ -27,10 +27,10 @@ export async function getUserContext(userId: number): Promise<UserContext | null
         },
         orderBy: { updatedAt: "desc" },
       },
-      recVotes: {
+      showVotes: {
         orderBy: { createdAt: "desc" },
         take: RECENT_VOTES_LIMIT,
-        include: { item: { select: { title: true } } },
+        include: { show: { select: { title: true } } },
       },
     },
   });
@@ -55,8 +55,8 @@ export async function getUserContext(userId: number): Promise<UserContext | null
         airedSeasons,
       };
     }),
-    recentVotes: user.recVotes.map((v) => ({
-      title: v.item.title,
+    recentVotes: user.showVotes.map((v) => ({
+      title: v.show.title,
       vote: v.vote,
     })),
   };

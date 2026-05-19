@@ -19,14 +19,23 @@ beforeEach(() => {
   mockSession.userId = undefined;
   mockRevalidatePath.mockClear();
   mockPrisma.recommendationItem.findUnique.mockReset();
-  mockPrisma.recommendationVote.upsert.mockReset();
-  mockPrisma.recommendationVote.deleteMany.mockReset();
+  mockPrisma.showVote.upsert.mockReset();
+  mockPrisma.showVote.deleteMany.mockReset();
   mockPrisma.user.findUnique.mockReset();
 });
 
-const coWatchItem = (id = 42) => ({ id, run: { scope: "co_watch" } });
-const userScopedItem = (scope: "corey" | "jaimie", id = 42) => ({
+const coWatchItem = (id = 42, showId = 500) => ({
   id,
+  showId,
+  run: { scope: "co_watch" },
+});
+const userScopedItem = (
+  scope: "corey" | "jaimie",
+  id = 42,
+  showId = 500,
+) => ({
+  id,
+  showId,
   run: { scope },
 });
 
@@ -36,7 +45,7 @@ describe("voteOnRecAction", () => {
       ok: false,
       error: "unauthorized",
     });
-    expect(mockPrisma.recommendationVote.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.showVote.upsert).not.toHaveBeenCalled();
   });
 
   it("returns not_found when the rec item is missing", async () => {
@@ -46,7 +55,7 @@ describe("voteOnRecAction", () => {
       ok: false,
       error: "not_found",
     });
-    expect(mockPrisma.recommendationVote.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.showVote.upsert).not.toHaveBeenCalled();
   });
 
   it("rejects with forbidden when the viewer doesn't own a user-scoped list", async () => {
@@ -61,7 +70,7 @@ describe("voteOnRecAction", () => {
       ok: false,
       error: "forbidden",
     });
-    expect(mockPrisma.recommendationVote.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.showVote.upsert).not.toHaveBeenCalled();
   });
 
   it("upserts under the OWNER's userId for user-scoped lists", async () => {
@@ -75,10 +84,10 @@ describe("voteOnRecAction", () => {
     const r = await voteOnRecAction(42, "agree");
 
     expect(r).toEqual({ ok: true });
-    expect(mockPrisma.recommendationVote.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.showVote.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { itemId_userId: { itemId: 42, userId: 1 } },
-        create: { itemId: 42, userId: 1, vote: "agree" },
+        where: { showId_userId: { showId: 500, userId: 1 } },
+        create: { showId: 500, userId: 1, vote: "agree" },
       }),
     );
     expect(mockRevalidatePath).toHaveBeenCalledWith("/recs");
@@ -93,12 +102,27 @@ describe("voteOnRecAction", () => {
     const r = await voteOnRecAction(42, "maybe");
 
     expect(r).toEqual({ ok: true });
-    expect(mockPrisma.recommendationVote.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.showVote.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        create: { itemId: 42, userId: 2, vote: "maybe" },
+        create: { showId: 500, userId: 2, vote: "maybe" },
       }),
     );
     expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns show_unavailable when the rec item's show row was deleted", async () => {
+    mockSession.userId = 1;
+    mockPrisma.recommendationItem.findUnique.mockResolvedValueOnce({
+      id: 42,
+      showId: null,
+      run: { scope: "co_watch" },
+    } as never);
+
+    expect(await voteOnRecAction(42, "agree")).toEqual({
+      ok: false,
+      error: "show_unavailable",
+    });
+    expect(mockPrisma.showVote.upsert).not.toHaveBeenCalled();
   });
 
   it("bumps createdAt on re-vote so recent-votes prompt slice stays accurate", async () => {
@@ -109,7 +133,7 @@ describe("voteOnRecAction", () => {
 
     await voteOnRecAction(42, "disagree");
 
-    const arg = mockPrisma.recommendationVote.upsert.mock.calls[0]![0];
+    const arg = mockPrisma.showVote.upsert.mock.calls[0]![0];
     expect(arg.update).toMatchObject({ vote: "disagree" });
     expect(arg.update.createdAt).toBeInstanceOf(Date);
   });
@@ -121,7 +145,7 @@ describe("clearVoteAction", () => {
       ok: false,
       error: "unauthorized",
     });
-    expect(mockPrisma.recommendationVote.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.showVote.deleteMany).not.toHaveBeenCalled();
   });
 
   it("deletes the owner's vote for the item and revalidates", async () => {
@@ -130,15 +154,15 @@ describe("clearVoteAction", () => {
       userScopedItem("corey") as never,
     );
     mockPrisma.user.findUnique.mockResolvedValueOnce({ id: 1 } as never);
-    mockPrisma.recommendationVote.deleteMany.mockResolvedValueOnce({
+    mockPrisma.showVote.deleteMany.mockResolvedValueOnce({
       count: 1,
     } as never);
 
     const r = await clearVoteAction(42);
 
     expect(r).toEqual({ ok: true });
-    expect(mockPrisma.recommendationVote.deleteMany).toHaveBeenCalledWith({
-      where: { itemId: 42, userId: 1 },
+    expect(mockPrisma.showVote.deleteMany).toHaveBeenCalledWith({
+      where: { showId: 500, userId: 1 },
     });
     expect(mockRevalidatePath).toHaveBeenCalledWith("/recs");
   });
@@ -154,7 +178,7 @@ describe("clearVoteAction", () => {
       ok: false,
       error: "forbidden",
     });
-    expect(mockPrisma.recommendationVote.deleteMany).not.toHaveBeenCalled();
+    expect(mockPrisma.showVote.deleteMany).not.toHaveBeenCalled();
   });
 
   it("is idempotent when there's nothing to delete", async () => {
@@ -162,7 +186,7 @@ describe("clearVoteAction", () => {
     mockPrisma.recommendationItem.findUnique.mockResolvedValueOnce(
       coWatchItem() as never,
     );
-    mockPrisma.recommendationVote.deleteMany.mockResolvedValueOnce({
+    mockPrisma.showVote.deleteMany.mockResolvedValueOnce({
       count: 0,
     } as never);
 

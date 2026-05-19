@@ -8,47 +8,51 @@ import { getSession } from "@/lib/session";
 export type VoteActionError =
   | "unauthorized"
   | "not_found"
-  | "forbidden";
+  | "forbidden"
+  | "show_unavailable";
 
 export type VoteActionResult =
   | { ok: true }
   | { ok: false; error: VoteActionError };
 
-// Verifies the caller is allowed to vote on this item. User-scoped lists
+// Verifies the caller is allowed to vote on this item AND resolves the
+// (ownerUserId, showId) pair the vote should write to. User-scoped lists
 // (corey / jaimie) are private to that user; co_watch is shared so
-// either user may vote with their own userId. Returns the item's
-// effective owner userId on success — voteOnRecAction writes the vote
-// under that id, never the viewer's id, so partner viewing of someone
-// else's list doesn't quietly clobber their picks.
+// either user may vote with their own userId. Votes are keyed on the
+// show — not the ephemeral rec item — so they survive future
+// RecommendationRun refreshes.
 async function authorizeVoteForItem(
   itemId: number,
   sessionUserId: number,
 ): Promise<
-  | { ok: true; ownerUserId: number }
-  | { ok: false; error: "not_found" | "forbidden" }
+  | { ok: true; ownerUserId: number; showId: number }
+  | { ok: false; error: "not_found" | "forbidden" | "show_unavailable" }
 > {
   const item = await prisma.recommendationItem.findUnique({
     where: { id: itemId },
     select: {
       id: true,
+      showId: true,
       run: { select: { scope: true } },
     },
   });
   if (!item) return { ok: false, error: "not_found" };
+  // showId becomes null when the underlying Show row was deleted after
+  // the rec persisted (cascade SetNull). Without it we can't anchor the
+  // per-show vote.
+  if (item.showId == null) return { ok: false, error: "show_unavailable" };
 
   const scope = item.run.scope;
   if (scope === "co_watch") {
-    return { ok: true, ownerUserId: sessionUserId };
+    return { ok: true, ownerUserId: sessionUserId, showId: item.showId };
   }
-  // scope is "corey" or "jaimie" — find the User whose username matches
-  // and require the session to belong to them.
   const owner = await prisma.user.findUnique({
     where: { username: scope },
     select: { id: true },
   });
   if (!owner) return { ok: false, error: "not_found" };
   if (owner.id !== sessionUserId) return { ok: false, error: "forbidden" };
-  return { ok: true, ownerUserId: owner.id };
+  return { ok: true, ownerUserId: owner.id, showId: item.showId };
 }
 
 // Cast a vote on a recommendation item. Latest write wins: a second call
@@ -65,9 +69,11 @@ export async function voteOnRecAction(
   const auth = await authorizeVoteForItem(itemId, session.userId);
   if (!auth.ok) return auth;
 
-  await prisma.recommendationVote.upsert({
-    where: { itemId_userId: { itemId, userId: auth.ownerUserId } },
-    create: { itemId, userId: auth.ownerUserId, vote },
+  await prisma.showVote.upsert({
+    where: {
+      showId_userId: { showId: auth.showId, userId: auth.ownerUserId },
+    },
+    create: { showId: auth.showId, userId: auth.ownerUserId, vote },
     update: { vote, createdAt: new Date() },
   });
 
@@ -75,10 +81,8 @@ export async function voteOnRecAction(
   return { ok: true };
 }
 
-// Clears any vote on this item that belongs to the rightful owner per
-// authorizeVoteForItem. Idempotent — calling this when no vote exists
-// still returns ok. Used to back out of a vote without picking a
-// different one.
+// Clears the rightful owner's vote on the show backing this rec item.
+// Idempotent — calling this when no vote exists still returns ok.
 export async function clearVoteAction(
   itemId: number,
 ): Promise<VoteActionResult> {
@@ -88,8 +92,8 @@ export async function clearVoteAction(
   const auth = await authorizeVoteForItem(itemId, session.userId);
   if (!auth.ok) return auth;
 
-  await prisma.recommendationVote.deleteMany({
-    where: { itemId, userId: auth.ownerUserId },
+  await prisma.showVote.deleteMany({
+    where: { showId: auth.showId, userId: auth.ownerUserId },
   });
 
   revalidatePath("/recs");

@@ -509,16 +509,17 @@ export async function getLatestRunsForCurrentUser(): Promise<
             orderBy: { position: "asc" },
             include: {
               show: {
-                include: { providers: { select: { platformKey: true } } },
-              },
-              // Eager-load the OWNER's vote — for user-scoped lists
-              // this means the partner sees the owner's votes when they
-              // peek at someone else's tab. The unique (itemId, userId)
-              // constraint guarantees 0 or 1 row.
-              votes: {
-                where: { userId: ownerUserId },
-                select: { vote: true },
-                take: 1,
+                include: {
+                  providers: { select: { platformKey: true } },
+                  // Owner's per-show vote, joined via Show so a vote
+                  // cast in a prior run still applies here. The unique
+                  // (showId, userId) constraint guarantees 0 or 1 row.
+                  votes: {
+                    where: { userId: ownerUserId },
+                    select: { vote: true },
+                    take: 1,
+                  },
+                },
               },
             },
           },
@@ -534,7 +535,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
         scope === "co_watch"
           ? run.items
           : run.items.filter(
-              (item) => (item.votes[0]?.vote ?? null) !== "disagree",
+              (item) => (item.show?.votes[0]?.vote ?? null) !== "disagree",
             );
       result[scope] = {
         scope,
@@ -560,7 +561,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
             isContinuation: item.isContinuation,
             providerKeys,
             unavailable,
-            currentVote: item.votes[0]?.vote ?? null,
+            currentVote: item.show?.votes[0]?.vote ?? null,
             canVote,
             inWatchHistory:
               item.showId != null && watchedShowIds.has(item.showId),
