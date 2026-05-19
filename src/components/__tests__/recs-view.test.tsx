@@ -60,6 +60,8 @@ describe("RecsView — empty state", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
@@ -78,7 +80,13 @@ describe("RecsView — populated lists", () => {
 
   it("defaults to Co-watch and shows its items", () => {
     renderWithProvider(
-      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+      />,
     );
     expect(
       screen.getByRole("tab", { name: /co-watch/i }),
@@ -89,7 +97,13 @@ describe("RecsView — populated lists", () => {
   it("switches to Corey's tab on click", async () => {
     const user = userEvent.setup();
     renderWithProvider(
-      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+      />,
     );
     await user.click(screen.getByRole("tab", { name: /corey's picks/i }));
     expect(screen.getByText("Corey Show")).toBeInTheDocument();
@@ -99,7 +113,13 @@ describe("RecsView — populated lists", () => {
   it("shows the empty state on Jaimie's tab (no list)", async () => {
     const user = userEvent.setup();
     renderWithProvider(
-      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+      />,
     );
     await user.click(screen.getByRole("tab", { name: /jaimie's picks/i }));
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
@@ -107,7 +127,13 @@ describe("RecsView — populated lists", () => {
 
   it("shows the run header (date + model)", () => {
     renderWithProvider(
-      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+      />,
     );
     expect(screen.getByText(/claude-haiku-4-5/i)).toBeInTheDocument();
   });
@@ -126,6 +152,8 @@ describe("RecsView — refresh", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
@@ -143,6 +171,8 @@ describe("RecsView — refresh", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "   ");
@@ -162,6 +192,8 @@ describe("RecsView — refresh", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -182,6 +214,8 @@ describe("RecsView — refresh", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -223,6 +257,8 @@ describe("RecsView — filters", () => {
         initial={initial}
         userSubKeys={["netflix", "apple_tv_plus"]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     const platformSection = screen.getByText(/^platform$/i).parentElement!;
@@ -236,6 +272,8 @@ describe("RecsView — filters", () => {
         initial={initial}
         userSubKeys={["netflix"]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     const genreSection = screen.getByText(/^genre$/i).parentElement!;
@@ -251,6 +289,8 @@ describe("RecsView — filters", () => {
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={["netflix"]}
         partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
       />,
     );
     expect(screen.queryByRole("region", { name: /filters/i })).toBeNull();

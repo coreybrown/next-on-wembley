@@ -8,7 +8,7 @@ export default async function RecsPage() {
   if (!user) {
     redirect("/login");
   }
-  const { runs, userSubKeys, partnerDisplayName } =
+  const { runs, userSubKeys, partnerDisplayName, disagreedShows } =
     await getLatestRunsForCurrentUser();
 
   return (
@@ -27,6 +27,8 @@ export default async function RecsPage() {
         initial={runs}
         userSubKeys={userSubKeys}
         partnerDisplayName={partnerDisplayName}
+        disagreedShows={disagreedShows}
+        viewerUsername={user.username}
       />
     </main>
   );

@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/session", () => ({ getSession: mockGetSession }));
 vi.mock("next/cache", () => ({ revalidatePath: mockRevalidatePath }));
 
-const { voteOnRecAction, clearVoteAction } = await import(
+const { voteOnRecAction, clearVoteAction, clearOwnVoteOnShowAction } = await import(
   "@/app/actions/rec-votes"
 );
 
@@ -191,5 +191,41 @@ describe("clearVoteAction", () => {
     } as never);
 
     expect(await clearVoteAction(42)).toEqual({ ok: true });
+  });
+});
+
+describe("clearOwnVoteOnShowAction", () => {
+  it("rejects unauthenticated callers", async () => {
+    expect(await clearOwnVoteOnShowAction(100)).toEqual({
+      ok: false,
+      error: "unauthorized",
+    });
+    expect(mockPrisma.showVote.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("deletes the viewer's vote on the show directly (no item-based auth)", async () => {
+    mockSession.userId = 7;
+    mockPrisma.showVote.deleteMany.mockResolvedValueOnce({
+      count: 1,
+    } as never);
+
+    const r = await clearOwnVoteOnShowAction(100);
+
+    expect(r).toEqual({ ok: true });
+    expect(mockPrisma.showVote.deleteMany).toHaveBeenCalledWith({
+      where: { showId: 100, userId: 7 },
+    });
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/recs");
+    // Show-keyed action skips the item lookup entirely.
+    expect(mockPrisma.recommendationItem.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent when there's no vote to clear", async () => {
+    mockSession.userId = 7;
+    mockPrisma.showVote.deleteMany.mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    expect(await clearOwnVoteOnShowAction(100)).toEqual({ ok: true });
   });
 });

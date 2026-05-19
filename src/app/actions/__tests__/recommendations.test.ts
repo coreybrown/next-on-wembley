@@ -538,6 +538,10 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     mockPrisma.userSubscription.findMany.mockReset();
     mockPrisma.watchEntry.findMany.mockReset();
     mockPrisma.recommendationRun.findFirst.mockReset();
+    // Phase 28 inspector data. Default to empty so existing assertions
+    // about runs/items aren't side-tracked.
+    mockPrisma.showVote.findMany.mockReset();
+    mockPrisma.showVote.findMany.mockResolvedValue([] as never);
     // user.findUnique gets called once per username (corey, jaimie) for
     // the owner-vote lookup. Default to deterministic ids: 1=corey, 2=jaimie.
     mockPrisma.user.findUnique.mockImplementation((args: never) => {
@@ -717,5 +721,40 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       "Still in",
     ]);
     expect(result.runs.co_watch?.items[1]?.currentVote).toBe("disagree");
+  });
+
+  it("returns disagreedShows for the inspector (Phase 28)", async () => {
+    mockSession.userId = 7;
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    mockPrisma.showVote.findMany.mockResolvedValueOnce([
+      {
+        createdAt: new Date("2026-05-19T00:00:00Z"),
+        show: {
+          id: 100,
+          tmdbId: 555,
+          title: "The Sopranos",
+          posterUrl: "https://example/poster.jpg",
+        },
+      },
+    ] as never);
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.disagreedShows).toEqual([
+      {
+        showId: 100,
+        tmdbId: 555,
+        title: "The Sopranos",
+        posterUrl: "https://example/poster.jpg",
+        disagreedAt: new Date("2026-05-19T00:00:00Z"),
+      },
+    ]);
+    // Sanity-check the query shape — userId scoped to the viewer + vote filter.
+    const call = mockPrisma.showVote.findMany.mock.calls.at(-1)![0]!;
+    expect(call.where).toMatchObject({ userId: 7, vote: "disagree" });
   });
 });

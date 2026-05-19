@@ -529,6 +529,16 @@ export type RecListView = {
   items: RecListItemView[];
 };
 
+export type DisagreedShow = {
+  showId: number;
+  tmdbId: number;
+  title: string;
+  posterUrl: string | null;
+  // ISO date the disagree was last touched, so the inspector can show
+  // newest-first ordering.
+  disagreedAt: Date;
+};
+
 export type RecsPageData = {
   runs: Record<RecScope, RecListView | null>;
   // Active subscription platform keys for the current user; the /recs
@@ -538,6 +548,10 @@ export type RecsPageData = {
   // partner-vote indicator on Co-watch RecCards. Null if there's no
   // other user in the system yet.
   partnerDisplayName: string | null;
+  // Shows the SESSION user has Disagreed on. Surfaced in the
+  // "Buried disagrees" inspector at the bottom of their own tab so
+  // they can re-vote and unbury picks they've previously hidden.
+  disagreedShows: DisagreedShow[];
 };
 
 // Parses Show.genres (comma-separated string per TMDb) into an array,
@@ -569,9 +583,14 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     jaimie: null,
   };
   if (!session.userId)
-    return { runs: empty, userSubKeys: [], partnerDisplayName: null };
+    return {
+      runs: empty,
+      userSubKeys: [],
+      partnerDisplayName: null,
+      disagreedShows: [],
+    };
 
-  const [subs, watchEntries, coreyUser, jaimieUser] = await Promise.all([
+  const [subs, watchEntries, coreyUser, jaimieUser, disagreeRows] = await Promise.all([
     prisma.userSubscription.findMany({
       where: { userId: session.userId },
       select: { platformKey: true },
@@ -587,6 +606,16 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     prisma.user.findUnique({
       where: { username: "jaimie" },
       select: { id: true, displayName: true },
+    }),
+    // Disagrees the SESSION user owns. Fed into the inspector at the
+    // bottom of their own tab (Phase 28). Co-watch doesn't use this
+    // since it has no disagree filter.
+    prisma.showVote.findMany({
+      where: { userId: session.userId, vote: "disagree" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        show: { select: { id: true, tmdbId: true, title: true, posterUrl: true } },
+      },
     }),
   ]);
   const subKeys = subs.map((s) => s.platformKey);
@@ -716,5 +745,18 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       };
     }),
   );
-  return { runs: result, userSubKeys: subKeys, partnerDisplayName };
+  const disagreedShows: DisagreedShow[] = disagreeRows.map((row) => ({
+    showId: row.show.id,
+    tmdbId: row.show.tmdbId,
+    title: row.show.title,
+    posterUrl: row.show.posterUrl,
+    disagreedAt: row.createdAt,
+  }));
+
+  return {
+    runs: result,
+    userSubKeys: subKeys,
+    partnerDisplayName,
+    disagreedShows,
+  };
 }

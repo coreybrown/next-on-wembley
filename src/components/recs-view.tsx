@@ -4,10 +4,15 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RecScope } from "@prisma/client";
 import { ArrowsClockwise, X } from "@phosphor-icons/react";
-import { type RecListItemView, type RecListView } from "@/app/actions/recommendations";
+import {
+  type RecListItemView,
+  type RecListView,
+  type DisagreedShow,
+} from "@/app/actions/recommendations";
 import { PLATFORMS } from "@/lib/platforms";
 import { RecCard } from "@/components/rec-card";
 import { RecCardSkeleton } from "@/components/rec-card-skeleton";
+import { DisagreesInspector } from "@/components/disagrees-inspector";
 import {
   useRefresh,
   isRefreshActive,
@@ -31,6 +36,13 @@ type Props = {
   // Display name of the household partner — used to label the
   // partner-vote indicator on Co-watch RecCards (M4 Phase 25).
   partnerDisplayName: string | null;
+  // Shows the SESSION user has Disagreed on. Powers the "Buried
+  // disagrees" inspector at the bottom of their own tab (Phase 28).
+  disagreedShows: DisagreedShow[];
+  // Session user's username. Inspector only renders on the matching
+  // user-scoped tab (Corey only sees his own buried-disagrees on
+  // Corey's Picks).
+  viewerUsername: string;
 };
 
 // Parses a comma-separated search param into a Set of non-empty trimmed
@@ -72,6 +84,8 @@ export function RecsView({
   initial,
   userSubKeys,
   partnerDisplayName,
+  disagreedShows,
+  viewerUsername,
 }: Props) {
   const [active, setActive] = useState<RecScope>("co_watch");
   const [mood, setMood] = useState("");
@@ -442,6 +456,13 @@ export function RecsView({
             ))}
           </ul>
         </div>
+      )}
+
+      {/* Buried-disagrees inspector — only on the viewer's own
+          user-scoped tab, since that's where the disagree filter
+          actually hides items (Phase 28). */}
+      {active === viewerUsername && (
+        <DisagreesInspector shows={disagreedShows} />
       )}
     </div>
   );

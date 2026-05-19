@@ -99,3 +99,22 @@ export async function clearVoteAction(
   revalidatePath("/recs");
   return { ok: true };
 }
+
+// Phase 28. Show-keyed clear for the "Buried disagrees" inspector: lets
+// the viewer re-vote their own past Disagree by simply deleting it.
+// Skips the item-based auth (authorizeVoteForItem) because the inspector
+// works on shows directly — the viewer is by definition the owner of
+// their own vote.
+export async function clearOwnVoteOnShowAction(
+  showId: number,
+): Promise<VoteActionResult> {
+  const session = await getSession();
+  if (!session.userId) return { ok: false, error: "unauthorized" };
+
+  await prisma.showVote.deleteMany({
+    where: { showId, userId: session.userId },
+  });
+
+  revalidatePath("/recs");
+  return { ok: true };
+}
