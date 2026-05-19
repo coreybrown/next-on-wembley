@@ -61,6 +61,7 @@ describe("loginAction", () => {
       username: "corey",
       displayName: "Corey",
       passcodeHash: goodHash,
+      recModel: "haiku",
       createdAt: new Date(),
     });
     const res = await loginAction(
@@ -78,6 +79,7 @@ describe("loginAction", () => {
       username: "corey",
       displayName: "Corey",
       passcodeHash: goodHash,
+      recModel: "haiku",
       createdAt: new Date(),
     });
     await loginAction({ error: null }, fd({ username: "corey", passcode: "right-pass" }));

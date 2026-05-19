@@ -1,6 +1,4 @@
-// Next on Wembley — schema through M2.
-// Models for M3+ (RecommendationRun, RecommendationItem, RecommendationVote,
-// ContinuationDetectionLog) are deferred until those milestones ship.
+// Next on Wembley — schema through M3.
 
 generator client {
   provider = "prisma-client-js"
@@ -25,14 +23,41 @@ enum UserRating {
   meh
 }
 
+enum RecModel {
+  haiku
+  sonnet
+}
+
+enum RecScope {
+  co_watch
+  corey
+  jaimie
+}
+
+enum RecRunStatus {
+  ok
+  failed
+}
+
+enum VoteValue {
+  agree
+  disagree
+  maybe
+}
+
 model User {
-  id            Int                @id @default(autoincrement())
-  username      String             @unique
-  displayName   String
-  passcodeHash  String
-  createdAt     DateTime           @default(now())
-  subscriptions UserSubscription[]
-  watchEntries  WatchEntry[]
+  id                Int                  @id @default(autoincrement())
+  username          String               @unique
+  displayName       String
+  passcodeHash      String
+  // Per-user preferred Anthropic model for recommendation generation.
+  // Changing this value triggers a refresh (wired up in M3 Phase 10).
+  recModel          RecModel             @default(haiku)
+  createdAt         DateTime             @default(now())
+  subscriptions     UserSubscription[]
+  watchEntries      WatchEntry[]
+  triggeredRecRuns  RecommendationRun[]
+  recVotes          RecommendationVote[]
 }
 
 model UserSubscription {
@@ -46,22 +71,24 @@ model UserSubscription {
 }
 
 model Show {
-  id               Int            @id @default(autoincrement())
-  tmdbId           Int            @unique
-  title            String
-  posterUrl        String?
-  genres           String?
-  totalSeasons     Int?
-  totalEpisodes    Int?
+  id                     Int                        @id @default(autoincrement())
+  tmdbId                 Int                        @unique
+  title                  String
+  posterUrl              String?
+  genres                 String?
+  totalSeasons           Int?
+  totalEpisodes          Int?
   // JSON-encoded `[{ season_number, episode_count }, ...]` excluding season 0
   // specials. Used by M2's episodes-remaining math.
-  seasonsJson      String?
-  tmdbRating       Float?
-  trailerUrl       String?
-  productionStatus String?
-  lastSyncedAt     DateTime       @default(now())
-  watchEntries     WatchEntry[]
-  providers        ShowProvider[]
+  seasonsJson            String?
+  tmdbRating             Float?
+  trailerUrl             String?
+  productionStatus       String?
+  lastSyncedAt           DateTime                   @default(now())
+  watchEntries           WatchEntry[]
+  providers              ShowProvider[]
+  recItems               RecommendationItem[]
+  continuationDetections ContinuationDetectionLog[]
 }
 
 model ShowProvider {
@@ -93,4 +120,64 @@ model WatchEntry {
   updatedAt               DateTime     @updatedAt
 
   @@unique([userId, showId])
+}
+
+// A single LLM-driven recommendation generation run. One run produces one
+// ranked list (co_watch, corey's picks, or jaimie's picks).
+model RecommendationRun {
+  id           Int                  @id @default(autoincrement())
+  // The user who triggered this run — owns the model preference + accounting.
+  triggeredBy  Int
+  triggerUser  User                 @relation(fields: [triggeredBy], references: [id], onDelete: Cascade)
+  scope        RecScope
+  // The Anthropic model id used for generation (e.g. "claude-haiku-4-5").
+  modelId      String
+  // Optional free-text mood from the refresh form. Persisted so the UI can
+  // restore it on retry (PRD §6 latency UX).
+  mood         String?
+  status       RecRunStatus
+  errorMessage String?
+  createdAt    DateTime             @default(now())
+  items        RecommendationItem[]
+}
+
+model RecommendationItem {
+  id               Int                  @id @default(autoincrement())
+  runId            Int
+  run              RecommendationRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  position         Int
+  tmdbId           Int
+  showId           Int?
+  show             Show?                @relation(fields: [showId], references: [id], onDelete: SetNull)
+  title            String
+  year             String?
+  posterUrl        String?
+  shortExplanation String
+  longExplanation  String
+  isContinuation   Boolean              @default(false)
+  votes            RecommendationVote[]
+}
+
+model RecommendationVote {
+  id        Int                @id @default(autoincrement())
+  itemId    Int
+  item      RecommendationItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  userId    Int
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vote      VoteValue
+  createdAt DateTime           @default(now())
+
+  @@unique([itemId, userId])
+}
+
+// Powers the §10 success metric: "continuations surfaced within one week of
+// the new episode's air date." Written by the M2 refresh job when it sees
+// new episodes past every WatchEntry's currentSeason for a show.
+model ContinuationDetectionLog {
+  id                    Int       @id @default(autoincrement())
+  showId                Int
+  show                  Show      @relation(fields: [showId], references: [id], onDelete: Cascade)
+  detectedAt            DateTime  @default(now())
+  tmdbNewEpisodeAirDate DateTime
+  firstSurfacedAt       DateTime?
 }

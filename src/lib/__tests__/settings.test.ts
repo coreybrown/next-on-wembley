@@ -42,6 +42,8 @@ const {
   getThemeOverride,
   toggleSubscriptionAction,
   getUserSubscriptions,
+  setRecModelAction,
+  getRecModel,
 } = await import("@/lib/settings");
 
 describe("setThemeAction", () => {
@@ -173,5 +175,61 @@ describe("getUserSubscriptions", () => {
     mockSession.userId = undefined;
     expect(await getUserSubscriptions()).toEqual([]);
     expect(mockPrisma.userSubscription.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("setRecModelAction", () => {
+  beforeEach(() => {
+    mockSession.userId = 1;
+    mockPrisma.user.update.mockReset();
+    mockRevalidate.mockClear();
+  });
+
+  it("throws when not authenticated", async () => {
+    mockSession.userId = undefined;
+    await expect(setRecModelAction("haiku")).rejects.toThrow(
+      /not authenticated/i,
+    );
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("throws on invalid model value", async () => {
+    await expect(setRecModelAction("opus")).rejects.toThrow(/invalid rec model/i);
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("persists the model and revalidates both /settings and /recs", async () => {
+    mockPrisma.user.update.mockResolvedValueOnce({} as never);
+    await setRecModelAction("sonnet");
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { recModel: "sonnet" },
+    });
+    expect(mockRevalidate).toHaveBeenCalledWith("/settings");
+    expect(mockRevalidate).toHaveBeenCalledWith("/recs");
+  });
+});
+
+describe("getRecModel", () => {
+  beforeEach(() => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockReset();
+  });
+
+  it("returns null when not authenticated", async () => {
+    mockSession.userId = undefined;
+    expect(await getRecModel()).toBeNull();
+  });
+
+  it("returns the user's stored rec model", async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce({
+      recModel: "sonnet",
+    } as never);
+    expect(await getRecModel()).toBe("sonnet");
+  });
+
+  it("returns null when the user row is missing", async () => {
+    mockPrisma.user.findUnique.mockResolvedValueOnce(null);
+    expect(await getRecModel()).toBeNull();
   });
 });

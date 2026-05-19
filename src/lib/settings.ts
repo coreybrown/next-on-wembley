@@ -2,9 +2,11 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import type { RecModel } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { isValidPlatformKey } from "@/lib/platforms";
+import { isValidRecModel } from "@/lib/rec-models";
 
 export type ThemeOverride = "light" | "dark" | "system";
 const VALID_THEMES = ["light", "dark", "system"] as const satisfies readonly ThemeOverride[];
@@ -75,4 +77,36 @@ export async function getUserSubscriptions(): Promise<string[]> {
     select: { platformKey: true },
   });
   return subs.map((s) => s.platformKey);
+}
+
+// Per-user model choice for recommendation generation. Default seeded as
+// `haiku`. Changing the value triggers a refresh of the user's lists in
+// M3 Phase 10 — for now we just persist + revalidate so the new preference
+// shows up the next time a refresh is triggered.
+export async function setRecModelAction(model: string): Promise<void> {
+  const session = await getSession();
+  if (!session.userId) {
+    throw new Error("Not authenticated");
+  }
+  if (!isValidRecModel(model)) {
+    throw new Error(`Invalid rec model: ${model}`);
+  }
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { recModel: model },
+  });
+  revalidatePath("/settings");
+  // /recs is gated behind future Phase 11; revalidating now is harmless and
+  // ready for when that route exists.
+  revalidatePath("/recs");
+}
+
+export async function getRecModel(): Promise<RecModel | null> {
+  const session = await getSession();
+  if (!session.userId) return null;
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { recModel: true },
+  });
+  return user?.recModel ?? null;
 }

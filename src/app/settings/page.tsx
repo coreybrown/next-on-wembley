@@ -2,14 +2,20 @@ import Link from "next/link";
 import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { ThemeSelect } from "@/components/theme-select";
 import { SubscriptionEditor } from "@/components/subscription-editor";
-import { getThemeOverride, getUserSubscriptions } from "@/lib/settings";
+import { RecModelSelect } from "@/components/rec-model-select";
+import {
+  getThemeOverride,
+  getUserSubscriptions,
+  getRecModel,
+} from "@/lib/settings";
 import { getCurrentUser } from "@/lib/auth";
 
 export default async function SettingsPage() {
-  const [user, theme, subs] = await Promise.all([
+  const [user, theme, subs, recModel] = await Promise.all([
     getCurrentUser(),
     getThemeOverride(),
     getUserSubscriptions(),
+    getRecModel(),
   ]);
 
   // Middleware gates this route; the null check is for TypeScript.
@@ -48,6 +54,11 @@ export default async function SettingsPage() {
         <section>
           <SubscriptionEditor active={subs} />
         </section>
+        {recModel && (
+          <section>
+            <RecModelSelect current={recModel} />
+          </section>
+        )}
       </div>
     </main>
   );
