@@ -61,13 +61,25 @@ export type StructuredCallInput = {
   signal?: AbortSignal;
 };
 
+export type AnthropicUsage = {
+  inputTokens: number;
+  outputTokens: number;
+};
+
+export type StructuredCallResult<T> = {
+  data: T;
+  usage: AnthropicUsage;
+};
+
 // One round-trip to Claude that returns parsed JSON matching outputSchema.
 // System prompt is cached (`cache_control: ephemeral`) so the stable prelude
 // doesn't get re-billed at full rate across the 3 parallel list-gen calls.
 // One retry on transient (5xx) errors; auth and rate-limit errors propagate.
+// Returns the parsed payload + the token usage so the caller can log
+// spend against the PRD §10 monthly cap.
 export async function generateStructured<T>(
   input: StructuredCallInput,
-): Promise<T> {
+): Promise<StructuredCallResult<T>> {
   const c = getClient();
   const callOnce = () =>
     c.messages.create(
@@ -122,11 +134,28 @@ export async function generateStructured<T>(
   if (!textBlock || textBlock.type !== "text") {
     throw new AnthropicError("Response contained no text block");
   }
+  let parsed: T;
   try {
-    return JSON.parse(textBlock.text) as T;
+    parsed = JSON.parse(textBlock.text) as T;
   } catch {
     throw new AnthropicError(
       "Anthropic response was not valid JSON despite output_config.format",
     );
   }
+  // Roll cache-creation / cache-read input into the total; the cost
+  // helper applies per-tier rates if a finer breakdown is needed later.
+  // The SDK currently surfaces them on `usage` but we sum at the call
+  // boundary to keep the caller's logging shape simple.
+  const u = response.usage;
+  const cacheCreation =
+    (u as { cache_creation_input_tokens?: number }).cache_creation_input_tokens ?? 0;
+  const cacheRead =
+    (u as { cache_read_input_tokens?: number }).cache_read_input_tokens ?? 0;
+  return {
+    data: parsed,
+    usage: {
+      inputTokens: u.input_tokens + cacheCreation + cacheRead,
+      outputTokens: u.output_tokens,
+    },
+  };
 }

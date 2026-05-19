@@ -38,6 +38,23 @@ const { generateRecommendations, getLatestRunsForCurrentUser } = await import(
 );
 const { titlesAreCompatible } = await import("@/lib/rec-titles");
 
+// Phase 22: generateStructured now returns { data, usage }. Tests still
+// describe the LLM's response in the old bare shape; wrap
+// mockResolvedValueOnce so the new contract is satisfied without
+// touching every call site.
+type GenStructuredMock = typeof mockGenerateStructured & {
+  __origMockResolvedValueOnce?: typeof mockGenerateStructured.mockResolvedValueOnce;
+};
+const genMock = mockGenerateStructured as GenStructuredMock;
+genMock.__origMockResolvedValueOnce = mockGenerateStructured.mockResolvedValueOnce.bind(
+  mockGenerateStructured,
+);
+mockGenerateStructured.mockResolvedValueOnce = ((value: unknown) =>
+  genMock.__origMockResolvedValueOnce!({
+    data: value,
+    usage: { inputTokens: 100, outputTokens: 100 },
+  } as never)) as typeof mockGenerateStructured.mockResolvedValueOnce;
+
 describe("titlesAreCompatible", () => {
   it("matches case-insensitively after stripping articles + punctuation", () => {
     expect(titlesAreCompatible("Severance", "severance")).toBe(true);
@@ -104,6 +121,15 @@ beforeEach(() => {
   mockPrisma.show.upsert.mockReset();
   mockPrisma.showProvider.deleteMany.mockReset();
   mockPrisma.showProvider.createMany.mockReset();
+  // Phase 22 budget gate: default to plenty of headroom so existing
+  // tests aren't accidentally short-circuited. Individual tests can
+  // override to exercise the budget_exceeded path.
+  mockPrisma.llmCallLog.aggregate.mockReset();
+  mockPrisma.llmCallLog.aggregate.mockResolvedValue({
+    _sum: { costUsd: 0 },
+  } as never);
+  mockPrisma.llmCallLog.create.mockReset();
+  mockPrisma.llmCallLog.create.mockResolvedValue({} as never);
 });
 
 describe("generateRecommendations — auth & lookup", () => {
@@ -119,6 +145,23 @@ describe("generateRecommendations — auth & lookup", () => {
       ok: false,
       error: "not_found",
     });
+  });
+});
+
+describe("generateRecommendations — budget gate", () => {
+  it("returns budget_exceeded and skips the LLM call when the monthly cap is hit", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(baseContext());
+    // Override the default headroom: this month already spent the cap.
+    mockPrisma.llmCallLog.aggregate.mockResolvedValueOnce({
+      _sum: { costUsd: 15.5 },
+    } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r).toMatchObject({ ok: false, error: "budget_exceeded" });
+    expect(mockGenerateStructured).not.toHaveBeenCalled();
+    expect(mockPrisma.recommendationRun.create).not.toHaveBeenCalled();
   });
 });
 

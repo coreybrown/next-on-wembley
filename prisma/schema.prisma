@@ -179,6 +179,21 @@ model ShowVote {
   @@unique([showId, userId])
 }
 
+// One row per Anthropic call so we can sum monthly spend and enforce
+// the PRD §10 cap (<$15/month with 75% warning, hard pause at 100%).
+// costUsd is computed at log time from the model's per-MTok rates so
+// the cap math is independent of future pricing changes.
+model LlmCallLog {
+  id            Int      @id @default(autoincrement())
+  modelId       String
+  inputTokens   Int
+  outputTokens  Int
+  costUsd       Float
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 // Powers the §10 success metric: "continuations surfaced within one week of
 // the new episode's air date." Written by the M2 refresh job when it sees
 // new episodes past every WatchEntry's currentSeason for a show.

@@ -43,7 +43,12 @@ const RefreshContext = createContext<RefreshContextValue | null>(null);
 
 type FailureResult = {
   ok: false;
-  error: "unauthorized" | "not_found" | "anthropic_failed" | "no_valid_items";
+  error:
+    | "unauthorized"
+    | "not_found"
+    | "anthropic_failed"
+    | "no_valid_items"
+    | "budget_exceeded";
   errorMessage?: string;
 };
 
@@ -68,6 +73,12 @@ function formatFailureMessage(failures: FailureResult[], total: number): string 
       return `${prefix} You're signed out — refresh the page and sign in again.`;
     case "not_found":
       return `${prefix} A user account couldn't be found. Re-seed the database or sign back in.`;
+    case "budget_exceeded": {
+      const detail = failures.find((f) => f.errorMessage)?.errorMessage;
+      return detail
+        ? `${prefix} ${detail}`
+        : `${prefix} Monthly Anthropic budget hit — paused until next month.`;
+    }
   }
 }
 

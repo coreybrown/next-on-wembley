@@ -12,6 +12,7 @@ import {
   type TmdbProviderInfo,
 } from "@/lib/tmdb";
 import { generateStructured } from "@/lib/anthropic";
+import { getBudgetStatus, logLlmCall } from "@/lib/llm-budget";
 import { REC_MODEL_TO_API_ID } from "@/lib/rec-models";
 import {
   REC_SYSTEM_PROMPT,
@@ -47,7 +48,8 @@ export type GenerateRecommendationsError =
   | "unauthorized"
   | "not_found"
   | "anthropic_failed"
-  | "no_valid_items";
+  | "no_valid_items"
+  | "budget_exceeded";
 
 export type GenerateRecommendationsResult =
   | { ok: true; runId: number; itemCount: number }
@@ -221,14 +223,35 @@ export async function generateRecommendations(
     mood,
   });
 
+  // Budget gate per PRD §10. Hard pause when this month's logged spend
+  // hits the cap. Checked here (not just in regenerateAllLists) so the
+  // setRecModelAction auto-regen + future single-list entrypoints are
+  // protected too.
+  const budget = await getBudgetStatus();
+  if (budget.state === "exceeded") {
+    return {
+      ok: false,
+      error: "budget_exceeded",
+      errorMessage: `Monthly Anthropic budget hit ($${budget.spentUsd.toFixed(2)} / $${budget.capUsd.toFixed(2)}). Refresh is paused until next month.`,
+    };
+  }
+
   let llmOut: RecommendationsResponse;
   try {
-    llmOut = await generateStructured<RecommendationsResponse>({
+    const result = await generateStructured<RecommendationsResponse>({
       model: modelId,
       systemPrompt: REC_SYSTEM_PROMPT,
       userPrompt,
       outputSchema: RECOMMENDATIONS_SCHEMA as unknown as Record<string, unknown>,
     });
+    llmOut = result.data;
+    // Per-call spend log feeds the PRD §10 monthly budget. Fire-and-
+    // forget — a log failure must not poison a successful generation.
+    void logLlmCall({
+      modelId,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+    }).catch(() => {});
   } catch (err) {
     const message = (err as Error).message;
     await prisma.recommendationRun.create({

@@ -55,6 +55,7 @@ beforeEach(() => {
 
 const okResponse = (payload: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+  usage: { input_tokens: 100, output_tokens: 100 },
 });
 
 const schema = {
@@ -73,7 +74,8 @@ describe("generateStructured", () => {
       userPrompt: "give me 10 shows",
       outputSchema: schema,
     });
-    expect(out).toEqual({ ok: true });
+    expect(out.data).toEqual({ ok: true });
+    expect(out.usage).toEqual({ inputTokens: 100, outputTokens: 100 });
     expect(mockCreate).toHaveBeenCalledOnce();
     const call = mockCreate.mock.calls[0]![0];
     expect(call.model).toBe("claude-haiku-4-5");
@@ -124,7 +126,8 @@ describe("generateStructured", () => {
       userPrompt: "u",
       outputSchema: schema,
     });
-    expect(out).toEqual({ ok: true });
+    expect(out.data).toEqual({ ok: true });
+    expect(out.usage).toEqual({ inputTokens: 100, outputTokens: 100 });
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
 

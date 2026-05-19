@@ -378,7 +378,10 @@ The app is responsive web only (no native mobile per §3). Two breakpoint sets m
 - Each user votes Agree (or adds to Want to Watch) on at least **1 in 5 of the top 10 ranked items per rec run**, on average. (Computable from rank without per-card impression tracking — no `RecommendationImpression` table needed in v1.)
 - Continuations correctly identify new seasons within one week of TMDb listing them. Computed from `ContinuationDetectionLog.first_surfaced_at − tmdb_new_episode_air_date ≤ 7 days` (see §9).
 - Recommendations exclude unwatchable shows **100% of the time**, except for shows whose provider availability changed within the 14-day provider-cache refresh window (§6.5). Any other miss is a bug, not an accepted error rate.
-- **Monthly Claude API spend stays under $15** (well below the §7 $20 budget). The M5 cost-monitoring job alerts at 75% of the monthly budget. Token counts and computed `cost_usd` are logged per `RecommendationRun` (see §9).
+- **Monthly Claude API spend stays under $15** (well below the §7 $20 budget). Implemented in M3c Phase 22: every Anthropic call writes a row to `LlmCallLog` with `inputTokens`, `outputTokens`, and a `costUsd` computed from per-MTok rates (Haiku $1/$5, Sonnet $3/$15). `getBudgetStatus()` sums the current calendar-month spend and returns one of three states:
+  - `ok` — under 75% of the cap.
+  - `warning` — between 75% and 100%; the /settings BudgetStatusCard surfaces a yellow indicator.
+  - `exceeded` — at or past 100%; `generateRecommendations` short-circuits with `error: "budget_exceeded"` before calling Anthropic, the /recs failure pill folds the message into the refresh UI ("Monthly Anthropic budget hit — paused until next month"), and the /settings card switches to the danger state. Spend resets at the start of the next UTC month.
 
 ## 11. Risks & Future Considerations
 
