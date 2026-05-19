@@ -480,8 +480,12 @@ export type RecListItemView = {
   // The vote shown on this card. For user-scoped lists (corey / jaimie)
   // this is the OWNER's vote — the partner sees the owner's selections
   // when viewing the owner's tab. For co_watch this is the viewer's
-  // own vote (partner viz ships in M4).
+  // own vote.
   currentVote: VoteValue | null;
+  // Co-watch only (M4 Phase 25). The OTHER household member's vote on
+  // this show. Null on user-scoped lists and when the partner hasn't
+  // voted yet. Display-only; the viewer can't mutate it.
+  partnerVote: VoteValue | null;
   // Whether the current session is allowed to mutate the vote. False
   // when the viewer is looking at someone else's user-scoped list.
   canVote: boolean;
@@ -504,6 +508,10 @@ export type RecsPageData = {
   // Active subscription platform keys for the current user; the /recs
   // filter UI uses this to render the platform chip group.
   userSubKeys: string[];
+  // Display name of the household partner. Used as the label on the
+  // partner-vote indicator on Co-watch RecCards. Null if there's no
+  // other user in the system yet.
+  partnerDisplayName: string | null;
 };
 
 // Parses Show.genres (comma-separated string per TMDb) into an array,
@@ -534,7 +542,8 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     corey: null,
     jaimie: null,
   };
-  if (!session.userId) return { runs: empty, userSubKeys: [] };
+  if (!session.userId)
+    return { runs: empty, userSubKeys: [], partnerDisplayName: null };
 
   const [subs, watchEntries, coreyUser, jaimieUser] = await Promise.all([
     prisma.userSubscription.findMany({
@@ -547,11 +556,11 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     }),
     prisma.user.findUnique({
       where: { username: "corey" },
-      select: { id: true },
+      select: { id: true, displayName: true },
     }),
     prisma.user.findUnique({
       where: { username: "jaimie" },
-      select: { id: true },
+      select: { id: true, displayName: true },
     }),
   ]);
   const subKeys = subs.map((s) => s.platformKey);
@@ -559,13 +568,19 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
   const watchedShowIds = new Set(watchEntries.map((e) => e.showId));
 
   // For user-scoped lists, the vote shown is the owner's; for co_watch
-  // it's the viewer's own (partner viz lands in M4). Owner lookup is
-  // done once and reused across all three scope queries.
+  // it's the viewer's own. Owner lookup is done once and reused across
+  // all three scope queries.
   const scopeToOwnerUserId: Record<RecScope, number | null> = {
     co_watch: session.userId,
     corey: coreyUser?.id ?? null,
     jaimie: jaimieUser?.id ?? null,
   };
+  // Partner = the other household member, for co_watch partner-vote viz.
+  // Two-user app, so just pick the user that isn't the viewer.
+  const partnerUser =
+    session.userId === coreyUser?.id ? jaimieUser : coreyUser;
+  const partnerUserId = partnerUser?.id ?? null;
+  const partnerDisplayName = partnerUser?.displayName ?? null;
 
   const scopes: RecScope[] = ["co_watch", "corey", "jaimie"];
   const result = { ...empty };
@@ -575,6 +590,12 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       if (ownerUserId == null) return;
       const canVote =
         scope === "co_watch" ? true : ownerUserId === session.userId;
+      // Co-watch pulls BOTH households' votes (for partner viz); the
+      // user-scoped tabs only need the owner's.
+      const voteUserIds =
+        scope === "co_watch" && partnerUserId != null
+          ? [ownerUserId, partnerUserId]
+          : [ownerUserId];
       const run = await prisma.recommendationRun.findFirst({
         where: { scope, status: "ok" },
         orderBy: { createdAt: "desc" },
@@ -586,13 +607,13 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
                 select: {
                   genres: true,
                   providers: { select: { platformKey: true } },
-                  // Owner's per-show vote, joined via Show so a vote
-                  // cast in a prior run still applies here. The unique
-                  // (showId, userId) constraint guarantees 0 or 1 row.
+                  // Per-show vote rows for the user(s) we care about
+                  // (owner only for user-scoped; both for co_watch).
+                  // The unique (showId, userId) constraint guarantees
+                  // ≤1 row per user.
                   votes: {
-                    where: { userId: ownerUserId },
-                    select: { vote: true },
-                    take: 1,
+                    where: { userId: { in: voteUserIds } },
+                    select: { vote: true, userId: true },
                   },
                 },
               },
@@ -601,6 +622,18 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
         },
       });
       if (!run) return;
+      // Per-item helpers — votes is keyed by userId now (Phase 25), so
+      // we look up by id rather than positional indexing.
+      const ownerVoteOf = (
+        item: (typeof run.items)[number],
+      ): VoteValue | null =>
+        item.show?.votes.find((v) => v.userId === ownerUserId)?.vote ?? null;
+      const partnerVoteOf = (
+        item: (typeof run.items)[number],
+      ): VoteValue | null =>
+        scope === "co_watch" && partnerUserId != null
+          ? item.show?.votes.find((v) => v.userId === partnerUserId)?.vote ?? null
+          : null;
       // Disagree hard-excludes from user-scoped lists per PRD. Co-watch
       // gets the M4 split-rule demote treatment later; for now leave it
       // unchanged so a single user's disagree doesn't drop a co-watch
@@ -609,9 +642,7 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       const afterDisagreeFilter =
         scope === "co_watch"
           ? run.items
-          : run.items.filter(
-              (item) => (item.show?.votes[0]?.vote ?? null) !== "disagree",
-            );
+          : run.items.filter((item) => ownerVoteOf(item) !== "disagree");
       // Stale-list subscription filter (PRD §6.4.7): a previously-
       // generated new pick may have lost provider overlap because the
       // user toggled off a subscription after this run was persisted.
@@ -649,7 +680,8 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
             providerKeys,
             genres: parseGenres(item.show?.genres ?? null),
             unavailable,
-            currentVote: item.show?.votes[0]?.vote ?? null,
+            currentVote: ownerVoteOf(item),
+            partnerVote: partnerVoteOf(item),
             canVote,
             inWatchHistory:
               item.showId != null && watchedShowIds.has(item.showId),
@@ -658,5 +690,5 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       };
     }),
   );
-  return { runs: result, userSubKeys: subKeys };
+  return { runs: result, userSubKeys: subKeys, partnerDisplayName };
 }

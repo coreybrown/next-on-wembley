@@ -31,6 +31,7 @@ const item = (overrides: Partial<RecListItemView> = {}): RecListItemView => ({
   genres: [],
   unavailable: false,
   currentVote: null,
+  partnerVote: null,
   canVote: true,
   inWatchHistory: false,
   ...overrides,
@@ -158,6 +159,24 @@ describe("RecCard — voting", () => {
     await user.click(agree);
     expect(mockVoteOnRec).not.toHaveBeenCalled();
     expect(mockClearVote).not.toHaveBeenCalled();
+  });
+
+  it("renders the partner-vote indicator when partnerVote is set (Co-watch)", () => {
+    render(
+      <RecCard
+        item={item({ partnerVote: "agree" })}
+        partnerLabel="Jaimie"
+      />,
+    );
+    // "Jaimie:" attribution + vote label both surfaced
+    expect(screen.getByText(/^jaimie:$/i)).toBeInTheDocument();
+    // Two "Agree" labels: the viewer's pill + the partner indicator.
+    expect(screen.getAllByText(/^agree$/i).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("omits the partner-vote indicator when partnerVote is null", () => {
+    render(<RecCard item={item()} partnerLabel="Jaimie" />);
+    expect(screen.queryByText(/^jaimie:$/i)).toBeNull();
   });
 });
 

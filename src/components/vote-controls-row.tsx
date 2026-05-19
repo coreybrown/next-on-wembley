@@ -31,6 +31,14 @@ type Props = {
   canVote: boolean;
   isContinuation: boolean;
   inWatchHistory: boolean;
+  // Co-watch only (M4 Phase 25). The partner's vote on this show.
+  // Display-only — rendered as a small "Partner: …" line next to the
+  // vote pills. Null on user-scoped lists or when the partner hasn't
+  // voted yet.
+  partnerVote?: VoteValue | null;
+  // Display name to attribute the partner vote to (e.g. "Jaimie:").
+  // Falls back to "Partner" when not provided.
+  partnerLabel?: string;
 };
 
 // Vote pills (Agree / Maybe / Disagree) + Want-to-Watch button row.
@@ -38,6 +46,12 @@ type Props = {
 // behave identically — the user can vote / add-to-WTW from either
 // surface (PRD §6.6 "Voting and Add-to-WTW work the same as from the
 // rec card").
+const VOTE_LABEL: Record<VoteValue, string> = {
+  agree: "Agree",
+  maybe: "Maybe",
+  disagree: "Disagree",
+};
+
 export function VoteControlsRow({
   itemId,
   title,
@@ -45,6 +59,8 @@ export function VoteControlsRow({
   canVote,
   isContinuation,
   inWatchHistory,
+  partnerVote = null,
+  partnerLabel = "Partner",
 }: Props) {
   const [, startTransition] = useTransition();
   const [optimisticVote, setOptimisticVote] = useOptimistic<
@@ -128,6 +144,41 @@ export function VoteControlsRow({
           );
         })}
       </div>
+
+      {partnerVote && (
+        <span
+          className="
+            inline-flex items-center gap-1
+            font-mono text-mono uppercase text-ink-muted
+          "
+          title={`${partnerLabel}: ${VOTE_LABEL[partnerVote]}`}
+        >
+          <span>{partnerLabel}:</span>
+          <span
+            className={`
+              inline-flex items-center gap-1 rounded-pill border px-2 py-0.5
+              ${
+                partnerVote === "agree"
+                  ? "border-accent text-accent"
+                  : partnerVote === "disagree"
+                    ? "border-danger text-danger"
+                    : "border-border text-ink-secondary"
+              }
+            `}
+          >
+            {(() => {
+              const Icon =
+                partnerVote === "agree"
+                  ? ThumbsUp
+                  : partnerVote === "disagree"
+                    ? ThumbsDown
+                    : Question;
+              return <Icon size={12} weight="fill" aria-hidden />;
+            })()}
+            <span>{VOTE_LABEL[partnerVote]}</span>
+          </span>
+        </span>
+      )}
 
       {showWtwButton && (
         <button

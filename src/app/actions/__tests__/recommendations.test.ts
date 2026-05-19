@@ -542,8 +542,10 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     // the owner-vote lookup. Default to deterministic ids: 1=corey, 2=jaimie.
     mockPrisma.user.findUnique.mockImplementation((args: never) => {
       const a = args as { where?: { username?: string } };
-      if (a.where?.username === "corey") return { id: 1 } as never;
-      if (a.where?.username === "jaimie") return { id: 2 } as never;
+      if (a.where?.username === "corey")
+        return { id: 1, displayName: "Corey" } as never;
+      if (a.where?.username === "jaimie")
+        return { id: 2, displayName: "Jaimie" } as never;
       return null as never;
     });
   });
@@ -582,7 +584,14 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         show: {
           genres: null,
           providers: [{ platformKey: "netflix" }],
-          votes: [{ vote: "disagree" }],
+          // Vote keyed by userId now. Include both Corey (id=1, the
+          // owner of the corey scope) and the session user (id=7) so
+          // both disagree-filter scenarios in this describe block can
+          // run against the same fixture.
+          votes: [
+            { userId: 1, vote: "disagree" },
+            { userId: 7, vote: "disagree" },
+          ],
         },
       },
       {

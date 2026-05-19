@@ -13,9 +13,14 @@ const PLATFORM_NAME = new Map<string, string>(
 
 const VISIBLE_PROVIDERS = 2;
 
-type Props = { item: RecListItemView };
+type Props = {
+  item: RecListItemView;
+  // Display name to attribute the partner vote to on Co-watch cards
+  // (M4 Phase 25). Falls back to "Partner" when omitted.
+  partnerLabel?: string;
+};
 
-export function RecCard({ item }: Props) {
+export function RecCard({ item, partnerLabel }: Props) {
   const [expanded, setExpanded] = useState(false);
 
   const visibleProviders = item.providerKeys.slice(0, VISIBLE_PROVIDERS);
@@ -169,6 +174,8 @@ export function RecCard({ item }: Props) {
           canVote={item.canVote}
           isContinuation={item.isContinuation}
           inWatchHistory={item.inWatchHistory}
+          partnerVote={item.partnerVote}
+          partnerLabel={partnerLabel}
         />
       </div>
     </article>

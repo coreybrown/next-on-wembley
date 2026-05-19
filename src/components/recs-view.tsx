@@ -28,6 +28,9 @@ const PLATFORM_NAME = new Map<string, string>(
 type Props = {
   initial: Record<RecScope, RecListView | null>;
   userSubKeys: string[];
+  // Display name of the household partner — used to label the
+  // partner-vote indicator on Co-watch RecCards (M4 Phase 25).
+  partnerDisplayName: string | null;
 };
 
 // Parses a comma-separated search param into a Set of non-empty trimmed
@@ -65,7 +68,11 @@ function applyFilters(
   });
 }
 
-export function RecsView({ initial, userSubKeys }: Props) {
+export function RecsView({
+  initial,
+  userSubKeys,
+  partnerDisplayName,
+}: Props) {
   const [active, setActive] = useState<RecScope>("co_watch");
   const [mood, setMood] = useState("");
   const { state, errorMessage, refresh, clearError } = useRefresh();
@@ -427,7 +434,10 @@ export function RecsView({ initial, userSubKeys }: Props) {
           <ul className="mt-4 space-y-4">
             {filteredItems.map((item) => (
               <li key={item.id}>
-                <RecCard item={item} />
+                <RecCard
+                  item={item}
+                  partnerLabel={partnerDisplayName ?? "Partner"}
+                />
               </li>
             ))}
           </ul>

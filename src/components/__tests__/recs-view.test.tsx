@@ -34,6 +34,7 @@ const makeItem = (overrides: Record<string, unknown> = {}) => ({
   genres: [],
   unavailable: false,
   currentVote: null,
+  partnerVote: null,
   canVote: true,
   inWatchHistory: false,
   ...overrides,
@@ -58,6 +59,7 @@ describe("RecsView — empty state", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
+        partnerDisplayName={null}
       />,
     );
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
@@ -75,7 +77,9 @@ describe("RecsView — populated lists", () => {
   };
 
   it("defaults to Co-watch and shows its items", () => {
-    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
+    renderWithProvider(
+      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+    );
     expect(
       screen.getByRole("tab", { name: /co-watch/i }),
     ).toHaveAttribute("aria-selected", "true");
@@ -84,7 +88,9 @@ describe("RecsView — populated lists", () => {
 
   it("switches to Corey's tab on click", async () => {
     const user = userEvent.setup();
-    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
+    renderWithProvider(
+      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+    );
     await user.click(screen.getByRole("tab", { name: /corey's picks/i }));
     expect(screen.getByText("Corey Show")).toBeInTheDocument();
     expect(screen.queryByText("Co-watch Show")).not.toBeInTheDocument();
@@ -92,13 +98,17 @@ describe("RecsView — populated lists", () => {
 
   it("shows the empty state on Jaimie's tab (no list)", async () => {
     const user = userEvent.setup();
-    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
+    renderWithProvider(
+      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+    );
     await user.click(screen.getByRole("tab", { name: /jaimie's picks/i }));
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
   });
 
   it("shows the run header (date + model)", () => {
-    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} />);
+    renderWithProvider(
+      <RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} />,
+    );
     expect(screen.getByText(/claude-haiku-4-5/i)).toBeInTheDocument();
   });
 });
@@ -115,6 +125,7 @@ describe("RecsView — refresh", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
+        partnerDisplayName={null}
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
@@ -131,6 +142,7 @@ describe("RecsView — refresh", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
+        partnerDisplayName={null}
       />,
     );
     await user.type(screen.getByLabelText(/mood/i), "   ");
@@ -149,6 +161,7 @@ describe("RecsView — refresh", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
+        partnerDisplayName={null}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -168,6 +181,7 @@ describe("RecsView — refresh", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={[]}
+        partnerDisplayName={null}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -208,6 +222,7 @@ describe("RecsView — filters", () => {
       <RecsView
         initial={initial}
         userSubKeys={["netflix", "apple_tv_plus"]}
+        partnerDisplayName={null}
       />,
     );
     const platformSection = screen.getByText(/^platform$/i).parentElement!;
@@ -217,7 +232,11 @@ describe("RecsView — filters", () => {
 
   it("derives genre chips from the items in the current tab", () => {
     renderWithProvider(
-      <RecsView initial={initial} userSubKeys={["netflix"]} />,
+      <RecsView
+        initial={initial}
+        userSubKeys={["netflix"]}
+        partnerDisplayName={null}
+      />,
     );
     const genreSection = screen.getByText(/^genre$/i).parentElement!;
     expect(genreSection).toHaveTextContent("Drama");
@@ -231,6 +250,7 @@ describe("RecsView — filters", () => {
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
         userSubKeys={["netflix"]}
+        partnerDisplayName={null}
       />,
     );
     expect(screen.queryByRole("region", { name: /filters/i })).toBeNull();

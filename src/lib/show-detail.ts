@@ -12,6 +12,11 @@ export type ShowDetailRecContext = {
   // owner.
   currentVote: VoteValue | null;
   canVote: boolean;
+  // Co-watch only (M4 Phase 25). Partner's vote + display label for
+  // the partner-vote indicator. Null when the rec is on a user-scoped
+  // list (no partner viz) or when the partner hasn't voted.
+  partnerVote: VoteValue | null;
+  partnerLabel: string | null;
 };
 
 export type ShowDetailUserEntry = {
@@ -110,8 +115,21 @@ export async function loadShowDetail(
     if (item) {
       const scope = item.run.scope;
       let ownerUserId: number | null;
+      let partnerVote: VoteValue | null = null;
+      let partnerLabel: string | null = null;
       if (scope === "co_watch") {
         ownerUserId = sessionUserId;
+        // Resolve the OTHER household member for partner-viz on
+        // Co-watch rec context (M4 Phase 25).
+        const partner = await prisma.user.findFirst({
+          where: { id: { not: sessionUserId } },
+          select: { id: true, displayName: true },
+        });
+        if (partner) {
+          partnerVote =
+            show.votes.find((v) => v.userId === partner.id)?.vote ?? null;
+          partnerLabel = partner.displayName;
+        }
       } else {
         const owner = await prisma.user.findUnique({
           where: { username: scope },
@@ -131,6 +149,8 @@ export async function loadShowDetail(
         longExplanation: item.longExplanation,
         currentVote: ownerVote,
         canVote,
+        partnerVote,
+        partnerLabel,
       };
     }
   }

@@ -12,6 +12,10 @@ beforeEach(() => {
   mockPrisma.userSubscription.findMany.mockReset();
   mockPrisma.recommendationItem.findUnique.mockReset();
   mockPrisma.user.findUnique.mockReset();
+  // The co_watch rec-context path resolves the partner via findFirst.
+  // Default to null so non-co_watch tests don't have to mock it.
+  mockPrisma.user.findFirst.mockReset();
+  mockPrisma.user.findFirst.mockResolvedValue(null as never);
 });
 
 const showRow = (overrides: Record<string, unknown> = {}) => ({
@@ -116,6 +120,9 @@ describe("loadShowDetail", () => {
       longExplanation: "Why we like this for Corey.",
       currentVote: "agree",
       canVote: true,
+      // No partner-vote viz on user-scoped lists.
+      partnerVote: null,
+      partnerLabel: null,
     });
   });
 
@@ -143,7 +150,10 @@ describe("loadShowDetail", () => {
   it("co_watch rec context lets the viewer vote with their own id", async () => {
     mockPrisma.show.findUnique.mockResolvedValueOnce(
       showRow({
-        votes: [{ userId: 2, vote: "maybe" }], // Jaimie's vote
+        votes: [
+          { userId: 2, vote: "maybe" }, // Jaimie's vote
+          { userId: 1, vote: "agree" }, // Corey (partner) vote
+        ],
       }) as never,
     );
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
@@ -153,10 +163,19 @@ describe("loadShowDetail", () => {
       longExplanation: "Co-watch pick.",
       run: { scope: "co_watch" },
     } as never);
+    // Partner lookup for partner-viz (M4 Phase 25). Jaimie is viewing
+    // → partner is Corey (id=1).
+    mockPrisma.user.findFirst.mockResolvedValueOnce({
+      id: 1,
+      displayName: "Corey",
+    } as never);
 
     // Jaimie viewing co_watch rec — should see her own vote, can mutate.
     const view = await loadShowDetail(1396, 2, 77);
     expect(view?.recContext?.canVote).toBe(true);
     expect(view?.recContext?.currentVote).toBe("maybe");
+    // Partner viz surfaces Corey's vote.
+    expect(view?.recContext?.partnerVote).toBe("agree");
+    expect(view?.recContext?.partnerLabel).toBe("Corey");
   });
 });

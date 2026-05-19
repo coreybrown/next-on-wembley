@@ -213,6 +213,8 @@ export default async function ShowDetailPage({
             canVote={view.recContext.canVote}
             isContinuation={view.recContext.isContinuation}
             inWatchHistory={view.userEntry != null}
+            partnerVote={view.recContext.partnerVote}
+            partnerLabel={view.recContext.partnerLabel ?? undefined}
           />
         </section>
       )}
