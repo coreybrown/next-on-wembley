@@ -424,8 +424,14 @@ export type RecListItemView = {
   isContinuation: boolean;
   providerKeys: string[];
   unavailable: boolean;
-  // The current user's vote on this item; null when they haven't voted.
+  // The vote shown on this card. For user-scoped lists (corey / jaimie)
+  // this is the OWNER's vote — the partner sees the owner's selections
+  // when viewing the owner's tab. For co_watch this is the viewer's
+  // own vote (partner viz ships in M4).
   currentVote: VoteValue | null;
+  // Whether the current session is allowed to mutate the vote. False
+  // when the viewer is looking at someone else's user-scoped list.
+  canVote: boolean;
   // True when the current user already has the underlying show on their
   // list (any status). Used to hide the Add-to-Want-to-Watch button.
   inWatchHistory: boolean;
@@ -456,7 +462,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
   };
   if (!session.userId) return empty;
 
-  const [subs, watchEntries] = await Promise.all([
+  const [subs, watchEntries, coreyUser, jaimieUser] = await Promise.all([
     prisma.userSubscription.findMany({
       where: { userId: session.userId },
       select: { platformKey: true },
@@ -465,15 +471,36 @@ export async function getLatestRunsForCurrentUser(): Promise<
       where: { userId: session.userId },
       select: { showId: true },
     }),
+    prisma.user.findUnique({
+      where: { username: "corey" },
+      select: { id: true },
+    }),
+    prisma.user.findUnique({
+      where: { username: "jaimie" },
+      select: { id: true },
+    }),
   ]);
   const subKeys = subs.map((s) => s.platformKey);
   // O(1) lookup so the per-item RecCard view can hide the WTW button.
   const watchedShowIds = new Set(watchEntries.map((e) => e.showId));
 
+  // For user-scoped lists, the vote shown is the owner's; for co_watch
+  // it's the viewer's own (partner viz lands in M4). Owner lookup is
+  // done once and reused across all three scope queries.
+  const scopeToOwnerUserId: Record<RecScope, number | null> = {
+    co_watch: session.userId,
+    corey: coreyUser?.id ?? null,
+    jaimie: jaimieUser?.id ?? null,
+  };
+
   const scopes: RecScope[] = ["co_watch", "corey", "jaimie"];
   const result = { ...empty };
   await Promise.all(
     scopes.map(async (scope) => {
+      const ownerUserId = scopeToOwnerUserId[scope];
+      if (ownerUserId == null) return;
+      const canVote =
+        scope === "co_watch" ? true : ownerUserId === session.userId;
       const run = await prisma.recommendationRun.findFirst({
         where: { scope, status: "ok" },
         orderBy: { createdAt: "desc" },
@@ -484,10 +511,12 @@ export async function getLatestRunsForCurrentUser(): Promise<
               show: {
                 include: { providers: { select: { platformKey: true } } },
               },
-              // Eager-load just this user's vote on each item (the unique
-              // (itemId, userId) constraint guarantees 0 or 1 row).
+              // Eager-load the OWNER's vote — for user-scoped lists
+              // this means the partner sees the owner's votes when they
+              // peek at someone else's tab. The unique (itemId, userId)
+              // constraint guarantees 0 or 1 row.
               votes: {
-                where: { userId: session.userId },
+                where: { userId: ownerUserId },
                 select: { vote: true },
                 take: 1,
               },
@@ -532,6 +561,7 @@ export async function getLatestRunsForCurrentUser(): Promise<
             providerKeys,
             unavailable,
             currentVote: item.votes[0]?.vote ?? null,
+            canVote,
             inWatchHistory:
               item.showId != null && watchedShowIds.has(item.showId),
           };

@@ -53,6 +53,7 @@ export function RecCard({ item }: Props) {
   const overflowCount = item.providerKeys.length - visibleProviders.length;
 
   const onVote = (next: VoteValue) => {
+    if (!item.canVote) return;
     // Toggle off when re-clicking the already-selected pill.
     const target: VoteValue | null = optimisticVote === next ? null : next;
     startTransition(async () => {
@@ -213,7 +214,11 @@ export function RecCard({ item }: Props) {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <div
             role="group"
-            aria-label={`Vote on ${item.title}`}
+            aria-label={
+              item.canVote
+                ? `Vote on ${item.title}`
+                : `${item.title} vote (read-only)`
+            }
             className="flex items-center gap-1"
           >
             {VOTE_OPTIONS.map(({ value, label, Icon }) => {
@@ -223,8 +228,14 @@ export function RecCard({ item }: Props) {
                   key={value}
                   type="button"
                   onClick={() => onVote(value)}
+                  disabled={!item.canVote}
                   aria-pressed={selected}
                   aria-label={label}
+                  title={
+                    item.canVote
+                      ? undefined
+                      : "Only the list owner can vote here"
+                  }
                   className={`
                     inline-flex items-center gap-1
                     rounded-pill border px-3 py-1
@@ -232,6 +243,7 @@ export function RecCard({ item }: Props) {
                     transition-colors
                     focus-visible:outline-2 focus-visible:outline-accent
                     focus-visible:outline-offset-2
+                    disabled:cursor-not-allowed disabled:opacity-60
                     ${
                       selected
                         ? "border-accent bg-accent text-accent-fg"

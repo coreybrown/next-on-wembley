@@ -30,6 +30,7 @@ const item = (overrides: Partial<RecListItemView> = {}): RecListItemView => ({
   providerKeys: ["apple_tv_plus"],
   unavailable: false,
   currentVote: null,
+  canVote: true,
   inWatchHistory: false,
   ...overrides,
 });
@@ -144,6 +145,18 @@ describe("RecCard — voting", () => {
     await waitFor(() => {
       expect(mockVoteOnRec).toHaveBeenCalledWith(1, "maybe");
     });
+  });
+
+  it("renders pills as disabled when the viewer can't vote (partner peeking at owner list)", async () => {
+    const user = userEvent.setup();
+    render(<RecCard item={item({ canVote: false, currentVote: "agree" })} />);
+    const agree = screen.getByRole("button", { name: /^agree$/i });
+    expect(agree).toBeDisabled();
+    expect(agree).toHaveAttribute("aria-pressed", "true");
+    // Owner's selection is still visible to the viewer.
+    await user.click(agree);
+    expect(mockVoteOnRec).not.toHaveBeenCalled();
+    expect(mockClearVote).not.toHaveBeenCalled();
   });
 });
 

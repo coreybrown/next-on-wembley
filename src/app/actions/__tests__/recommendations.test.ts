@@ -494,6 +494,14 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     mockPrisma.userSubscription.findMany.mockReset();
     mockPrisma.watchEntry.findMany.mockReset();
     mockPrisma.recommendationRun.findFirst.mockReset();
+    // user.findUnique gets called once per username (corey, jaimie) for
+    // the owner-vote lookup. Default to deterministic ids: 1=corey, 2=jaimie.
+    mockPrisma.user.findUnique.mockImplementation((args: never) => {
+      const a = args as { where?: { username?: string } };
+      if (a.where?.username === "corey") return { id: 1 } as never;
+      if (a.where?.username === "jaimie") return { id: 2 } as never;
+      return null as never;
+    });
   });
 
   const runWithItems = (scope: "co_watch" | "corey" | "jaimie") => ({
