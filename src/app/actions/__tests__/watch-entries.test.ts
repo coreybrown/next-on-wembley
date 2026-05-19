@@ -48,6 +48,7 @@ beforeEach(() => {
 const metadataFixture = {
   tmdbId: 12,
   title: "Severance",
+  overview: null,
   posterUrl: "https://image.tmdb.org/p.jpg",
   genres: "Drama, Sci-Fi",
   totalSeasons: 2,

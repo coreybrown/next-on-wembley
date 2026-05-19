@@ -366,7 +366,7 @@ Per PRD §6.6.
 
 - Reached via direct route push (`/show/[tmdbId]`) from RecCard poster/title; full-page framed by the app shell. Optional `?recItem=N` adds the rec-context section.
 - **Back affordance:** persistent "Back to recs" link at the top-left of the main content. Browser back also works.
-- **Layout (vertical):** Title (Fraunces 700) + optional Continuation badge → poster + metadata grid (TMDb rating, genres, season-count split, status with caveat, trailer link) → Where-to-watch chip row with "Not on your subscriptions" badge → optional rec-context block (long LLM explanation + VoteControlsRow) → "Your list" read-only summary with pointer to dashboard for edits.
+- **Layout (vertical):** Title (Fraunces 700) + optional Continuation badge → poster + metadata grid (TMDb rating, genres, season-count split, status with caveat, trailer link) → Where-to-watch chip row with "Not on your subscriptions" badge → optional rec-context block (long LLM explanation + VoteControlsRow) → "About the show" block (TMDb `overview`, displayed verbatim, with a small "Source: TMDb" attribution underneath) → "Your list" read-only summary with pointer to dashboard for edits.
 
 #### Drawer + parallel-route variant (Phase 20b, deferred)
 

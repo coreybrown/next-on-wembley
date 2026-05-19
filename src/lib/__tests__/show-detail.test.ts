@@ -18,6 +18,7 @@ const showRow = (overrides: Record<string, unknown> = {}) => ({
   id: 42,
   tmdbId: 1396,
   title: "Severance",
+  overview: "Mark leads a team of office workers whose memories are surgically divided between work and personal lives.",
   posterUrl: null,
   genres: "Drama",
   totalSeasons: 3,
@@ -50,6 +51,13 @@ describe("loadShowDetail", () => {
     const view = await loadShowDetail(1396, 1, null);
     expect(view?.unavailable).toBe(true);
     expect(view?.providerKeys).toEqual(["apple_tv_plus"]);
+  });
+
+  it("passes the TMDb overview through to the view", async () => {
+    mockPrisma.show.findUnique.mockResolvedValueOnce(showRow() as never);
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
+    const view = await loadShowDetail(1396, 1, null);
+    expect(view?.overview).toMatch(/Mark leads a team/);
   });
 
   it("computes airedSeasons from seasonsJson (ignores announced-but-unaired)", async () => {

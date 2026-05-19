@@ -135,6 +135,7 @@ export async function searchTv(
 type TmdbTvDetails = {
   id: number;
   name: string;
+  overview: string | null;
   poster_path: string | null;
   genres: Array<{ id: number; name: string }>;
   number_of_seasons: number | null;
@@ -155,6 +156,7 @@ export type SeasonInfo = {
 export type TmdbShowMetadata = {
   tmdbId: number;
   title: string;
+  overview: string | null;
   posterUrl: string | null;
   genres: string;
   totalSeasons: number | null;
@@ -182,6 +184,9 @@ export async function getTvDetails(tmdbId: number): Promise<TmdbShowMetadata> {
   return {
     tmdbId: d.id,
     title: d.name,
+    // TMDb's plot summary. Trim because the field is sometimes wrapped
+    // in stray whitespace. Empty strings → null so the UI can branch.
+    overview: d.overview?.trim() ? d.overview.trim() : null,
     posterUrl: d.poster_path
       ? `${TMDB_IMAGE_BASE}/${POSTER_SIZE}${d.poster_path}`
       : null,

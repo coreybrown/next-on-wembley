@@ -217,6 +217,20 @@ export default async function ShowDetailPage({
         </section>
       )}
 
+      {view.overview && (
+        <section className="mt-8">
+          <h2 className="font-mono text-mono uppercase text-ink-muted">
+            About the show
+          </h2>
+          <p className="mt-2 font-body text-base text-ink">
+            {view.overview}
+          </p>
+          <p className="mt-2 font-mono text-mono uppercase text-ink-muted">
+            Source: TMDb
+          </p>
+        </section>
+      )}
+
       <section className="mt-8">
         <h2 className="font-mono text-mono uppercase text-ink-muted">
           Your list

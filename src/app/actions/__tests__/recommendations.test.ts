@@ -69,6 +69,7 @@ const baseContext = (overrides: Record<string, unknown> = {}) => ({
 const tmdbDetails = (id: number, title: string) => ({
   tmdbId: id,
   title,
+  overview: null,
   posterUrl: null,
   genres: "Drama",
   totalSeasons: 1,

@@ -165,6 +165,7 @@ export async function refreshShowMetadata(showId: number): Promise<boolean> {
     where: { id: showId },
     data: {
       title: metadata.title,
+      overview: metadata.overview,
       posterUrl: metadata.posterUrl,
       genres: metadata.genres,
       totalSeasons: metadata.totalSeasons,

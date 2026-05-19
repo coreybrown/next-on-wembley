@@ -25,6 +25,8 @@ export type ShowDetailView = {
   showId: number;
   tmdbId: number;
   title: string;
+  // TMDb plot summary; null when not yet synced or genuinely absent.
+  overview: string | null;
   posterUrl: string | null;
   genres: string | null;
   totalSeasons: number | null;
@@ -137,6 +139,7 @@ export async function loadShowDetail(
     showId: show.id,
     tmdbId: show.tmdbId,
     title: show.title,
+    overview: show.overview,
     posterUrl: show.posterUrl,
     genres: show.genres,
     totalSeasons: show.totalSeasons,

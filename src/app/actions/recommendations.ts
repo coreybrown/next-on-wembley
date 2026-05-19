@@ -117,6 +117,7 @@ async function upsertResolvedShow(resolved: ResolvedShow): Promise<number> {
     create: {
       tmdbId: metadata.tmdbId,
       title: metadata.title,
+      overview: metadata.overview,
       posterUrl: metadata.posterUrl,
       genres: metadata.genres,
       totalSeasons: metadata.totalSeasons,
@@ -127,6 +128,7 @@ async function upsertResolvedShow(resolved: ResolvedShow): Promise<number> {
     },
     update: {
       title: metadata.title,
+      overview: metadata.overview,
       posterUrl: metadata.posterUrl,
       genres: metadata.genres,
       totalSeasons: metadata.totalSeasons,

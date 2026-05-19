@@ -74,6 +74,10 @@ model Show {
   id                     Int                        @id @default(autoincrement())
   tmdbId                 Int                        @unique
   title                  String
+  // TMDb plot summary, displayed verbatim on the Show Detail page.
+  // Persisted on every metadata refresh; null for shows seeded before
+  // the column landed (resolved by their next sync).
+  overview               String?
   posterUrl              String?
   genres                 String?
   totalSeasons           Int?

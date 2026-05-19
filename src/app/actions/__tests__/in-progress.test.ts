@@ -61,6 +61,7 @@ const entry = (overrides: Record<string, unknown> = {}) => ({
 const metadataFixture = {
   tmdbId: 12,
   title: "Severance",
+  overview: null,
   posterUrl: null,
   genres: "Drama",
   totalSeasons: 3,
