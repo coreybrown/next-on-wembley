@@ -11,6 +11,14 @@ export function LoginCard() {
   return (
     <article className="w-full max-w-md">
       <header className="mb-10 text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="Next on Wembley"
+          width={120}
+          height={120}
+          className="theme-invert-img mx-auto mb-6 h-28 w-auto"
+        />
         <p className="font-mono text-mono uppercase text-ink-muted">
           [a quiet borough · 2026]
         </p>

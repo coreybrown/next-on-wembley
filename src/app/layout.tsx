@@ -56,6 +56,27 @@ export default async function RootLayout({
       <body className="min-h-svh bg-surface text-ink font-body">
         <RefreshProvider>
         {user && (
+          <Link
+            href="/"
+            aria-label="Next on Wembley — back to your list"
+            className="
+              fixed left-4 top-4 z-30
+              inline-flex h-10 items-center
+              focus-visible:outline-2 focus-visible:outline-accent-sharp
+              focus-visible:outline-offset-2
+            "
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt=""
+              width={40}
+              height={40}
+              className="theme-invert-img h-10 w-auto"
+            />
+          </Link>
+        )}
+        {user && (
           <header className="fixed right-4 top-4 z-30 flex items-center gap-2">
             <RefreshIndicator />
             <Link

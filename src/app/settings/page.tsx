@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { ArrowLeft } from "@phosphor-icons/react/dist/ssr";
 import { ThemeSelect } from "@/components/theme-select";
 import { SubscriptionEditor } from "@/components/subscription-editor";
 import { RecModelSelect } from "@/components/rec-model-select";
@@ -26,21 +24,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-16 sm:px-8 sm:py-20">
-      <Link
-        href="/"
-        className="
-          inline-flex items-center gap-2
-          font-mono text-mono uppercase text-ink-muted
-          transition-colors hover:text-ink
-          focus-visible:outline-2 focus-visible:outline-accent
-          focus-visible:outline-offset-2
-        "
-      >
-        <ArrowLeft size={14} weight="regular" aria-hidden />
-        <span>Back to list</span>
-      </Link>
-
-      <header className="mt-8 mb-10">
+      <header className="mb-10">
         <p className="font-mono text-mono uppercase text-ink-muted">
           [Settings · {user.displayName}]
         </p>

@@ -424,15 +424,17 @@ State lives at the Recommendations route level, not inside RefreshHeader, so unm
 
 Per PRD §6.1 + §7.2.
 
-#### Current shape (M3c — fixed top-right cluster)
+#### Current shape (M3c — fixed top header)
 
-Three icon controls + IdentityChip, anchored top-right on every page:
+**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered via `<img src="/logo.png">` plus the `theme-invert-img` class, which leaves strokes dark on the cream light theme and inverts them to cream on the aubergine dark theme.
+
+**Top-right:** three icon controls + IdentityChip, anchored on every authenticated page:
 
 1. **In-Progress** (FilmReel) — leftmost, the most-used affordance day-to-day.
 2. **Recommendations** (Sparkle).
 3. **IdentityChip** — dropdown menu (Radix `DropdownMenu`) carrying **Settings**, **Switch user** (opens the existing passcode dialog), **Log out**. Settings no longer has its own header icon — it lives behind the avatar to keep the rail at three slots.
 
-`RefreshIndicator` slots ahead of the icon row when an in-flight refresh is active (PRD §6.4.7). The deferred Mobile bottom-tab-bar + Desktop top-nav-row layouts below remain the longer-term target.
+`RefreshIndicator` slots ahead of the icon row when an in-flight refresh is active (PRD §6.4.7). The Show Detail page keeps its own contextual "Back to recs" affordance since the logo jumps to the dashboard root, not to the originating list. The deferred Mobile bottom-tab-bar + Desktop top-nav-row layouts below remain the longer-term target.
 
 #### Mobile (≤768px) — deferred bottom-tab variant
 
