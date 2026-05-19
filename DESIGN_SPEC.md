@@ -295,7 +295,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 - **FilterSheet** (mobile) — bottom-sheet variant. Triggered by a "Filters" Button in the header. Radix `Dialog` styled as bottom sheet, swipe-down close. A11y: focus trap, Esc closes, scroll restored on close.
 - **NavBar** — see §5.4. Mobile bottom tabs + top header; desktop top nav + secondary tab row inside Recs.
 - **LoginCard** — passcode entry. Identifies user (Corey or Jaimie), prompts shared-secret, submits to set HTTP-only cookie. States: default, submitting, error ("Incorrect passcode"). A11y: form with `<label>`, autofocus, `aria-describedby` for error.
-- **SubscriptionEditor** — toggle list of streaming platforms. On change, triggers rec-gen per PRD §6.2 (RefreshHeader pill activates). A11y: each platform is a `<button aria-pressed>` toggle.
+- **SubscriptionEditor** — toggle list of streaming platforms. On change, runs `toggleSubscriptionAction` then fires a background rec-gen through the layout `RefreshProvider` (PRD §6.4.7 auto-refresh). The layout pill activates immediately so the user sees a refresh is running even while still on /settings. A11y: each platform is a `<button aria-pressed>` toggle.
 - **EmptyState** — generic, configurable. *Props: `title`, `description`, `actionLabel`, `actionHref` | `onAction`, `illustration?`.* Used by the 5 empty contexts in PRD §6.6.1. Illustrations: woodcut-line glyphs in `--color-text-muted` (see §9.2).
 
 ---

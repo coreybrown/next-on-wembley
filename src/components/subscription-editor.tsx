@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from "react";
 import { Check } from "@phosphor-icons/react";
 import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
 import { toggleSubscriptionAction } from "@/lib/settings";
+import { useRefresh } from "@/components/refresh-context";
 
 type Props = { active: string[] };
 
@@ -16,11 +17,20 @@ export function SubscriptionEditor({ active }: Props) {
         : [...state, platformKey],
   );
   const [isPending, startTransition] = useTransition();
+  // Subscription changes are the only auto-refresh trigger in v1 (PRD
+  // §6.4.7). We fire the regen through the layout-level RefreshProvider
+  // so the nav pill stays visible if the user is still on /settings or
+  // navigates elsewhere while it's running.
+  const { refresh } = useRefresh();
 
   const toggle = (key: PlatformKey) => {
     startTransition(async () => {
       applyOptimistic(key);
       await toggleSubscriptionAction(key);
+      // Fire-and-forget — we don't await here so the local optimistic
+      // UI finishes its transition. The pill state is tracked by the
+      // RefreshProvider, not by this component.
+      void refresh();
     });
   };
 

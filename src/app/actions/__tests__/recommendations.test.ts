@@ -575,6 +575,76 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     expect(result.corey?.items.map((i) => i.position)).toEqual([1, 2]);
   });
 
+  it("hides new picks that lost provider overlap after a sub toggle (stale-list filter)", async () => {
+    mockSession.userId = 7;
+    // User dropped Netflix → only has Crave now.
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([
+      { platformKey: "crave" },
+    ] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    const persistedRun = {
+      id: 99,
+      scope: "corey" as never,
+      modelId: "claude-haiku-4-5",
+      mood: null,
+      createdAt: new Date("2026-05-19T00:00:00Z"),
+      items: [
+        // Persisted under "had Netflix" — now stale.
+        {
+          id: 1,
+          position: 1,
+          tmdbId: 100,
+          showId: 1000,
+          title: "Netflix-only Show",
+          year: "2024",
+          posterUrl: null,
+          shortExplanation: "s",
+          longExplanation: "l",
+          isContinuation: false,
+          show: { providers: [{ platformKey: "netflix" }], votes: [] },
+        },
+        // Still available on the user's current sub.
+        {
+          id: 2,
+          position: 2,
+          tmdbId: 200,
+          showId: 1001,
+          title: "Crave Show",
+          year: "2024",
+          posterUrl: null,
+          shortExplanation: "s",
+          longExplanation: "l",
+          isContinuation: false,
+          show: { providers: [{ platformKey: "crave" }], votes: [] },
+        },
+        // Continuation — stays visible regardless of provider gap.
+        {
+          id: 3,
+          position: 3,
+          tmdbId: 300,
+          showId: 1002,
+          title: "Continuation on Netflix",
+          year: "2024",
+          posterUrl: null,
+          shortExplanation: "s",
+          longExplanation: "l",
+          isContinuation: true,
+          show: { providers: [{ platformKey: "netflix" }], votes: [] },
+        },
+      ],
+    };
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(null) // co_watch
+      .mockResolvedValueOnce(persistedRun as never) // corey
+      .mockResolvedValueOnce(null); // jaimie
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.corey?.items.map((i) => i.title)).toEqual([
+      "Crave Show",
+      "Continuation on Netflix",
+    ]);
+  });
+
   it("keeps disagreed items visible on the co_watch list (M4's split-rule will handle it)", async () => {
     mockSession.userId = 7;
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([

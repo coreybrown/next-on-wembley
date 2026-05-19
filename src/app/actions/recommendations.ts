@@ -531,12 +531,24 @@ export async function getLatestRunsForCurrentUser(): Promise<
       // unchanged so a single user's disagree doesn't drop a co-watch
       // pick the partner might still want. We renumber positions after
       // filtering so the visible list doesn't show gaps.
-      const visibleItems =
+      const afterDisagreeFilter =
         scope === "co_watch"
           ? run.items
           : run.items.filter(
               (item) => (item.show?.votes[0]?.vote ?? null) !== "disagree",
             );
+      // Stale-list subscription filter (PRD §6.4.7): a previously-
+      // generated new pick may have lost provider overlap because the
+      // user toggled off a subscription after this run was persisted.
+      // Hide those new picks immediately — continuations stay visible
+      // (badged "Unavailable on your subscriptions" by the card).
+      const visibleItems = afterDisagreeFilter.filter((item) => {
+        if (item.isContinuation) return true;
+        const providerKeys =
+          item.show?.providers.map((p) => p.platformKey) ?? [];
+        if (providerKeys.length === 0) return true; // unknown — don't hide
+        return providerKeys.some((k) => subKeys.includes(k));
+      });
       result[scope] = {
         scope,
         runId: run.id,
