@@ -75,6 +75,9 @@ export function CoWatchToggle({ showId, coWatch, partnerName }: Props) {
         type="button"
         onClick={onToggle}
         aria-pressed={coWatch}
+        // "On" is an accent *outline*, not a filled surface — on an
+        // in-progress card the season-state toggle already owns the one
+        // filled-accent slot; a second fill would muddy the hierarchy.
         className={`
           inline-flex items-center gap-1
           rounded-pill border px-3 py-1
@@ -84,7 +87,7 @@ export function CoWatchToggle({ showId, coWatch, partnerName }: Props) {
           focus-visible:outline-offset-2
           ${
             coWatch
-              ? "border-accent bg-accent text-accent-fg"
+              ? "border-accent bg-surface text-accent"
               : "border-border bg-surface text-ink-secondary hover:border-border-strong"
           }
         `}

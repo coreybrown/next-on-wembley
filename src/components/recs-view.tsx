@@ -196,6 +196,46 @@ export function RecsView({
 
   return (
     <div className="space-y-8">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="font-mono text-mono uppercase text-ink-muted">
+            [Recommendations]
+          </p>
+          <h1 className="mt-3 font-display text-2xl font-black text-ink leading-none sm:text-4xl">
+            What&rsquo;s next on Wembley
+          </h1>
+          <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />
+        </div>
+        {/* Refresh regenerates ALL three lists — a page-level action, so
+            it sits at the masthead (not in the per-tab row) and wears a
+            quiet outline, leaving filled-accent to mark only the active
+            tab. */}
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={pending}
+          className="
+            inline-flex w-full items-center justify-center gap-2 sm:w-auto
+            rounded-md border border-border-strong bg-surface px-4 py-2
+            font-body text-base text-ink
+            transition-colors hover:border-accent hover:text-accent
+            disabled:cursor-not-allowed disabled:opacity-50
+            focus-visible:outline-2 focus-visible:outline-accent
+            focus-visible:outline-offset-2
+          "
+        >
+          <ArrowsClockwise
+            size={16}
+            weight="regular"
+            aria-hidden
+            className={
+              pending ? "animate-spin motion-reduce:animate-none" : undefined
+            }
+          />
+          <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
+        </button>
+      </header>
+
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
           {TAB_ORDER.map((scope, idx) => {
@@ -217,13 +257,13 @@ export function RecsView({
                 onClick={() => setActive(scope)}
                 onKeyDown={(e) => onTabKeyDown(e, idx)}
                 className={`
-                  rounded-pill border px-3 py-1.5
-                  font-body text-sm whitespace-nowrap
+                  rounded-pill border px-4 py-2
+                  font-body text-base font-medium whitespace-nowrap
                   transition-colors
                   ${
                     selected
                       ? "border-accent bg-accent text-accent-fg"
-                      : "border-border bg-surface text-ink hover:border-border-strong"
+                      : "border-border-strong bg-surface text-ink hover:border-accent"
                   }
                   focus-visible:outline-2 focus-visible:outline-accent
                   focus-visible:outline-offset-2
@@ -234,71 +274,45 @@ export function RecsView({
             );
           })}
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRefineOpen((v) => !v)}
-            aria-expanded={refineOpen}
-            aria-controls="refine-panel"
-            className={`
-              inline-flex items-center gap-2
-              rounded-md border px-3 py-2
-              font-body text-base
-              transition-colors
-              focus-visible:outline-2 focus-visible:outline-accent
-              focus-visible:outline-offset-2
-              ${
-                refineOpen || refineCount > 0
-                  ? "border-border-strong bg-surface text-ink"
-                  : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-              }
-            `}
-          >
-            <SlidersHorizontal size={16} weight="regular" aria-hidden />
-            <span>Refine</span>
-            {refineCount > 0 && (
-              <span
-                aria-label={`${refineCount} active`}
-                className="
-                  inline-flex h-5 min-w-5 items-center justify-center
-                  rounded-pill bg-accent px-1.5
-                  font-mono text-mono text-accent-fg
-                "
-              >
-                {refineCount}
-              </span>
-            )}
-            {refineOpen ? (
-              <CaretUp size={14} weight="bold" aria-hidden />
-            ) : (
-              <CaretDown size={14} weight="bold" aria-hidden />
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={pending}
-            className="
-              inline-flex items-center gap-2
-              rounded-md bg-accent px-4 py-2
-              font-body text-base text-accent-fg
-              transition-opacity hover:opacity-90
-              disabled:cursor-not-allowed disabled:opacity-50
-              focus-visible:outline-2 focus-visible:outline-accent-sharp
-              focus-visible:outline-offset-2
-            "
-          >
-            <ArrowsClockwise
-              size={16}
-              weight="regular"
-              aria-hidden
-              className={
-                pending ? "animate-spin motion-reduce:animate-none" : undefined
-              }
-            />
-            <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setRefineOpen((v) => !v)}
+          aria-expanded={refineOpen}
+          aria-controls="refine-panel"
+          className={`
+            ml-auto inline-flex items-center gap-2
+            rounded-md border px-3 py-2
+            font-body text-base
+            transition-colors
+            focus-visible:outline-2 focus-visible:outline-accent
+            focus-visible:outline-offset-2
+            ${
+              refineOpen || refineCount > 0
+                ? "border-border-strong bg-surface text-ink"
+                : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+            }
+          `}
+        >
+          <SlidersHorizontal size={16} weight="regular" aria-hidden />
+          <span>Refine</span>
+          {refineCount > 0 && (
+            <span
+              aria-label={`${refineCount} active`}
+              className="
+                inline-flex h-5 min-w-5 items-center justify-center
+                rounded-pill bg-accent px-1.5
+                font-mono text-mono text-accent-fg
+              "
+            >
+              {refineCount}
+            </span>
+          )}
+          {refineOpen ? (
+            <CaretUp size={14} weight="bold" aria-hidden />
+          ) : (
+            <CaretDown size={14} weight="bold" aria-hidden />
+          )}
+        </button>
       </div>
 
       {refineOpen && (

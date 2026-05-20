@@ -378,7 +378,7 @@ All edits auto-save inline (no Save/Cancel buttons) and trigger `router.refresh(
 
 #### CoWatchToggle (Phase 42)
 
-`CoWatchToggle` is a shared molecule — a single pill toggle, "Watch with {partner}" (outline) / "Watching with {partner}" (filled-accent, UsersThree icon `fill`), backed by `setCoWatchAction`. Hidden entirely in a single-user setup (`partnerName == null`). It renders in **three places**, always wherever a user manages an in-progress show:
+`CoWatchToggle` is a shared molecule — a single pill toggle, "Watch with {partner}" (neutral outline) / "Watching with {partner}" (**accent outline** — `border-accent` + accent text, UsersThree icon `fill`; deliberately *not* an accent fill), backed by `setCoWatchAction`. Hidden entirely in a single-user setup (`partnerName == null`). It renders in **three places**, always wherever a user manages an in-progress show — and on an in-progress card the season-state toggle already owns the one filled-accent slot, so the co-watch "on" state stays an outline to keep one filled-accent surface per card:
 
 - **Show Detail watch controls** — below the rating pills, inside a `Together` group with a one-line helper ("Status and season progress sync with {partner}. Ratings stay personal.").
 - **InProgressEntry actions** — on its own row beneath the season stepper / state toggle / "Finished it", on both the `/in-progress` page and the dashboard's Watching/Paused cards.
@@ -394,22 +394,35 @@ Opened with `?recItem=N`. Adds at the top: long LLM explanation (≤300 chars) i
 
 ### 5.3 RefreshHeader + rec-gen flow
 
-Anchors the top of the Recommendations view (PRD §6.4.7).
+Anchors the top of the Recommendations view (PRD §6.4.7). `RecsView` owns
+the masthead so the live Refresh control sits with it.
 
 Desktop layout:
 ```
-[Co-watch] [Corey] [Jaimie]              [⇅ Refine (N)] [Refresh]
+[RECOMMENDATIONS]
+What's next on Wembley                            [ ⟳ Refresh ]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[ Co-watch ] [ Corey ] [ Jaimie ]                  [ ⚙ Refine (N) ]
 └─ Refine panel (collapsed by default; expands inline) ─────────┐
    Mood input ______________________________________           │
    Platform: [chip] [chip]   Genre: [chip] [chip]   [Clear]     │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-Mobile: the tab row wraps; the Refine + Refresh buttons drop below it.
+Mobile: the masthead stacks (H1 block, then a full-width Refresh beneath the
+accent rule); the tab row sits below with Refine wrapping to its own line.
+
+#### Visual hierarchy (the weight rule)
+
+The header carries three control clusters; they must not compete:
+
+- **Tabs** are the primary navigation — sized up (`text-base`, `font-medium`, `px-4 py-2`), the heaviest objects in their row. Inactive tabs carry `border-border-strong` at rest; the active tab is filled `bg-accent` and is the **only** filled-accent surface in the whole header.
+- **Refresh** regenerates *all three* lists, so it is a **page-level** action: it sits at the **masthead**, opposite the H1 — never inside the per-tab row. It wears a quiet **outline** (`border-border-strong bg-surface`), not an accent fill; its prominence comes from masthead adjacency, not colour. This makes scope legible — masthead-level = affects the page, row-level = affects the view below.
+- **Refine** is view-scoped (it filters the current list), so it stays in the tab row, right-aligned, with its existing quiet outline treatment. Its accent count-badge is a status marker, not a filled surface.
 
 #### Refine disclosure (Phase 41)
 
-Mood and the platform/genre filters are **secondary actions** and previously stacked above the list — pushing the first rec card below the fold. They now live behind a single **"Refine" disclosure toggle** sitting next to the Refresh button:
+Mood and the platform/genre filters are **secondary actions** and previously stacked above the list — pushing the first rec card below the fold. They now live behind a single **"Refine" disclosure toggle** right-aligned in the tab row:
 
 - Collapsed by default. The toggle carries an active-count badge (`selected platforms + selected genres + mood-set`) so the user knows refinements are in effect without expanding.
 - `aria-expanded` on the toggle, `aria-controls="refine-panel"` pointing at the panel; the panel is a `<section aria-label="Refine recommendations">`.
@@ -421,7 +434,7 @@ Mood and the platform/genre filters are **secondary actions** and previously sta
 
 | Window | UI state |
 |---|---|
-| Idle | Refresh button (primary), timestamp, Refine toggle (with active-count badge). MoodInput + filters live inside the collapsed Refine panel. Nav pill: hidden. |
+| Idle | Refresh button (masthead, quiet outline), timestamp, Refine toggle (with active-count badge). MoodInput + filters live inside the collapsed Refine panel. Nav pill: hidden. |
 | 0–30s (pending) | Refresh disabled + spinning; stale list dimmed `opacity: 0.5`; skeleton RecCards (3 stacked) appear above stale list inside a `border-dashed` section labelled "Generating new recommendations…"; nav pill shows "Refreshing recommendations…" with a spinning glyph (see §9.1 for the pill's personality). |
 | 30–60s (long_running) | Inline note adjacent to skeletons: "Taking longer than usual — the LLM is busy. Hang tight." Nav pill copy switches to "Still generating…" |
 | 60s (timed_out) | Skeletons replaced by error card with the typed timeout message + **Retry** and **Dismiss** buttons. Stale list **remains** dimmed-but-visible below. Server action keeps running; stale results are dropped via an invocation token. |
