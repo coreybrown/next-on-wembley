@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { VoteValue } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { revalidateRecSurfaces } from "@/lib/revalidate";
 
 export type VoteActionError =
   | "unauthorized"
@@ -77,7 +77,7 @@ export async function voteOnRecAction(
     update: { vote, createdAt: new Date() },
   });
 
-  revalidatePath("/recs");
+  revalidateRecSurfaces();
   return { ok: true };
 }
 
@@ -96,7 +96,7 @@ export async function clearVoteAction(
     where: { showId: auth.showId, userId: auth.ownerUserId },
   });
 
-  revalidatePath("/recs");
+  revalidateRecSurfaces();
   return { ok: true };
 }
 
@@ -115,6 +115,6 @@ export async function clearOwnVoteOnShowAction(
     where: { showId, userId: session.userId },
   });
 
-  revalidatePath("/recs");
+  revalidateRecSurfaces();
   return { ok: true };
 }

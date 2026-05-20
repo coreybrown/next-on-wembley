@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { RecScope, VoteValue } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -25,6 +24,8 @@ import {
 } from "@/lib/rec-prompts";
 import { getUserContext, intersectSubscriptions } from "@/lib/rec-context";
 import { titlesAreCompatible } from "@/lib/rec-titles";
+import { upsertShowFromResolved, type ResolvedShow } from "@/lib/show-sync";
+import { revalidateRecSurfaces } from "@/lib/revalidate";
 
 // Final list size after TMDb validation, per scope. Co-watch carries
 // more picks because it's the household's default browsing surface (the
@@ -83,10 +84,8 @@ export type GenerateRecommendationsResult =
 // Tries to resolve an LLM-suggested tmdbId to a real TMDb show + current
 // CA providers. Falls back to a title search when the hint is bogus.
 // Returns null if neither route works (we drop the rec).
-type ResolvedShow = {
-  metadata: TmdbShowMetadata;
-  providers: TmdbProviderInfo[];
-};
+// `ResolvedShow` lives in lib/show-sync now — it's the input shape the
+// upsert helper takes.
 
 async function resolveTmdbHint(
   tmdbId: number,
@@ -130,47 +129,10 @@ async function resolveTmdbHint(
   return { metadata, providers };
 }
 
-async function upsertResolvedShow(resolved: ResolvedShow): Promise<number> {
-  const { metadata, providers } = resolved;
-  const show = await prisma.show.upsert({
-    where: { tmdbId: metadata.tmdbId },
-    create: {
-      tmdbId: metadata.tmdbId,
-      title: metadata.title,
-      overview: metadata.overview,
-      posterUrl: metadata.posterUrl,
-      genres: metadata.genres,
-      totalSeasons: metadata.totalSeasons,
-      totalEpisodes: metadata.totalEpisodes,
-      seasonsJson: metadata.seasonsJson,
-      tmdbRating: metadata.tmdbRating,
-      productionStatus: metadata.productionStatus,
-    },
-    update: {
-      title: metadata.title,
-      overview: metadata.overview,
-      posterUrl: metadata.posterUrl,
-      genres: metadata.genres,
-      totalSeasons: metadata.totalSeasons,
-      totalEpisodes: metadata.totalEpisodes,
-      seasonsJson: metadata.seasonsJson,
-      tmdbRating: metadata.tmdbRating,
-      productionStatus: metadata.productionStatus,
-      lastSyncedAt: new Date(),
-    },
-  });
-  await prisma.showProvider.deleteMany({ where: { showId: show.id } });
-  if (providers.length > 0) {
-    await prisma.showProvider.createMany({
-      data: providers.map((p) => ({
-        showId: show.id,
-        platformKey: p.platformKey,
-        monetizationType: p.monetizationType,
-      })),
-    });
-  }
-  return show.id;
-}
+// Phase 34: the actual upsert lives in `lib/show-sync` — keep this
+// thin wrapper so the calling code reads at the right level.
+const upsertResolvedShow = (resolved: ResolvedShow) =>
+  upsertShowFromResolved(resolved);
 
 // Maps RecScope to the username that owns that list. Hard-coded — the app
 // is two-user-specific by design (see PRD §2). For co_watch we resolve to
@@ -472,7 +434,7 @@ export async function generateRecommendations(
     })),
   });
 
-  revalidatePath("/recs");
+  revalidateRecSurfaces();
   return { ok: true, runId: run.id, itemCount: persisted.length };
 }
 

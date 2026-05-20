@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { WatchStatus, UserRating, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -15,6 +14,8 @@ import {
   parseSeasonsJson,
   releasedSeasonsCount,
 } from "@/lib/in-progress";
+import { upsertShowFromResolved } from "@/lib/show-sync";
+import { revalidateAll } from "@/lib/revalidate";
 
 export type WatchEntryActionError =
   | "unauthorized"
@@ -63,54 +64,17 @@ export async function addWatchEntry(
     return { ok: false, error: "tmdb_unavailable" };
   }
 
-  const show = await prisma.show.upsert({
-    where: { tmdbId: input.tmdbId },
-    create: {
-      tmdbId: metadata.tmdbId,
-      title: metadata.title,
-      overview: metadata.overview,
-      posterUrl: metadata.posterUrl,
-      genres: metadata.genres,
-      totalSeasons: metadata.totalSeasons,
-      totalEpisodes: metadata.totalEpisodes,
-      seasonsJson: metadata.seasonsJson,
-      tmdbRating: metadata.tmdbRating,
-      productionStatus: metadata.productionStatus,
-    },
-    update: {
-      title: metadata.title,
-      overview: metadata.overview,
-      posterUrl: metadata.posterUrl,
-      genres: metadata.genres,
-      totalSeasons: metadata.totalSeasons,
-      totalEpisodes: metadata.totalEpisodes,
-      seasonsJson: metadata.seasonsJson,
-      tmdbRating: metadata.tmdbRating,
-      productionStatus: metadata.productionStatus,
-      lastSyncedAt: new Date(),
-    },
-  });
-
-  await prisma.showProvider.deleteMany({ where: { showId: show.id } });
-  if (providers.length > 0) {
-    await prisma.showProvider.createMany({
-      data: providers.map((p) => ({
-        showId: show.id,
-        platformKey: p.platformKey,
-        monetizationType: p.monetizationType,
-      })),
-    });
-  }
+  const showId = await upsertShowFromResolved({ metadata, providers });
 
   const existing = await prisma.watchEntry.findUnique({
-    where: { userId_showId: { userId: session.userId, showId: show.id } },
+    where: { userId_showId: { userId: session.userId, showId } },
   });
   if (existing) return { ok: false, error: "already_added" };
 
   await prisma.watchEntry.create({
     data: {
       userId: session.userId,
-      showId: show.id,
+      showId,
       status: input.status,
       currentSeason: shouldClearSeason(input.status)
         ? null
@@ -119,7 +83,7 @@ export async function addWatchEntry(
     },
   });
 
-  revalidatePath("/");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -186,7 +150,7 @@ export async function updateWatchEntry(
   if (willAutoClearSeason) patch.currentSeason = null;
 
   await prisma.watchEntry.update({ where: { id: input.id }, data: patch });
-  revalidatePath("/");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -201,11 +165,9 @@ export async function deleteWatchEntry(
     return { ok: false, error: "not_found" };
   }
   await prisma.watchEntry.delete({ where: { id } });
-  revalidatePath("/");
-  // /recs derives the per-card WTW button visibility from a user's
-  // watch-history set, so a remove needs to flip that back to "show
-  // the Want to Watch button" on next render.
-  revalidatePath("/recs");
+  // Dashboard, in-progress, and rec-card WTW button visibility all
+  // pivot on watch-history membership — bust all three.
+  revalidateAll();
   return { ok: true };
 }
 

@@ -1,9 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { voteOnRecAction } from "@/app/actions/rec-votes";
+import { revalidateAll } from "@/lib/revalidate";
 
 export type ContinuationOutcome = "paused" | "dropped";
 
@@ -70,8 +70,6 @@ export async function disagreeOnContinuationAction(
 
   // The watch-entry change shows up on the dashboard + in-progress
   // route; the vote change shows up on /recs.
-  revalidatePath("/");
-  revalidatePath("/in-progress");
-  revalidatePath("/recs");
+  revalidateAll();
   return { ok: true };
 }

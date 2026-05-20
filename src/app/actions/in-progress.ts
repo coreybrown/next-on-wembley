@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import type { Prisma, UserRating } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -11,6 +10,8 @@ import {
   releasedSeasonsCount,
 } from "@/lib/in-progress";
 import { isValidRating } from "@/lib/watch-entries";
+import { upsertShowFromResolved } from "@/lib/show-sync";
+import { revalidateAll } from "@/lib/revalidate";
 import type { WatchEntryActionError } from "@/app/actions/watch-entries";
 
 export type InProgressEntry = Prisma.WatchEntryGetPayload<{
@@ -78,8 +79,7 @@ export async function bumpSeasonAction(
     // flag — the new season is by definition not yet finished.
     data: { currentSeason: next, currentSeasonCompleted: false },
   });
-  revalidatePath("/");
-  revalidatePath("/in-progress");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -106,8 +106,7 @@ export async function setSeasonCompletedAction(
     where: { id: entryId },
     data: { currentSeasonCompleted: completed },
   });
-  revalidatePath("/");
-  revalidatePath("/in-progress");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -138,8 +137,7 @@ export async function finishItAction(
       ...(rating != null ? { userRating: rating } : {}),
     },
   });
-  revalidatePath("/");
-  revalidatePath("/in-progress");
+  revalidateAll();
   return { ok: true };
 }
 
@@ -160,33 +158,7 @@ export async function refreshShowMetadata(showId: number): Promise<boolean> {
   } catch {
     return false;
   }
-
-  await prisma.show.update({
-    where: { id: showId },
-    data: {
-      title: metadata.title,
-      overview: metadata.overview,
-      posterUrl: metadata.posterUrl,
-      genres: metadata.genres,
-      totalSeasons: metadata.totalSeasons,
-      totalEpisodes: metadata.totalEpisodes,
-      seasonsJson: metadata.seasonsJson,
-      tmdbRating: metadata.tmdbRating,
-      productionStatus: metadata.productionStatus,
-      lastSyncedAt: new Date(),
-    },
-  });
-
-  await prisma.showProvider.deleteMany({ where: { showId } });
-  if (providers.length > 0) {
-    await prisma.showProvider.createMany({
-      data: providers.map((p) => ({
-        showId,
-        platformKey: p.platformKey,
-        monetizationType: p.monetizationType,
-      })),
-    });
-  }
+  await upsertShowFromResolved({ metadata, providers });
   return true;
 }
 

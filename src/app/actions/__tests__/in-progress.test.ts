@@ -34,7 +34,7 @@ beforeEach(() => {
   mockPrisma.watchEntry.update.mockReset();
   mockPrisma.watchEntry.findMany.mockReset();
   mockPrisma.show.findUnique.mockReset();
-  mockPrisma.show.update.mockReset();
+  mockPrisma.show.upsert.mockReset();
   mockPrisma.showProvider.deleteMany.mockReset();
   mockPrisma.showProvider.createMany.mockReset();
 });
@@ -272,7 +272,7 @@ describe("refreshShowMetadata", () => {
     mockGetTvDetails.mockRejectedValueOnce(new Error("boom"));
     mockGetTvProviders.mockResolvedValueOnce([]);
     expect(await refreshShowMetadata(100)).toBe(false);
-    expect(mockPrisma.show.update).not.toHaveBeenCalled();
+    expect(mockPrisma.show.upsert).not.toHaveBeenCalled();
   });
 
   it("happy path: updates show + replaces providers", async () => {
@@ -284,11 +284,11 @@ describe("refreshShowMetadata", () => {
     mockGetTvProviders.mockResolvedValueOnce([
       { platformKey: "netflix", monetizationType: "flatrate" },
     ]);
-    mockPrisma.show.update.mockResolvedValueOnce({} as never);
+    mockPrisma.show.upsert.mockResolvedValueOnce({ id: 100 } as never);
     mockPrisma.showProvider.deleteMany.mockResolvedValueOnce({ count: 0 } as never);
     mockPrisma.showProvider.createMany.mockResolvedValueOnce({ count: 1 } as never);
     expect(await refreshShowMetadata(100)).toBe(true);
-    expect(mockPrisma.show.update).toHaveBeenCalled();
+    expect(mockPrisma.show.upsert).toHaveBeenCalled();
     expect(mockPrisma.showProvider.deleteMany).toHaveBeenCalledWith({
       where: { showId: 100 },
     });
@@ -340,7 +340,7 @@ describe("refreshStaleInProgress", () => {
     } as never);
     mockGetTvDetails.mockResolvedValueOnce(metadataFixture);
     mockGetTvProviders.mockResolvedValueOnce([]);
-    mockPrisma.show.update.mockResolvedValueOnce({} as never);
+    mockPrisma.show.upsert.mockResolvedValueOnce({ id: 100 } as never);
     mockPrisma.showProvider.deleteMany.mockResolvedValueOnce({ count: 0 } as never);
     expect(await refreshStaleInProgress()).toEqual({ refreshed: 1 });
   });
@@ -360,7 +360,7 @@ describe("refreshStaleInProgress", () => {
     } as never);
     mockGetTvDetails.mockResolvedValue(metadataFixture);
     mockGetTvProviders.mockResolvedValue([]);
-    mockPrisma.show.update.mockResolvedValue({} as never);
+    mockPrisma.show.upsert.mockResolvedValue({ id: 100 } as never);
     mockPrisma.showProvider.deleteMany.mockResolvedValue({ count: 0 } as never);
     const r = await refreshStaleInProgress();
     expect(r.refreshed).toBe(2);
@@ -388,7 +388,7 @@ describe("refreshStaleAcrossHistory", () => {
     } as never);
     mockGetTvDetails.mockResolvedValue(metadataFixture);
     mockGetTvProviders.mockResolvedValue([]);
-    mockPrisma.show.update.mockResolvedValue({} as never);
+    mockPrisma.show.upsert.mockResolvedValue({ id: 100 } as never);
     mockPrisma.showProvider.deleteMany.mockResolvedValue({
       count: 0,
     } as never);

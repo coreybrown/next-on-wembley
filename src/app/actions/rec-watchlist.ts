@@ -1,8 +1,8 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { revalidateAll, revalidateRecSurfaces } from "@/lib/revalidate";
 
 export type AddToWtwError =
   | "unauthorized"
@@ -46,7 +46,7 @@ export async function addToWantToWatchAction(
   });
   if (existing) {
     if (existing.status === "want_to_watch") {
-      revalidatePath("/recs");
+      revalidateRecSurfaces();
       return { ok: true };
     }
     return { ok: false, error: "already_in_history" };
@@ -60,7 +60,6 @@ export async function addToWantToWatchAction(
     },
   });
 
-  revalidatePath("/recs");
-  revalidatePath("/");
+  revalidateAll();
   return { ok: true };
 }
