@@ -150,7 +150,7 @@ export function InProgressActions({ entry, coWatch, partnerName }: Props) {
             disabled={!canMinus || isPending}
             aria-label="Previous season"
             className="
-              inline-flex h-8 w-8 items-center justify-center
+              inline-flex h-11 w-11 items-center justify-center
               text-ink-secondary
               transition-colors hover:text-accent
               disabled:cursor-not-allowed disabled:opacity-30
@@ -172,7 +172,7 @@ export function InProgressActions({ entry, coWatch, partnerName }: Props) {
             disabled={!canPlus || isPending}
             aria-label="Next season"
             className="
-              inline-flex h-8 w-8 items-center justify-center
+              inline-flex h-11 w-11 items-center justify-center
               text-ink-secondary
               transition-colors hover:text-accent
               disabled:cursor-not-allowed disabled:opacity-30

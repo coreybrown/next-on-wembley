@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Fraunces, Chivo, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import { FilmReel, Sparkle } from "@phosphor-icons/react/dist/ssr";
+import { FilmReel, Sparkle, GearSix } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { IdentityChip } from "@/components/identity-chip";
 import { Logo } from "@/components/logo";
@@ -89,7 +89,7 @@ export default async function RootLayout({
                 supports-[backdrop-filter]:bg-surface/70
               "
             >
-              <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+              <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-4 px-6 sm:px-8">
                 <Link
                   href="/"
                   aria-label="Next on Wembley — back to your list"
@@ -112,7 +112,7 @@ export default async function RootLayout({
                     href="/in-progress"
                     aria-label="In Progress"
                     className="
-                      inline-flex h-9 w-9 items-center justify-center
+                      inline-flex h-11 w-11 items-center justify-center
                       rounded-sm text-ink-secondary
                       transition-colors hover:bg-surface-elevated hover:text-accent
                       focus-visible:outline-2 focus-visible:outline-accent-sharp
@@ -125,7 +125,7 @@ export default async function RootLayout({
                     href="/recs"
                     aria-label="Recommendations"
                     className="
-                      inline-flex h-9 w-9 items-center justify-center
+                      inline-flex h-11 w-11 items-center justify-center
                       rounded-sm text-ink-secondary
                       transition-colors hover:bg-surface-elevated hover:text-accent
                       focus-visible:outline-2 focus-visible:outline-accent-sharp
@@ -133,6 +133,19 @@ export default async function RootLayout({
                     "
                   >
                     <Sparkle size={20} weight="regular" />
+                  </Link>
+                  <Link
+                    href="/settings"
+                    aria-label="Settings"
+                    className="
+                      inline-flex h-11 w-11 items-center justify-center
+                      rounded-sm text-ink-secondary
+                      transition-colors hover:bg-surface-elevated hover:text-accent
+                      focus-visible:outline-2 focus-visible:outline-accent-sharp
+                      focus-visible:outline-offset-2
+                    "
+                  >
+                    <GearSix size={20} weight="regular" />
                   </Link>
                   <IdentityChip currentUser={user} />
                 </nav>

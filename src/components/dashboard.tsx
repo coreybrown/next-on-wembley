@@ -78,7 +78,7 @@ export function Dashboard({
         <p className="font-mono text-mono uppercase text-ink-muted">
           [a quiet borough · 2026]
         </p>
-        <h1 className="mt-3 font-display text-2xl font-black text-ink leading-none sm:text-4xl">
+        <h1 className="mt-3 font-display text-4xl font-black text-ink leading-none">
           {displayName}&rsquo;s list
         </h1>
         <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />
@@ -107,9 +107,9 @@ export function Dashboard({
           {grouped.map(({ status, items }) => (
             <section key={status}>
               <div className="mb-4 flex items-baseline justify-between gap-2">
-                <h2 className="font-mono text-mono uppercase tracking-wide text-ink-muted">
+                <h2 className="font-display text-2xl font-bold text-ink">
                   {STATUS_LABELS[status]}
-                  <span className="ml-2 text-ink-muted/60">
+                  <span className="ml-2 font-mono text-mono text-ink-muted">
                     ({items.length})
                   </span>
                 </h2>

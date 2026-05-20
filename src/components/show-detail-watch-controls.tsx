@@ -219,7 +219,7 @@ export function ShowDetailWatchControls({
             disabled={!canDec}
             aria-label="Previous season"
             className="
-              inline-flex h-8 w-8 items-center justify-center
+              inline-flex h-11 w-11 items-center justify-center
               rounded-sm border border-border bg-surface text-ink-secondary
               hover:border-accent hover:text-accent
               disabled:cursor-not-allowed disabled:opacity-30
@@ -241,7 +241,7 @@ export function ShowDetailWatchControls({
             disabled={!canInc}
             aria-label="Next season"
             className="
-              inline-flex h-8 w-8 items-center justify-center
+              inline-flex h-11 w-11 items-center justify-center
               rounded-sm border border-border bg-surface text-ink-secondary
               hover:border-accent hover:text-accent
               disabled:cursor-not-allowed disabled:opacity-30
@@ -348,7 +348,7 @@ export function ShowDetailWatchControls({
               className="
                 fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm
                 -translate-x-1/2 -translate-y-1/2
-                rounded-md border border-border-strong bg-surface-elevated
+                rounded-xl border border-border-strong bg-surface-elevated
                 p-6 focus:outline-none
               "
             >

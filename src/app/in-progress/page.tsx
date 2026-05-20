@@ -63,7 +63,7 @@ export default async function InProgressPage() {
         <p className="font-mono text-mono uppercase text-ink-muted">
           [In Progress]
         </p>
-        <h1 className="mt-3 font-display text-2xl font-black text-ink leading-none sm:text-4xl">
+        <h1 className="mt-3 font-display text-4xl font-black text-ink leading-none">
           What you&rsquo;re watching
         </h1>
         <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />

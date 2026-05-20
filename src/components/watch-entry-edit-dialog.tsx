@@ -71,7 +71,7 @@ export function WatchEntryEditDialog({ entry, onOpenChange }: Props) {
           className="
             fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[90vw] max-w-md
             -translate-x-1/2 -translate-y-1/2 overflow-y-auto
-            rounded-md border border-border-strong bg-surface-elevated
+            rounded-xl border border-border-strong bg-surface-elevated
             p-8 focus:outline-none
           "
         >

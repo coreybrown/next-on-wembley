@@ -90,7 +90,7 @@ export function InProgressCard({ data, onEdit, partnerName }: Props) {
               className="
                 inline-flex items-center rounded-pill
                 bg-badge-unavailable px-2 py-0.5
-                font-mono text-mono uppercase text-ink
+                font-mono text-mono uppercase text-accent-fg
               "
             >
               Unavailable on your subscriptions
@@ -112,7 +112,7 @@ export function InProgressCard({ data, onEdit, partnerName }: Props) {
         onClick={onEdit}
         aria-label={`Edit ${show.title}`}
         className="
-          inline-flex h-9 w-9 flex-shrink-0 items-center justify-center
+          inline-flex h-11 w-11 flex-shrink-0 items-center justify-center
           rounded-sm border border-border bg-surface
           text-ink-secondary
           transition-colors hover:border-accent hover:text-accent

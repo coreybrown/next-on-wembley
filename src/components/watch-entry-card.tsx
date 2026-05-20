@@ -121,7 +121,7 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
           onClick={onEdit}
           aria-label={`Edit ${show.title}`}
           className="
-            inline-flex h-9 w-9 items-center justify-center
+            inline-flex h-11 w-11 items-center justify-center
             rounded-sm border border-border bg-surface
             text-ink-secondary
             transition-colors hover:border-accent hover:text-accent
@@ -137,7 +137,7 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
               type="button"
               aria-label={`Remove ${show.title}`}
               className="
-                inline-flex h-9 w-9 items-center justify-center
+                inline-flex h-11 w-11 items-center justify-center
                 rounded-sm border border-border bg-surface
                 text-ink-muted
                 transition-colors hover:border-danger hover:text-danger
@@ -158,7 +158,7 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
               className="
                 fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm
                 -translate-x-1/2 -translate-y-1/2
-                rounded-md border border-border-strong bg-surface-elevated
+                rounded-xl border border-border-strong bg-surface-elevated
                 p-6 focus:outline-none
               "
             >

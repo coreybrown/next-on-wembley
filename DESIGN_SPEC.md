@@ -125,9 +125,9 @@ All tokens are **semantic** (role-based), exposed as CSS custom properties on `:
 
   --color-status-want:       #E9C9A1;
   --color-status-watching:   #F26A3D;
-  --color-status-paused:     #8E8079;
+  --color-status-paused:     #A89B92; /* lightened so near-black pill text clears 4.5:1 */
   --color-status-completed:  #6DBE8C;
-  --color-status-dropped:    #6B5A6B;
+  --color-status-dropped:    #9E8C9E; /* lightened so near-black pill text clears 4.5:1 */
 
   --color-badge-unavailable: #B0A2A8;
 }
@@ -468,7 +468,7 @@ border-b border-border bg-surface/85 backdrop-blur
 supports-[backdrop-filter]:bg-surface/70
 ```
 
-Inside, an `mx-auto max-w-5xl flex h-14 items-center justify-between gap-4 px-4 sm:px-6` lays out:
+Inside, an `mx-auto max-w-3xl flex h-14 items-center justify-between gap-4 px-6 sm:px-8` lays out (the `max-w-3xl` + padding match every page's content column, so the logo and chip align with the content edges):
 
 **Left:** the Next on Wembley logo at `h-11 w-auto` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`) — the full house-with-"NOW" composition (house, "NOW" window, flanking plants, ground wave), traced from the source artwork into a single flat `currentColor` vector, so dark mode flips it to cream automatically and hover tints it accent. The `viewBox` windows **tight to the artwork's natural ~1.3:1 box** (`53 130 670 515`) rather than a padded square, so the mark fills its display height instead of floating in dead space. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge. The login page uses the same component at `h-44 sm:h-52`.
 
@@ -477,9 +477,12 @@ The **favicon and app icon** use a deliberately **simplified variant** of the ma
 **Right:** a `<nav aria-label="Primary">` with the icon controls + IdentityChip:
 
 1. `<RefreshIndicator>` — pill flips visible while a refresh is in flight (PRD §6.4.7). Now borders only, no surface fill, since it sits on the elevated bar.
-2. **In-Progress** (FilmReel) — leftmost icon, `h-9 w-9`, transparent until hover.
+2. **In-Progress** (FilmReel) — leftmost icon, `h-11 w-11` (44px touch target), transparent until hover.
 3. **Recommendations** (Sparkle) — same.
-4. **IdentityChip** — `h-9 w-9` colored monogram tile (border hairline, no strong border). Dropdown menu (Radix `DropdownMenu`) carries **Settings**, **Switch user** (opens the passcode dialog), **Log out**.
+4. **Settings** (GearSix) — same. A direct entry point so Settings + theme toggle are one tap from any screen (also still reachable via the IdentityChip menu).
+5. **IdentityChip** — `h-11 w-11` colored monogram tile (border hairline, no strong border). Dropdown menu (Radix `DropdownMenu`) carries **Settings**, **Switch user** (opens the passcode dialog), **Log out**.
+
+All app-bar controls are `h-11 w-11` (44px) — the touch-target floor from §4.1.
 
 **Pages drop their per-route top padding.** Old `py-16 / sm:py-20` becomes `py-10 / sm:py-12`; Show Detail's `pt-20` becomes `pt-10`. The bar participates in normal flow so chrome height is a single source of truth.
 

@@ -48,7 +48,7 @@ export function IdentityChip({ currentUser }: Props) {
             type="button"
             aria-label={`Signed in as ${currentUser.displayName}. Open user menu.`}
             className={`
-              inline-flex h-9 w-9 items-center justify-center
+              inline-flex h-11 w-11 items-center justify-center
               rounded-sm border border-border
               ${chipColor}
               font-display text-lg font-bold italic
@@ -114,7 +114,7 @@ export function IdentityChip({ currentUser }: Props) {
             className="
               fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md
               -translate-x-1/2 -translate-y-1/2
-              rounded-md border border-border-strong bg-surface-elevated
+              rounded-xl border border-border-strong bg-surface-elevated
               p-8 focus:outline-none
             "
           >

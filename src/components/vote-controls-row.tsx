@@ -134,7 +134,7 @@ export function VoteControlsRow({
               title={canVote ? undefined : "Only the list owner can vote here"}
               className={`
                 inline-flex items-center gap-1
-                rounded-pill border px-3 py-1
+                rounded-pill border px-3 py-2
                 font-mono text-mono uppercase
                 transition-colors
                 focus-visible:outline-2 focus-visible:outline-accent
@@ -209,7 +209,7 @@ export function VoteControlsRow({
           className="
             fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md
             -translate-x-1/2 -translate-y-1/2
-            rounded-md border border-border-strong bg-surface-elevated
+            rounded-xl border border-border-strong bg-surface-elevated
             p-6 focus:outline-none
           "
         >

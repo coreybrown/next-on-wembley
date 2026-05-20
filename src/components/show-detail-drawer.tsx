@@ -40,11 +40,11 @@ export function ShowDetailDrawer({ view }: Props) {
           className="
             fixed z-50 bg-page text-ink focus:outline-none
             overflow-y-auto border-border-strong
-            inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg border-t
+            inset-x-0 bottom-0 max-h-[90vh] rounded-t-xl border-t
             sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2
             sm:-translate-x-1/2 sm:-translate-y-1/2
             sm:h-auto sm:max-h-[88vh] sm:w-[680px] sm:max-w-[calc(100vw-4rem)]
-            sm:rounded-lg sm:border
+            sm:rounded-xl sm:border
             data-[state=open]:animate-in data-[state=closed]:animate-out
           "
         >
@@ -57,7 +57,7 @@ export function ShowDetailDrawer({ view }: Props) {
                 type="button"
                 aria-label="Close"
                 className="
-                  inline-flex h-9 w-9 items-center justify-center
+                  inline-flex h-11 w-11 items-center justify-center
                   rounded-sm border border-border bg-surface text-ink-secondary
                   transition-colors hover:border-accent hover:text-accent
                   focus-visible:outline-2 focus-visible:outline-accent-sharp

@@ -55,7 +55,7 @@ export function WantToWatchButton({
         title={`${title} is on your list`}
         aria-label={`${title} is on your list`}
         className="
-          inline-flex h-9 w-9 items-center justify-center
+          inline-flex h-11 w-11 items-center justify-center
           rounded-sm border border-border bg-surface
           text-ink-muted
         "
@@ -73,7 +73,7 @@ export function WantToWatchButton({
         aria-label={`Add ${title} to Want to Watch`}
         title="Add to Want to Watch"
         className="
-          inline-flex h-9 w-9 items-center justify-center
+          inline-flex h-11 w-11 items-center justify-center
           rounded-sm border border-border bg-surface text-ink-secondary
           transition-colors hover:border-accent hover:text-accent
           focus-visible:outline-2 focus-visible:outline-accent-sharp

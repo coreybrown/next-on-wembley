@@ -27,11 +27,14 @@ export function RecCard({ item, partnerLabel }: Props) {
 
   return (
     <article
+      aria-labelledby={`rec-${item.id}-title`}
       className="
-        relative flex items-start gap-4
+        group relative flex items-start gap-4
         rounded-md border border-border bg-surface-elevated
         px-5 py-4
         transition-colors hover:border-border-strong
+        focus-within:outline-2 focus-within:outline-accent-sharp
+        focus-within:outline-offset-2
       "
     >
       <div className="absolute right-4 top-4">
@@ -64,7 +67,12 @@ export function RecCard({ item, partnerLabel }: Props) {
               alt=""
               width={64}
               height={96}
-              className="h-[96px] w-16 rounded-sm bg-surface-overlay object-cover"
+              className="
+                h-[96px] w-16 rounded-sm bg-surface-overlay object-cover
+                transition-transform duration-200 ease-out
+                group-hover:-translate-y-0.5 group-hover:-rotate-[0.5deg]
+                motion-reduce:transform-none motion-reduce:transition-none
+              "
             />
           ) : (
             <div
@@ -76,13 +84,23 @@ export function RecCard({ item, partnerLabel }: Props) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-14">
-          <h3 className="font-display text-lg font-medium italic text-ink">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-16">
+          <h3
+            id={`rec-${item.id}-title`}
+            className="font-display text-lg font-medium italic text-ink"
+          >
+            {/* Accent underline draws left-to-right on card hover via a
+                background-size transition (DESIGN_SPEC §5.1). */}
             <Link
               href={detailHref}
               className="
-                hover:underline focus-visible:underline
+                bg-gradient-to-r from-accent-sharp to-accent-sharp
+                bg-[length:0%_2px] bg-left-bottom bg-no-repeat
+                transition-[background-size] duration-200 ease-out
+                group-hover:bg-[length:100%_2px]
+                focus-visible:bg-[length:100%_2px]
                 focus-visible:outline-none
+                motion-reduce:transition-none
               "
             >
               {item.title}
@@ -106,7 +124,7 @@ export function RecCard({ item, partnerLabel }: Props) {
           )}
         </div>
 
-        <p className="mt-2 font-body text-base font-medium text-ink">
+        <p className="mt-2 font-body text-md font-medium text-ink">
           {item.shortExplanation}
         </p>
         <Link
@@ -153,7 +171,7 @@ export function RecCard({ item, partnerLabel }: Props) {
               className="
                 inline-flex items-center rounded-pill
                 bg-badge-unavailable px-2 py-0.5
-                font-mono text-mono uppercase text-ink
+                font-mono text-mono uppercase text-accent-fg
               "
             >
               Unavailable on your subscriptions
