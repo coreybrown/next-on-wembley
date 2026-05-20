@@ -315,12 +315,12 @@ export function ShowDetailWatchControls({
               className="
                 fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm
                 -translate-x-1/2 -translate-y-1/2
-                rounded-md border border-border bg-surface-elevated
-                p-6 shadow-lg focus:outline-none
+                rounded-md border border-border-strong bg-surface-elevated
+                p-6 focus:outline-none
               "
             >
               <Dialog.Title className="font-display text-xl font-bold text-ink">
-                Remove “{showTitle}”?
+                Remove <em className="font-medium">“{showTitle}”</em>?
               </Dialog.Title>
               <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
                 Removes this show from your list with no signal either way —

@@ -34,11 +34,11 @@ export function ShowDetailDrawer({ view }: Props) {
         <Dialog.Content
           aria-describedby={undefined}
           className="
-            fixed z-50 bg-page text-ink shadow-lg focus:outline-none
+            fixed z-50 bg-page text-ink focus:outline-none
             overflow-y-auto
-            inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg border-t border-border
+            inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg border-t border-border-strong
             sm:inset-y-0 sm:right-0 sm:left-auto sm:max-h-none sm:h-svh sm:w-[480px]
-            sm:max-w-full sm:rounded-none sm:border-l sm:border-t-0 sm:border-border
+            sm:max-w-full sm:rounded-none sm:border-l sm:border-t-0 sm:border-border-strong
             data-[state=open]:animate-in data-[state=closed]:animate-out
           "
         >

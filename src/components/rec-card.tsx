@@ -71,7 +71,7 @@ export function RecCard({ item, partnerLabel }: Props) {
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h3 className="font-display text-lg font-bold text-ink">
+          <h3 className="font-display text-lg font-medium italic text-ink">
             <Link
               href={detailHref}
               className="

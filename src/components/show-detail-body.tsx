@@ -18,7 +18,7 @@ export function ShowDetailBody({ view }: Props) {
   return (
     <>
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h1 className="font-display text-3xl font-bold text-ink">
+        <h1 className="font-display text-3xl font-medium italic text-ink">
           {view.title}
         </h1>
         {view.recContext?.isContinuation && (

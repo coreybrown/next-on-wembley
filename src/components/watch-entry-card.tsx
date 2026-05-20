@@ -67,7 +67,7 @@ export function WatchEntryCard({ entry, onEdit }: Props) {
         />
       )}
       <div className="min-w-0 flex-1">
-        <h3 className="font-display text-lg font-bold text-ink truncate">
+        <h3 className="font-display text-lg font-medium italic text-ink truncate">
           {show.title}
         </h3>
         <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -150,12 +150,12 @@ export function WatchEntryCard({ entry, onEdit }: Props) {
               className="
                 fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-sm
                 -translate-x-1/2 -translate-y-1/2
-                rounded-md border border-border bg-surface-elevated
-                p-6 shadow-lg focus:outline-none
+                rounded-md border border-border-strong bg-surface-elevated
+                p-6 focus:outline-none
               "
             >
               <Dialog.Title className="font-display text-xl font-bold text-ink">
-                Remove “{show.title}”?
+                Remove <em className="font-medium">“{show.title}”</em>?
               </Dialog.Title>
               <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
                 Removes this show from your list with no signal either way —

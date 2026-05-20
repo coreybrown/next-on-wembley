@@ -544,9 +544,11 @@ Pattern: **hide missing fields silently; show only what we have.**
 
 ## 8. Motion language
 
-### 8.1 Signature moment — "ink-in" rec reveal
+### 8.1 Signature moment — "ink-in" rec reveal (shipped Phase 32)
 
-When new recs land, the dimmed stale list fades out as the new column of cards **rises and inks in** — each card translated up 12px, faded from 0 → 1, with a staggered `animation-delay`. It feels like ink hitting paper, top-to-bottom — the way a freshly-printed page is read.
+When new recs land, the dimmed stale list fades out as the new column of cards **rises and inks in** — each card translated up 12px, faded from 0 → 1 with a 2px blur clearing, on a staggered `animation-delay`. Feels like ink hitting paper, top-to-bottom — the way a freshly-printed page is read.
+
+Implemented as a Tailwind utility class `.animate-ink-in` in `src/app/globals.css` (the `@keyframes` and the `@layer utilities` block, including a `prefers-reduced-motion: reduce` override). `RecsView` applies the class to each `<li>` wrapper with `style={{ animationDelay: \`${Math.min(idx, 10) * 60}ms\` }}` — the cap at index 10 keeps Co-watch's 25-pick list from leaving the last card waiting >1.5s. Items keep stable keys (`item.id`) so filter changes don't re-trigger the animation; the animation only runs when items first mount (i.e. after a fresh rec generation).
 
 ```css
 @keyframes ink-in {

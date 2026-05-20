@@ -162,8 +162,7 @@ export function SearchInput({
         <div
           className="
             absolute left-0 right-0 top-full z-10 mt-1
-            rounded-md border border-border bg-surface-elevated
-            shadow-lg
+            rounded-md border border-border-strong bg-surface-elevated
           "
         >
           <ul

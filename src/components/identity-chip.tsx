@@ -66,8 +66,8 @@ export function IdentityChip({ currentUser }: Props) {
             sideOffset={6}
             className="
               z-40 min-w-44
-              rounded-md border border-border bg-surface-elevated
-              p-1 shadow-lg
+              rounded-md border border-border-strong bg-surface-elevated
+              p-1
               focus:outline-none
             "
           >
@@ -114,8 +114,8 @@ export function IdentityChip({ currentUser }: Props) {
             className="
               fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md
               -translate-x-1/2 -translate-y-1/2
-              rounded-md border border-border bg-surface-elevated
-              p-8 shadow-lg focus:outline-none
+              rounded-md border border-border-strong bg-surface-elevated
+              p-8 focus:outline-none
             "
           >
             <Dialog.Title className="font-display text-2xl font-bold text-ink">

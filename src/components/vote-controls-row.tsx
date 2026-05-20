@@ -265,12 +265,12 @@ export function VoteControlsRow({
           className="
             fixed left-1/2 top-1/2 z-50 w-[90vw] max-w-md
             -translate-x-1/2 -translate-y-1/2
-            rounded-md border border-border bg-surface-elevated
-            p-6 shadow-lg focus:outline-none
+            rounded-md border border-border-strong bg-surface-elevated
+            p-6 focus:outline-none
           "
         >
           <Dialog.Title className="font-display text-xl font-bold text-ink">
-            Step back from “{title}”?
+            Step back from <em className="font-medium">“{title}”</em>?
           </Dialog.Title>
           <Dialog.Description className="mt-2 font-body text-sm text-ink-secondary">
             You&rsquo;re currently Watching this show. A Disagree usually

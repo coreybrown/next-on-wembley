@@ -468,8 +468,15 @@ export function RecsView({
             )}
           </p>
           <ul className="mt-4 space-y-4">
-            {filteredItems.map((item) => (
-              <li key={item.id}>
+            {filteredItems.map((item, idx) => (
+              <li
+                key={item.id}
+                className="animate-ink-in"
+                // Stagger 60ms per card per DESIGN_SPEC §8.1. Capped
+                // around the visible window so a 25-pick co-watch list
+                // doesn't leave the last card waiting >1.5s to appear.
+                style={{ animationDelay: `${Math.min(idx, 10) * 60}ms` }}
+              >
                 <RecCard
                   item={item}
                   partnerLabel={partnerDisplayName ?? "Partner"}
