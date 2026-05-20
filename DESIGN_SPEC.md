@@ -307,39 +307,28 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 
 ### 5.1 RecCard
 
-Two presentations (compact / expanded) × two breakpoints (mobile / desktop).
+A single card presentation, responsive across two breakpoints (mobile / desktop). There is **no inline-expanded state** — the long explanation, full metadata, and trailer live on the Show Detail page, reached via a "See details" link (PRD §6.4.3).
 
-#### Compact — Desktop (>768px)
+#### Desktop (>768px)
 
 ```
-[poster 96x144] | Title (Fraunces italic) — TMDb rating          [ + ]
-                | Top-2 platform chips · +N more
+[poster 96x144] | Title (Fraunces italic) — year              [ + ]
                 | "Short LLM explanation, ≤100 chars."  (Chivo 500)
-                | [AGREE] [DISAGREE] [MAYBE]  Partner: [AGREE] (M4+)
+                | See details →
+                | Top-2 platform chips · +N more
+                | [AGREE] [MAYBE] [DISAGREE]   Partner: [AGREE] (M4+)
 ```
 
 - Poster: `--radius-md`, 96×144 (2:3), 1px `--color-border` hairline frame. Tappable → opens ShowDetailPanel.
-- Title: `text-lg`, Fraunces 500 italic, single line, truncate with full-text `title` attribute.
-- "More" affordance: ghost IconButton with chevron; expands the card **inline** (no route change).
+- Title: `text-lg`, Fraunces 500 italic; links to ShowDetailPanel.
+- **"See details"** — a mono-caps link with a trailing arrow, below the explanation. Navigates to the Show Detail page; replaced the old inline "Show more" expand toggle (it just showed the long copy — the detail page does that plus objective metadata).
 - VotePillGroup is the **footer row** and reads as the primary affordance.
-- "Add to Want to Watch" lives in a **top-right `+` IconButton** on the card, mirroring the Edit / Trash icon-button pattern on dashboard cards (Phase 40). Hides for continuations and for shows already on the viewer's list (replaced by a non-interactive Check chip). See §5.1 states table.
+- "Add to Want to Watch" lives in a **top-right `+` IconButton** on the card, mirroring the Edit / Trash icon-button pattern on dashboard cards (Phase 40). Hides for continuations and for shows already on the viewer's list (replaced by a non-interactive Check chip). See the states table below.
 - Hover: 1px `--color-accent-sharp` underline draws under the title, left-to-right, 220ms. Poster does a `rotate(-0.5deg) translateY(-2px)` (220ms ease-out). Card itself does not lift or shadow.
 
-#### Compact — Mobile (≤768px), 375px width — poster-first hero
+#### Mobile (≤768px)
 
-```
-[ Poster, full card width, 2:3, 1px hairline frame                      ]
-[ Title (Fraunces italic) — ≤2 lines, text-base                         ]
-[ [AGREE] [DISAGREE] [MAYBE]    [More v]                                ]
-```
-
-- Vote pills + "More" are the **only** affordances on the compact mobile card.
-- Platform chips, partner vote, LLM explanation, and "Add to WTW" appear only on expand.
-- *(Flagged ambiguity — see §12.)* Mobile compact hides the short LLM explanation, which is the rationale users need to vote.
-
-#### Expanded — both breakpoints
-
-Adds in order: long LLM explanation (≤300 chars), seasons/episodes count, all genre chips, all platform chips, trailer link, "Add to Want to Watch" (mobile only — desktop already has it in compact), and a "Less ^" affordance.
+Same row layout as desktop, tightened: the vote pills render **icon-only** — the Agree / Maybe / Disagree word is `sm:`-gated (with `aria-label` keeping each pill named for AT), and the partner-vote chip's word is `sr-only` on mobile. This keeps the three pills + the partner chip on one row without growing the card vertically. The "See details" link and the `+` button are unchanged.
 
 #### States
 
@@ -371,12 +360,12 @@ Per PRD §6.6.
 - **Back affordance:** persistent "Back to recs" link at the top-left of the main content. Browser back also works.
 - **Layout (vertical):** Title (Fraunces 700) + optional Continuation badge → poster + metadata grid (TMDb rating, genres, season-count split, status with caveat, trailer link) → Where-to-watch chip row with "Not on your subscriptions" badge → optional rec-context block (long LLM explanation + VoteControlsRow) → "About the show" block (TMDb `overview`, displayed verbatim, with a small "Source: TMDb" attribution underneath) → "Your list" read-only summary with pointer to dashboard for edits.
 
-#### Drawer + parallel-route variant (Phase 20b — shipped)
+#### Modal + parallel-route variant (Phase 20b — shipped)
 
 - Reached via in-app `<Link>` from any sibling root-level route. Intercepted by `app/@modal/(.)show/[tmdbId]/page.tsx`; standalone `/show/[tmdbId]/page.tsx` remains for cold loads / shared URLs. Same body component (`ShowDetailBody`) feeds both, so visual + interaction parity is automatic.
-- **Desktop (>768px):** right-side panel, 480px wide, full-height (`h-svh`), slides in from right via Radix Dialog's data-state animation hooks. Cream overlay with `bg-surface-overlay/70` + `backdrop-blur-sm`. Originating list stays mounted underneath; scroll position is preserved by Next.js's parallel-route handling.
-- **Mobile (≤768px):** bottom sheet variant, `inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg`. Same overlay + backdrop. Sticky header inside the drawer with the close button. (Swipe-down + drag handle polish is a follow-up.)
-- **Focus management:** Radix `Dialog.Content` traps focus, Esc closes. On close (any path — Esc, overlay click, X, browser back) the drawer fires `router.back()` so the URL pops back to the originating route and focus returns to the link that opened it.
+- **Desktop (>768px):** a **centered modal** — `~680px` wide (capped `calc(100vw-4rem)`), auto height up to `max-h-[88vh]` with internal scroll. Centered rather than a right-side drawer so the poster + metadata grid have room and read without feeling squished. Cream overlay with `bg-surface-overlay/70` + `backdrop-blur-sm`. Originating list stays mounted underneath; scroll position is preserved by Next.js's parallel-route handling.
+- **Mobile (≤768px):** bottom sheet variant, `inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg`. Same overlay + backdrop. Sticky header inside with the close button. (Swipe-down + drag handle polish is a follow-up.)
+- **Focus management:** Radix `Dialog.Content` traps focus, Esc closes. On close (any path — Esc, overlay click, X, browser back) it fires `router.back()` so the URL pops back to the originating route and focus returns to the link that opened it.
 
 #### Inline-edit affordances (Phase 20c — shipped)
 

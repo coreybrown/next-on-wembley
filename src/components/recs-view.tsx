@@ -30,6 +30,15 @@ const TAB_LABELS: Record<RecScope, string> = {
   jaimie: "Jaimie's Picks",
 };
 
+// Shorter labels for the tab pills themselves — the full names wrapped
+// to two lines on narrow phones. The full label rides along as the tab's
+// aria-label, and TAB_LABELS still feeds the empty-state copy.
+const TAB_LABELS_SHORT: Record<RecScope, string> = {
+  co_watch: "Co-watch",
+  corey: "Corey",
+  jaimie: "Jaimie",
+};
+
 const TAB_ORDER: readonly RecScope[] = ["co_watch", "corey", "jaimie"] as const;
 
 const PLATFORM_NAME = new Map<string, string>(
@@ -200,6 +209,7 @@ export function RecsView({
                 role="tab"
                 type="button"
                 aria-selected={selected}
+                aria-label={TAB_LABELS[scope]}
                 // Only the active tab is in the tab order — Tab moves
                 // to the tab list, then Left/Right cycles within. Per
                 // WAI-ARIA Authoring Practices for tablist.
@@ -207,8 +217,8 @@ export function RecsView({
                 onClick={() => setActive(scope)}
                 onKeyDown={(e) => onTabKeyDown(e, idx)}
                 className={`
-                  rounded-pill border px-4 py-2
-                  font-body text-sm
+                  rounded-pill border px-3 py-1.5
+                  font-body text-sm whitespace-nowrap
                   transition-colors
                   ${
                     selected
@@ -219,7 +229,7 @@ export function RecsView({
                   focus-visible:outline-offset-2
                 `}
               >
-                {TAB_LABELS[scope]}
+                {TAB_LABELS_SHORT[scope]}
               </button>
             );
           })}
@@ -510,11 +520,19 @@ export function RecsView({
       ) : (
         <div className={pending ? "opacity-50" : undefined}>
           <p
-            className="font-mono text-mono uppercase text-ink-muted"
+            className="truncate font-mono text-mono uppercase text-ink-muted"
             suppressHydrationWarning
           >
-            Generated {new Date(list.createdAt).toLocaleString()} ·{" "}
-            {list.modelId}
+            {/* Secondary context — kept to a single compact line so it
+                never wraps. Short date (no year/seconds), then model. */}
+            Generated{" "}
+            {new Date(list.createdAt).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}{" "}
+            · {list.modelId}
             {list.mood ? ` · mood: ${list.mood}` : ""}
             {anyFilterActive && (
               <>

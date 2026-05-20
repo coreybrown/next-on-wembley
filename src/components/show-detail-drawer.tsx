@@ -11,10 +11,14 @@ type Props = { view: ShowDetailView };
 // Phase 20b — Show Detail rendered inside a Radix Dialog when reached
 // via in-app navigation from a sibling route (intercepted via
 // app/@modal/(.)show/[tmdbId]/page.tsx). The standalone full-page
-// route stays mounted underneath, so closing the drawer
+// route stays mounted underneath, so closing it
 // (Esc / overlay tap / close button / browser back) returns the user
 // to /recs / /in-progress / wherever they started with their scroll
 // position preserved.
+//
+// Presentation: a bottom sheet on mobile, a centered modal on desktop —
+// centered (rather than a right-side drawer) so the detail content has
+// the full modal width and reads without feeling squished.
 export function ShowDetailDrawer({ view }: Props) {
   const router = useRouter();
 
@@ -35,10 +39,12 @@ export function ShowDetailDrawer({ view }: Props) {
           aria-describedby={undefined}
           className="
             fixed z-50 bg-page text-ink focus:outline-none
-            overflow-y-auto
-            inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg border-t border-border-strong
-            sm:inset-y-0 sm:right-0 sm:left-auto sm:max-h-none sm:h-svh sm:w-[480px]
-            sm:max-w-full sm:rounded-none sm:border-l sm:border-t-0 sm:border-border-strong
+            overflow-y-auto border-border-strong
+            inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg border-t
+            sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2
+            sm:-translate-x-1/2 sm:-translate-y-1/2
+            sm:h-auto sm:max-h-[88vh] sm:w-[680px] sm:max-w-[calc(100vw-4rem)]
+            sm:rounded-lg sm:border
             data-[state=open]:animate-in data-[state=closed]:animate-out
           "
         >

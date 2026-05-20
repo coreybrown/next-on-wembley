@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import { PLATFORMS } from "@/lib/platforms";
 import type { RecListItemView } from "@/app/actions/recommendations";
 import { VoteControlsRow } from "@/components/vote-controls-row";
@@ -22,8 +21,6 @@ type Props = {
 };
 
 export function RecCard({ item, partnerLabel }: Props) {
-  const [expanded, setExpanded] = useState(false);
-
   const visibleProviders = item.providerKeys.slice(0, VISIBLE_PROVIDERS);
   const overflowCount = item.providerKeys.length - visibleProviders.length;
   const detailHref = `/show/${item.tmdbId}?recItem=${item.id}`;
@@ -110,34 +107,22 @@ export function RecCard({ item, partnerLabel }: Props) {
         </div>
 
         <p className="mt-2 font-body text-base font-medium text-ink">
-          {expanded ? item.longExplanation : item.shortExplanation}
+          {item.shortExplanation}
         </p>
-        {item.longExplanation !== item.shortExplanation && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            className="
-              mt-2 inline-flex items-center gap-1
-              font-mono text-mono uppercase text-ink-muted
-              transition-colors hover:text-ink
-              focus-visible:outline-2 focus-visible:outline-accent
-              focus-visible:outline-offset-2
-            "
-          >
-            {expanded ? (
-              <>
-                <CaretUp size={14} weight="bold" aria-hidden />
-                <span>Show less</span>
-              </>
-            ) : (
-              <>
-                <CaretDown size={14} weight="bold" aria-hidden />
-                <span>Show more</span>
-              </>
-            )}
-          </button>
-        )}
+        <Link
+          href={detailHref}
+          aria-label={`See details for ${item.title}`}
+          className="
+            mt-2 inline-flex items-center gap-1
+            font-mono text-mono uppercase text-ink-muted
+            transition-colors hover:text-ink
+            focus-visible:outline-2 focus-visible:outline-accent
+            focus-visible:outline-offset-2
+          "
+        >
+          <span>See details</span>
+          <ArrowRight size={14} weight="bold" aria-hidden />
+        </Link>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {visibleProviders.map((key) => (

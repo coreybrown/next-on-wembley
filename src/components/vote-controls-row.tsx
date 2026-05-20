@@ -148,7 +148,10 @@ export function VoteControlsRow({
               `}
             >
               <Icon size={14} weight={selected ? "fill" : "regular"} aria-hidden />
-              <span>{label}</span>
+              {/* Label hides on mobile to keep the three pills on one
+                  row without growing the card; aria-label still names
+                  the action for AT. */}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           );
         })}
@@ -184,7 +187,11 @@ export function VoteControlsRow({
                     : Question;
               return <Icon size={12} weight="fill" aria-hidden />;
             })()}
-            <span>{VOTE_LABEL[partnerVote]}</span>
+            {/* sr-only on mobile (not `hidden`) so the partner's vote
+                stays announced even when the icon carries it visually. */}
+            <span className="sr-only sm:not-sr-only">
+              {VOTE_LABEL[partnerVote]}
+            </span>
           </span>
         </span>
       )}

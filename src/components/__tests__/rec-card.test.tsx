@@ -58,24 +58,12 @@ describe("RecCard", () => {
     expect(screen.queryByText(/longer pitch/i)).not.toBeInTheDocument();
   });
 
-  it("toggles between short and long explanation", async () => {
-    const user = userEvent.setup();
+  it("links to the detail page via 'See details' (no inline expand)", () => {
     render(<RecCard item={item()} />);
-    const toggle = screen.getByRole("button", { name: /show more/i });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await user.click(toggle);
-    expect(screen.getByText(/longer pitch with more detail/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /show less/i }),
-    ).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("hides the expand toggle when short and long explanations match", () => {
-    render(
-      <RecCard
-        item={item({ shortExplanation: "Same", longExplanation: "Same" })}
-      />,
-    );
+    const link = screen.getByRole("link", { name: /see details for severance/i });
+    expect(link).toHaveAttribute("href", "/show/100?recItem=1");
+    // The long explanation lives on the detail page, never on the card.
+    expect(screen.queryByText(/longer pitch/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /show more/i }),
     ).not.toBeInTheDocument();
