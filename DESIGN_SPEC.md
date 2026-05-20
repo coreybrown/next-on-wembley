@@ -287,7 +287,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 ### 4.3 Organisms
 
 - **RecCard** — see §5.1. Compact + expanded × mobile + desktop.
-- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, **season-state toggle**, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
+- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, **season-state toggle**, "Finished it" Button, and a **CoWatchToggle** on its own row beneath (§5.2). States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
 - **Season-state toggle** — single button that flips `currentSeasonCompleted`. The label is the **current state**, not the action: reads "Watching S{n}" while mid-season, "Completed S{n}" once the season's marked finished. Visual treatment now tracks **the current state**: "Completed S{n}" renders filled-accent (an explicit "you're done" marker); "Watching S{n}" renders outline so the badge reads as informational, not a CTA. `aria-pressed` reflects `currentSeasonCompleted` honestly for AT, and `title` exposes the inverse action ("Click to mark Season N complete" / "…not finished"). *Phase 39 (2026-05-19) reversed the prior "Resume / Done with S{n}" action-polarity treatment — user feedback was that an action-shaped label asking "Resume?" on a season already in progress, and "Done with S{n}?" on one already marked done, was confusing. The state-shaped label answers "where am I?" at a glance and reduces the cognitive load on the dashboard.*
 - **WatchHistoryRow** — full-history list row. Title, poster, status pill, rating, plus two IconButtons in the right-side rail: an **Edit** pencil (opens the edit dialog) and a **Remove** trash. Remove opens a Radix Dialog confirm with copy that spells out the neutral semantics — *"Removes this show from your list with no signal either way — it can still be recommended in the future."* — to distinguish it from the negative-signal `Dropped` status (PRD §6.3). Same row-pattern A11y as InProgressEntry.
 - **ShowDetailPanel** — see §5.2. Drawer + full-page variants; rec-context overlay adds long LLM explanation + VotePillGroup.
@@ -387,12 +387,16 @@ Per PRD §6.6.
 
 All edits auto-save inline (no Save/Cancel buttons) and trigger `router.refresh()` so the server-rendered page picks up new state. Inline error message appears below if an action fails.
 
-#### Co-watch toggle (Phase 42)
+#### CoWatchToggle (Phase 42)
 
-Below the rating pills, a `Together` group holds a single pill toggle — "Watch with {partner}" (outline) / "Watching with {partner}" (filled-accent, UsersThree icon `fill`) — backed by `setCoWatchAction`. Hidden entirely in a single-user setup (`partnerName == null`).
+`CoWatchToggle` is a shared molecule — a single pill toggle, "Watch with {partner}" (outline) / "Watching with {partner}" (filled-accent, UsersThree icon `fill`), backed by `setCoWatchAction`. Hidden entirely in a single-user setup (`partnerName == null`). It renders in **three places**, always wherever a user manages an in-progress show:
 
-- A one-line helper under the toggle explains the effect ("Status and season progress sync with {partner}. Ratings stay personal.").
-- **On enable:** a `role="status"` notice in accent text names the state both profiles snapped to — e.g. *"Synced — you and Jaimie are now Watching S3."* The notice persists until the user makes another edit (status / season change clears it), so the result stays editable with the context still visible.
+- **Show Detail watch controls** — below the rating pills, inside a `Together` group with a one-line helper ("Status and season progress sync with {partner}. Ratings stay personal.").
+- **InProgressEntry actions** — on its own row beneath the season stepper / state toggle / "Finished it", on both the `/in-progress` page and the dashboard's Watching/Paused cards.
+
+Behaviour:
+
+- **On enable:** a `role="status"` notice in accent text names the state both profiles snapped to — e.g. *"Synced — you and Jaimie are now Watching S3."* The notice **auto-dismisses after ~6s** so it can't read as stale once the user makes further edits; progress stays editable throughout.
 - The toggle drives the dashboard's Watching-section split (PRD §6.3.1) — co-watched shows render under a "Together" subgroup heading, the rest under "On your own". The split only appears when at least one Watching entry is co-watched; otherwise the section is a flat list.
 
 #### Rec-context variant

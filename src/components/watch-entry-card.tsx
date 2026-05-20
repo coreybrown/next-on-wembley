@@ -25,9 +25,13 @@ const STATUS_PILL_COLOR: Record<string, string> = {
 type Props = {
   entry: WatchEntryWithShow;
   onEdit: () => void;
+  // Phase 42: co-watch state for this show + the partner's name, passed
+  // through to the in-progress actions' co-watch toggle.
+  coWatch: boolean;
+  partnerName: string | null;
 };
 
-export function WatchEntryCard({ entry, onEdit }: Props) {
+export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
   const { show, status, currentSeason, userRating } = entry;
   const isInProgress = status === "watching" || status === "paused";
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -103,7 +107,11 @@ export function WatchEntryCard({ entry, onEdit }: Props) {
         </div>
         {isInProgress && (
           <div className="mt-3">
-            <InProgressActions entry={entry} />
+            <InProgressActions
+              entry={entry}
+              coWatch={coWatch}
+              partnerName={partnerName}
+            />
           </div>
         )}
       </div>

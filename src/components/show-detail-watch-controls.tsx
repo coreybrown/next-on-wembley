@@ -3,23 +3,22 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
-import { CaretLeft, CaretRight, Trash, UsersThree } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Trash } from "@phosphor-icons/react";
 import type { WatchStatus, UserRating } from "@prisma/client";
 import {
   addWatchEntry,
   updateWatchEntry,
   deleteWatchEntry,
 } from "@/app/actions/watch-entries";
-import { setCoWatchAction } from "@/app/actions/co-watch";
 import {
   WATCH_STATUSES,
   STATUS_LABELS,
   RATING_LABELS,
   RATING_GLYPHS,
   USER_RATINGS,
-  type WatchProgress,
 } from "@/lib/watch-entries";
 import { WATCH_ENTRY_ERROR_COPY } from "@/lib/action-errors";
+import { CoWatchToggle } from "@/components/co-watch-toggle";
 
 type Entry = {
   id: number;
@@ -42,24 +41,6 @@ type Props = {
   partnerName: string | null;
 };
 
-// Confirmation copy for the post-enable notice — spells out the state
-// both profiles snapped to so the user sees what changed.
-function syncNotice(synced: WatchProgress, partnerName: string): string {
-  const who = `you and ${partnerName}`;
-  switch (synced.status) {
-    case "completed":
-      return `Synced — marked Completed for ${who}.`;
-    case "watching":
-      return `Synced — ${who} are now Watching S${synced.currentSeason ?? 1}.`;
-    case "paused":
-      return `Synced — ${who} are now Paused at S${synced.currentSeason ?? 1}.`;
-    case "want_to_watch":
-      return `Synced — ${who} both have this as Want to Watch.`;
-    case "dropped":
-      return `Synced — marked Dropped for ${who}.`;
-  }
-}
-
 const SHOW_SEASON_FOR: WatchStatus[] = ["watching", "paused"];
 
 // Phase 20c. Inline-edit controls on /show/[tmdbId]. Empty state =
@@ -79,31 +60,11 @@ export function ShowDetailWatchControls({
   const [, startTransition] = useTransition();
   const [removeOpen, setRemoveOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [coWatchNotice, setCoWatchNotice] = useState<string | null>(null);
 
   const refreshAfter = () => router.refresh();
 
-  const onToggleCoWatch = () => {
-    setError(null);
-    setCoWatchNotice(null);
-    startTransition(async () => {
-      const r = await setCoWatchAction(showId, !coWatch);
-      if (!r.ok) {
-        setError("Couldn’t update co-watch — try again.");
-        return;
-      }
-      if (r.on && r.synced && r.partnerName) {
-        setCoWatchNotice(syncNotice(r.synced, r.partnerName));
-      } else if (!r.on && r.partnerName) {
-        setCoWatchNotice(`No longer syncing with ${r.partnerName}.`);
-      }
-      refreshAfter();
-    });
-  };
-
   const onAdd = (status: WatchStatus) => {
     setError(null);
-    setCoWatchNotice(null);
     startTransition(async () => {
       const r = await addWatchEntry({
         tmdbId,
@@ -118,7 +79,6 @@ export function ShowDetailWatchControls({
   const onChangeStatus = (next: WatchStatus) => {
     if (!entry || entry.status === next) return;
     setError(null);
-    setCoWatchNotice(null);
     startTransition(async () => {
       const r = await updateWatchEntry({ id: entry.id, status: next });
       if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
@@ -132,7 +92,6 @@ export function ShowDetailWatchControls({
     if (next < 1) return;
     if (maxSeason != null && next > maxSeason) return;
     setError(null);
-    setCoWatchNotice(null);
     startTransition(async () => {
       const r = await updateWatchEntry({ id: entry.id, currentSeason: next });
       if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
@@ -339,61 +298,24 @@ export function ShowDetailWatchControls({
       </div>
 
       {partnerName && (
-        <div className="space-y-2">
-          <div
-            role="group"
-            aria-label="Watching together"
-            className="flex flex-wrap items-center gap-2"
-          >
-            <span className="font-mono text-mono uppercase text-ink-muted">
-              Together
-            </span>
-            <button
-              type="button"
-              onClick={onToggleCoWatch}
-              aria-pressed={coWatch}
-              className={`
-                inline-flex items-center gap-1
-                rounded-pill border px-3 py-1
-                font-mono text-mono uppercase
-                transition-colors
-                focus-visible:outline-2 focus-visible:outline-accent
-                focus-visible:outline-offset-2
-                ${
-                  coWatch
-                    ? "border-accent bg-accent text-accent-fg"
-                    : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                }
-              `}
-            >
-              <UsersThree
-                size={14}
-                weight={coWatch ? "fill" : "regular"}
-                aria-hidden
-              />
-              <span>
-                {coWatch
-                  ? `Watching with ${partnerName}`
-                  : `Watch with ${partnerName}`}
-              </span>
-            </button>
-          </div>
-          {coWatch ? (
-            <p className="font-body text-sm text-ink-muted">
-              Status and season progress sync with {partnerName}. Ratings
-              stay personal.
-            </p>
-          ) : (
-            <p className="font-body text-sm text-ink-muted">
-              Link this show with {partnerName} so season progress stays in
-              step on both lists.
-            </p>
-          )}
-          {coWatchNotice && (
-            <p role="status" className="font-mono text-mono text-accent">
-              {coWatchNotice}
-            </p>
-          )}
+        <div
+          role="group"
+          aria-label="Watching together"
+          className="space-y-2"
+        >
+          <span className="font-mono text-mono uppercase text-ink-muted">
+            Together
+          </span>
+          <CoWatchToggle
+            showId={showId}
+            coWatch={coWatch}
+            partnerName={partnerName}
+          />
+          <p className="font-body text-sm text-ink-muted">
+            {coWatch
+              ? `Status and season progress sync with ${partnerName}. Ratings stay personal.`
+              : `Link this show with ${partnerName} so season progress stays in step on both lists.`}
+          </p>
         </div>
       )}
 

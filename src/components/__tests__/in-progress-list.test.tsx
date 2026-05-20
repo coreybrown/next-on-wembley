@@ -53,11 +53,12 @@ const card = (
   },
   label: "Season 1 of 2",
   unavailable: false,
+  coWatch: false,
 });
 
 describe("InProgressList", () => {
   it("renders the empty state when no cards", () => {
-    render(<InProgressList cards={[]} />);
+    render(<InProgressList cards={[]} partnerName={null} />);
     expect(screen.getByText(/nothing in progress/i)).toBeInTheDocument();
   });
 
@@ -68,6 +69,7 @@ describe("InProgressList", () => {
           card("watching", 1, "Severance"),
           card("paused", 2, "The Bear"),
         ]}
+        partnerName={null}
       />,
     );
     expect(screen.getByText("Severance")).toBeInTheDocument();
@@ -83,6 +85,7 @@ describe("InProgressList", () => {
           card("watching", 1, "Severance"),
           card("paused", 2, "The Bear"),
         ]}
+        partnerName={null}
       />,
     );
     await user.click(screen.getByLabelText(/show paused/i));
@@ -91,12 +94,12 @@ describe("InProgressList", () => {
   });
 
   it("renders a hint when only Paused entries exist and toggle is off", () => {
-    render(<InProgressList cards={[card("paused", 1, "The Bear")]} />);
+    render(<InProgressList cards={[card("paused", 1, "The Bear")]} partnerName={null} />);
     expect(screen.getByText(/only paused entries/i)).toBeInTheDocument();
   });
 
   it("hides the Show Paused toggle when there are no paused entries", () => {
-    render(<InProgressList cards={[card("watching", 1, "Severance")]} />);
+    render(<InProgressList cards={[card("watching", 1, "Severance")]} partnerName={null} />);
     expect(screen.queryByLabelText(/show paused/i)).not.toBeInTheDocument();
   });
 });

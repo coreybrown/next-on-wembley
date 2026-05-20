@@ -109,12 +109,30 @@ export async function setCoWatchAction(
   };
 }
 
-// showIds the household has marked co-watched. Co-watch is household-wide
-// (one CoWatch row per show, both users share it), so the viewer doesn't
-// scope the result. Powers the dashboard's Together / On-your-own split.
-export async function getCoWatchedShowIds(): Promise<number[]> {
+export type CoWatchContext = {
+  // showIds the household has marked co-watched. Co-watch is
+  // household-wide (one CoWatch row per show), so this isn't scoped to
+  // the viewer. Powers the dashboard's Together / On-your-own split.
+  coWatchedShowIds: number[];
+  // The other household member's display name — labels the co-watch
+  // toggle. Null in a single-user setup.
+  partnerName: string | null;
+};
+
+// Co-watch state needed to render the toggle + the dashboard split on a
+// page: the set of co-watched shows and the partner's name, in one call.
+export async function getCoWatchContext(): Promise<CoWatchContext> {
   const session = await getSession();
-  if (!session.userId) return [];
-  const rows = await prisma.coWatch.findMany({ select: { showId: true } });
-  return rows.map((r) => r.showId);
+  if (!session.userId) return { coWatchedShowIds: [], partnerName: null };
+  const [rows, partner] = await Promise.all([
+    prisma.coWatch.findMany({ select: { showId: true } }),
+    prisma.user.findFirst({
+      where: { id: { not: session.userId } },
+      select: { displayName: true },
+    }),
+  ]);
+  return {
+    coWatchedShowIds: rows.map((r) => r.showId),
+    partnerName: partner?.displayName ?? null,
+  };
 }

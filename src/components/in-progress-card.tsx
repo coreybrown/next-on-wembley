@@ -8,11 +8,16 @@ export type InProgressCardData = {
   entry: InProgressEntry;
   label: string | null;
   unavailable: boolean;
+  // Phase 42: whether this show is co-watched with the household partner.
+  coWatch: boolean;
 };
 
 type Props = {
   data: InProgressCardData;
   onEdit: () => void;
+  // The other household member's name — null in a single-user setup,
+  // which hides the co-watch toggle.
+  partnerName: string | null;
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -20,8 +25,8 @@ const STATUS_BADGE: Record<string, string> = {
   paused: "bg-status-paused text-accent-fg",
 };
 
-export function InProgressCard({ data, onEdit }: Props) {
-  const { entry, label, unavailable } = data;
+export function InProgressCard({ data, onEdit, partnerName }: Props) {
+  const { entry, label, unavailable, coWatch } = data;
   const { show } = entry;
 
   return (
@@ -94,7 +99,11 @@ export function InProgressCard({ data, onEdit }: Props) {
         )}
 
         <div className="mt-3">
-          <InProgressActions entry={entry} />
+          <InProgressActions
+            entry={entry}
+            coWatch={coWatch}
+            partnerName={partnerName}
+          />
         </div>
       </div>
 

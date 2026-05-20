@@ -48,7 +48,7 @@ const baseEntry = {
 
 describe("WatchEntryCard", () => {
   it("renders title, status pill, season, and rating", () => {
-    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} />);
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} coWatch={false} partnerName={null} />);
     expect(screen.getByText("Severance")).toBeInTheDocument();
     expect(screen.getByText(/^watching$/i)).toBeInTheDocument();
     expect(screen.getByText(/season 2/i)).toBeInTheDocument();
@@ -60,6 +60,8 @@ describe("WatchEntryCard", () => {
       <WatchEntryCard
         entry={{ ...baseEntry, currentSeason: null }}
         onEdit={() => {}}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     expect(screen.queryByText(/season/i)).not.toBeInTheDocument();
@@ -70,6 +72,8 @@ describe("WatchEntryCard", () => {
       <WatchEntryCard
         entry={{ ...baseEntry, userRating: null }}
         onEdit={() => {}}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     expect(screen.queryByText(/^liked$/i)).not.toBeInTheDocument();
@@ -79,7 +83,7 @@ describe("WatchEntryCard", () => {
   it("invokes onEdit when the Edit button is clicked", async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    render(<WatchEntryCard entry={baseEntry} onEdit={onEdit} />);
+    render(<WatchEntryCard entry={baseEntry} onEdit={onEdit} coWatch={false} partnerName={null} />);
     await user.click(
       screen.getByRole("button", { name: /edit severance/i }),
     );
@@ -88,7 +92,7 @@ describe("WatchEntryCard", () => {
 
   it("opens a confirmation dialog and removes the entry when confirmed", async () => {
     const user = userEvent.setup();
-    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} />);
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} coWatch={false} partnerName={null} />);
     await user.click(
       screen.getByRole("button", { name: /remove severance/i }),
     );
@@ -104,7 +108,7 @@ describe("WatchEntryCard", () => {
 
   it("does not call delete when the user cancels the dialog", async () => {
     const user = userEvent.setup();
-    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} />);
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} coWatch={false} partnerName={null} />);
     await user.click(
       screen.getByRole("button", { name: /remove severance/i }),
     );

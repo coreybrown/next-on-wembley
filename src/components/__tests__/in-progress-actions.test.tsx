@@ -48,7 +48,7 @@ beforeEach(() => {
 
 describe("InProgressActions — season nudge", () => {
   it("renders current season + both nudge buttons + Finished it", () => {
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     expect(screen.getByText("S2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /previous season/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /next season/i })).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("InProgressActions — season nudge", () => {
   });
 
   it("disables − at season 1", () => {
-    render(<InProgressActions entry={entry({ currentSeason: 1 })} />);
+    render(<InProgressActions entry={entry({ currentSeason: 1 })} coWatch={false} partnerName={null} />);
     expect(
       screen.getByRole("button", { name: /previous season/i }),
     ).toBeDisabled();
@@ -66,6 +66,8 @@ describe("InProgressActions — season nudge", () => {
     render(
       <InProgressActions
         entry={entry({ currentSeason: 3 })}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     expect(
@@ -81,7 +83,7 @@ describe("InProgressActions — season nudge", () => {
         totalSeasons: null,
       },
     });
-    render(<InProgressActions entry={e} />);
+    render(<InProgressActions entry={e} coWatch={false} partnerName={null} />);
     expect(
       screen.getByRole("button", { name: /next season/i }),
     ).not.toBeDisabled();
@@ -90,7 +92,7 @@ describe("InProgressActions — season nudge", () => {
   it("calls bumpSeasonAction with +1 / -1", async () => {
     const user = userEvent.setup();
     mockBump.mockResolvedValue({ ok: true });
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /next season/i }));
     expect(mockBump).toHaveBeenLastCalledWith(1, 1);
     await user.click(screen.getByRole("button", { name: /previous season/i }));
@@ -101,7 +103,7 @@ describe("InProgressActions — season nudge", () => {
 describe("InProgressActions — finished it", () => {
   it("opens the rating prompt when Finished it is clicked", async () => {
     const user = userEvent.setup();
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /finished it/i }));
     expect(
       screen.getByRole("group", { name: /quick rating/i }),
@@ -111,7 +113,7 @@ describe("InProgressActions — finished it", () => {
   it("calls finishItAction with the chosen rating", async () => {
     const user = userEvent.setup();
     mockFinish.mockResolvedValue({ ok: true });
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /finished it/i }));
     await user.click(
       screen.getByRole("button", { name: /finished — liked/i }),
@@ -122,7 +124,7 @@ describe("InProgressActions — finished it", () => {
   it("calls finishItAction(null) when Skip is pressed", async () => {
     const user = userEvent.setup();
     mockFinish.mockResolvedValue({ ok: true });
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /finished it/i }));
     await user.click(screen.getByRole("button", { name: /^skip$/i }));
     expect(mockFinish).toHaveBeenCalledWith(1, null);
@@ -130,7 +132,7 @@ describe("InProgressActions — finished it", () => {
 
   it("returns to the buttons when Cancel is pressed", async () => {
     const user = userEvent.setup();
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /finished it/i }));
     await user.click(screen.getByRole("button", { name: /cancel/i }));
     expect(mockFinish).not.toHaveBeenCalled();
@@ -142,10 +144,28 @@ describe("InProgressActions — finished it", () => {
   it("shows an error if the action fails", async () => {
     const user = userEvent.setup();
     mockBump.mockResolvedValue({ ok: false, error: "invalid_season" });
-    render(<InProgressActions entry={entry()} />);
+    render(<InProgressActions entry={entry()} coWatch={false} partnerName={null} />);
     await user.click(screen.getByRole("button", { name: /next season/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /couldn’t update season/i,
     );
+  });
+});
+
+describe("InProgressActions — co-watch toggle (Phase 42)", () => {
+  it("renders the co-watch toggle when a partner exists", () => {
+    render(
+      <InProgressActions entry={entry()} coWatch={false} partnerName="Jaimie" />,
+    );
+    expect(
+      screen.getByRole("button", { name: /watch with jaimie/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the co-watch toggle in a single-user setup", () => {
+    render(
+      <InProgressActions entry={entry()} coWatch={false} partnerName={null} />,
+    );
+    expect(screen.queryByRole("button", { name: /watch with/i })).toBeNull();
   });
 });

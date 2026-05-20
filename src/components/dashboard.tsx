@@ -33,14 +33,18 @@ type Props = {
   entries: WatchEntryWithShow[];
   displayName: string;
   // Phase 42: showIds the household co-watches. Splits the Watching
-  // section into "Together" / "On your own" subgroups.
+  // section into "Together" / "On your own" subgroups and feeds each
+  // in-progress card's co-watch toggle.
   coWatchedShowIds: number[];
+  // The other household member's name — null in a single-user setup.
+  partnerName: string | null;
 };
 
 export function Dashboard({
   entries,
   displayName,
   coWatchedShowIds,
+  partnerName,
 }: Props) {
   const [pendingAdd, setPendingAdd] = useState<TmdbSearchResult | null>(null);
   const [editing, setEditing] = useState<WatchEntryWithShow | null>(null);
@@ -57,7 +61,12 @@ export function Dashboard({
     <ul className="space-y-3">
       {items.map((entry) => (
         <li key={entry.id}>
-          <WatchEntryCard entry={entry} onEdit={() => setEditing(entry)} />
+          <WatchEntryCard
+            entry={entry}
+            onEdit={() => setEditing(entry)}
+            coWatch={coWatchedSet.has(entry.showId)}
+            partnerName={partnerName}
+          />
         </li>
       ))}
     </ul>

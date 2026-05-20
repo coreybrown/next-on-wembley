@@ -40,12 +40,13 @@ const data = (overrides: Record<string, unknown> = {}) => ({
   entry: baseEntry,
   label: "Season 2 of 3",
   unavailable: false,
+  coWatch: false,
   ...overrides,
 });
 
 describe("InProgressCard", () => {
   it("renders title, season label, production status with caveat", () => {
-    render(<InProgressCard data={data()} onEdit={() => {}} />);
+    render(<InProgressCard data={data()} onEdit={() => {}} partnerName={null} />);
     expect(screen.getByText("Severance")).toBeInTheDocument();
     expect(screen.getByText(/season 2 of 3/i)).toBeInTheDocument();
     expect(screen.getByText(/returning series/i)).toBeInTheDocument();
@@ -61,7 +62,7 @@ describe("InProgressCard", () => {
             show: { ...baseEntry.show, productionStatus: null },
           },
         })}
-        onEdit={() => {}}
+        onEdit={() => {}} partnerName={null}
       />,
     );
     expect(screen.queryByText(/may change/i)).not.toBeInTheDocument();
@@ -71,7 +72,7 @@ describe("InProgressCard", () => {
     render(
       <InProgressCard
         data={data({ label: "Caught up — waiting for Season 3" })}
-        onEdit={() => {}}
+        onEdit={() => {}} partnerName={null}
       />,
     );
     expect(
@@ -81,7 +82,7 @@ describe("InProgressCard", () => {
 
   it("renders the Unavailable badge when unavailable", () => {
     render(
-      <InProgressCard data={data({ unavailable: true })} onEdit={() => {}} />,
+      <InProgressCard data={data({ unavailable: true })} onEdit={() => {}} partnerName={null} />,
     );
     expect(
       screen.getByText(/unavailable on your subscriptions/i),
@@ -92,7 +93,7 @@ describe("InProgressCard", () => {
     render(
       <InProgressCard
         data={data({ entry: { ...baseEntry, status: "paused" } })}
-        onEdit={() => {}}
+        onEdit={() => {}} partnerName={null}
       />,
     );
     expect(screen.getByText(/^paused$/i)).toBeInTheDocument();

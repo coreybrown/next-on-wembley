@@ -10,9 +10,12 @@ import type { WatchEntryWithShow } from "@/app/actions/watch-entries";
 
 type Props = {
   cards: InProgressCardData[];
+  // The other household member's name, threaded to each card's co-watch
+  // toggle. Null in a single-user setup.
+  partnerName: string | null;
 };
 
-export function InProgressList({ cards }: Props) {
+export function InProgressList({ cards, partnerName }: Props) {
   const [showPaused, setShowPaused] = useState(false);
   const [editing, setEditing] = useState<WatchEntryWithShow | null>(null);
 
@@ -65,6 +68,7 @@ export function InProgressList({ cards }: Props) {
               <InProgressCard
                 data={data}
                 onEdit={() => setEditing(data.entry as WatchEntryWithShow)}
+                partnerName={partnerName}
               />
             </li>
           ))}

@@ -5,6 +5,7 @@ import {
   getInProgressEntries,
   refreshStaleInProgress,
 } from "@/app/actions/in-progress";
+import { getCoWatchContext } from "@/app/actions/co-watch";
 import {
   parseSeasonsJson,
   progressLabel,
@@ -26,10 +27,13 @@ export default async function InProgressPage() {
   // now and block; revisit when latency becomes visible.
   await refreshStaleInProgress();
 
-  const [entries, userSubs] = await Promise.all([
-    getInProgressEntries(),
-    getUserSubscriptions(),
-  ]);
+  const [entries, userSubs, { coWatchedShowIds, partnerName }] =
+    await Promise.all([
+      getInProgressEntries(),
+      getUserSubscriptions(),
+      getCoWatchContext(),
+    ]);
+  const coWatchedSet = new Set(coWatchedShowIds);
 
   const cards: InProgressCardData[] = entries.map((entry) => {
     const seasons = parseSeasonsJson(entry.show.seasonsJson);
@@ -49,6 +53,7 @@ export default async function InProgressPage() {
         entry.show.providers.map((p) => p.platformKey),
         userSubs,
       ),
+      coWatch: coWatchedSet.has(entry.showId),
     };
   });
 
@@ -64,7 +69,7 @@ export default async function InProgressPage() {
         <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />
       </header>
 
-      <InProgressList cards={cards} />
+      <InProgressList cards={cards} partnerName={partnerName} />
     </main>
   );
 }
