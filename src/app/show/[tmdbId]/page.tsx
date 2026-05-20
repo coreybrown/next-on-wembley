@@ -31,7 +31,7 @@ export default async function ShowDetailPage({
   if (!view) notFound();
 
   return (
-    <main className="bg-page min-h-svh mx-auto max-w-3xl px-6 pb-16 pt-20">
+    <main className="bg-page min-h-svh mx-auto max-w-3xl px-6 pb-16 pt-10">
       <nav className="mb-6">
         <Link
           href="/recs"

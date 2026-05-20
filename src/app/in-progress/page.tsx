@@ -53,7 +53,7 @@ export default async function InProgressPage() {
   });
 
   return (
-    <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-16 sm:px-8 sm:py-20">
+    <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-10 sm:px-8 sm:py-12">
       <header className="mb-10">
         <p className="font-mono text-mono uppercase text-ink-muted">
           [In Progress · {user.displayName}]

@@ -60,9 +60,9 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${chivo.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-svh bg-surface text-ink font-body">
-        {/* Skip-link for keyboard users — sits before the fixed header
-            so a single Tab lands on it; activating jumps focus past
-            the header chrome to the page's main content. */}
+        {/* Skip-link for keyboard users — sits before the sticky app
+            bar so a single Tab lands on it; activating jumps focus
+            past the bar's nav links to #content. */}
         <a
           href="#content"
           className="
@@ -76,60 +76,73 @@ export default async function RootLayout({
           Skip to content
         </a>
         <RefreshProvider>
-        {user && (
-          <Link
-            href="/"
-            aria-label="Next on Wembley — back to your list"
-            className="
-              fixed left-4 top-4 z-30
-              inline-flex h-10 items-center
-              rounded-sm border border-border-strong bg-surface-elevated px-3
-              text-ink
-              transition-colors hover:border-accent hover:text-accent
-              focus-visible:outline-2 focus-visible:outline-accent-sharp
-              focus-visible:outline-offset-2
-            "
-          >
-            <Logo className="h-8 w-auto" title="" />
-          </Link>
-        )}
-        {user && (
-          <header className="fixed right-4 top-4 z-30 flex items-center gap-2">
-            <RefreshIndicator />
-            <Link
-              href="/in-progress"
-              aria-label="In Progress"
+          {user && (
+            // Phase 31: unified sticky app bar. Replaces the two
+            // previously fixed top-left/top-right clusters; sits in
+            // normal flow so pages no longer need to budget top
+            // padding for chrome. Bar surface + border-b handle the
+            // scroll-ghosting that used to require per-element badges.
+            <header
               className="
-                inline-flex h-10 w-10 items-center justify-center
-                rounded-sm border border-border-strong
-                bg-surface-elevated text-ink
-                transition-colors hover:border-accent hover:text-accent
-                focus-visible:outline-2 focus-visible:outline-accent-sharp
-                focus-visible:outline-offset-2
+                sticky top-0 z-30
+                border-b border-border bg-surface/85 backdrop-blur
+                supports-[backdrop-filter]:bg-surface/70
               "
             >
-              <FilmReel size={20} weight="regular" />
-            </Link>
-            <Link
-              href="/recs"
-              aria-label="Recommendations"
-              className="
-                inline-flex h-10 w-10 items-center justify-center
-                rounded-sm border border-border-strong
-                bg-surface-elevated text-ink
-                transition-colors hover:border-accent hover:text-accent
-                focus-visible:outline-2 focus-visible:outline-accent-sharp
-                focus-visible:outline-offset-2
-              "
-            >
-              <Sparkle size={20} weight="regular" />
-            </Link>
-            <IdentityChip currentUser={user} />
-          </header>
-        )}
-        <div id="content" tabIndex={-1} />
-        {children}
-        {modal}
+              <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-4 sm:px-6">
+                <Link
+                  href="/"
+                  aria-label="Next on Wembley — back to your list"
+                  className="
+                    inline-flex items-center
+                    rounded-sm text-ink
+                    transition-colors hover:text-accent
+                    focus-visible:outline-2 focus-visible:outline-accent-sharp
+                    focus-visible:outline-offset-2
+                  "
+                >
+                  <Logo className="h-9 w-auto" title="" />
+                </Link>
+                <nav
+                  aria-label="Primary"
+                  className="flex items-center gap-1 sm:gap-2"
+                >
+                  <RefreshIndicator />
+                  <Link
+                    href="/in-progress"
+                    aria-label="In Progress"
+                    className="
+                      inline-flex h-9 w-9 items-center justify-center
+                      rounded-sm text-ink-secondary
+                      transition-colors hover:bg-surface-elevated hover:text-accent
+                      focus-visible:outline-2 focus-visible:outline-accent-sharp
+                      focus-visible:outline-offset-2
+                    "
+                  >
+                    <FilmReel size={20} weight="regular" />
+                  </Link>
+                  <Link
+                    href="/recs"
+                    aria-label="Recommendations"
+                    className="
+                      inline-flex h-9 w-9 items-center justify-center
+                      rounded-sm text-ink-secondary
+                      transition-colors hover:bg-surface-elevated hover:text-accent
+                      focus-visible:outline-2 focus-visible:outline-accent-sharp
+                      focus-visible:outline-offset-2
+                    "
+                  >
+                    <Sparkle size={20} weight="regular" />
+                  </Link>
+                  <IdentityChip currentUser={user} />
+                </nav>
+              </div>
+            </header>
+          )}
+          <div id="content" tabIndex={-1}>
+            {children}
+            {modal}
+          </div>
         </RefreshProvider>
       </body>
     </html>

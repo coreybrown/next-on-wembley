@@ -431,17 +431,32 @@ State lives at the Recommendations route level, not inside RefreshHeader, so unm
 
 Per PRD §6.1 + §7.2.
 
-#### Current shape (M3c — fixed top header)
+#### Current shape (M5 Phase 31 — unified sticky app bar)
 
-**Top-left:** the Next on Wembley logo (the house line drawing) as a `Link` to `/`. Universal home affordance — replaces the per-page "Back to list" arrow links that used to anchor /recs, /in-progress, and /settings. Rendered as an inline-SVG React component (`src/components/logo.tsx`) so the strokes use `currentColor` — set the wrapping link's `text-…` class and the logo follows the theme without a CSS filter. The wrapper carries the same `bg-surface-elevated border border-border-strong rounded-sm px-3` treatment as the icon buttons across the top so it stays self-contained against content scrolling underneath (it's `position: fixed`). Wrapper is `h-10`; the SVG inside is `h-8` with horizontal padding for breathing room. The login card uses the bare logo (no badge) at `h-40` / `sm:h-48` since there's no scroll-overlap concern on a centered hero.
+Replaces the prior pair of `position: fixed` clusters (top-left logo badge + top-right icon row) with a single `<header>` in `app/layout.tsx`:
 
-**Top-right:** three icon controls + IdentityChip, anchored on every authenticated page:
+```
+sticky top-0 z-30
+border-b border-border bg-surface/85 backdrop-blur
+supports-[backdrop-filter]:bg-surface/70
+```
 
-1. **In-Progress** (FilmReel) — leftmost, the most-used affordance day-to-day.
-2. **Recommendations** (Sparkle).
-3. **IdentityChip** — dropdown menu (Radix `DropdownMenu`) carrying **Settings**, **Switch user** (opens the existing passcode dialog), **Log out**. Settings no longer has its own header icon — it lives behind the avatar to keep the rail at three slots.
+Inside, an `mx-auto max-w-5xl flex h-14 items-center justify-between gap-4 px-4 sm:px-6` lays out:
 
-`RefreshIndicator` slots ahead of the icon row when an in-flight refresh is active (PRD §6.4.7). The Show Detail page keeps its own contextual "Back to recs" affordance since the logo jumps to the dashboard root, not to the originating list. The deferred Mobile bottom-tab-bar + Desktop top-nav-row layouts below remain the longer-term target.
+**Left:** the Next on Wembley logo at `h-9 w-auto` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`); strokes use `currentColor` so dark mode flips them to cream automatically. ViewBox is tightened to `180 115 440 290` (≈1.52:1) to remove dead whitespace and improve legibility at the bar's small height. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge.
+
+**Right:** a `<nav aria-label="Primary">` with the icon controls + IdentityChip:
+
+1. `<RefreshIndicator>` — pill flips visible while a refresh is in flight (PRD §6.4.7). Now borders only, no surface fill, since it sits on the elevated bar.
+2. **In-Progress** (FilmReel) — leftmost icon, `h-9 w-9`, transparent until hover.
+3. **Recommendations** (Sparkle) — same.
+4. **IdentityChip** — `h-9 w-9` colored monogram tile (border hairline, no strong border). Dropdown menu (Radix `DropdownMenu`) carries **Settings**, **Switch user** (opens the passcode dialog), **Log out**.
+
+**Pages drop their per-route top padding.** Old `py-16 / sm:py-20` becomes `py-10 / sm:py-12`; Show Detail's `pt-20` becomes `pt-10`. The bar participates in normal flow so chrome height is a single source of truth.
+
+**Z-index map:** bar = 30, Show Detail drawer overlay = 40, drawer content = 50. The drawer's overlay covers the bar (standard modal etiquette; Radix's focus trap already excludes header links from tab order while open).
+
+**Login page** keeps the bar hidden — it has its own centered composition with a 160-192px logo above the masthead, so a layout-level bar would fight the vertical centering.
 
 #### Mobile (≤768px) — deferred bottom-tab variant
 

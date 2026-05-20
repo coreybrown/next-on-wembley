@@ -18,7 +18,7 @@ export function RefreshIndicator() {
         href="/recs"
         className="
           inline-flex items-center gap-1 rounded-pill
-          border border-border bg-surface-elevated px-3 py-1
+          border border-border px-3 py-1
           font-mono text-mono uppercase text-ink-secondary
           transition-colors hover:border-accent hover:text-accent
           focus-visible:outline-2 focus-visible:outline-accent
@@ -38,7 +38,7 @@ export function RefreshIndicator() {
         role="status"
         className="
           inline-flex items-center gap-1 rounded-pill
-          border border-danger bg-surface-elevated px-3 py-1
+          border border-danger px-3 py-1
           font-mono text-mono uppercase text-danger
         "
       >

@@ -15,7 +15,7 @@ export function Logo({ className, title = "Next on Wembley" }: Props) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="150 110 500 320"
+      viewBox="180 115 440 290"
       className={className}
       role={title ? "img" : "presentation"}
       aria-label={title || undefined}
