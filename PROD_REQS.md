@@ -455,12 +455,12 @@ Each milestone is intended to be testable end-to-end on its own — M3 ships a w
    - Like / Dislike / Meh feedback-loop quality polish.
 
 5. **M5 — Polish**
-   - Provider / availability refresh job (14-day cadence).
-   - Show metadata + ratings weekly refresh job.
-   - Accessibility audit against §7.1.
-   - Responsive polish; dark mode (per §7.2 if chosen).
-   - Claude API cost monitoring + alert at 75% of monthly budget.
-   - Deployment hardening, DB backup automation.
+   - ✅ Provider / availability refresh job — folded into the §6.5 metadata sweep (Phase 30); same cadence, same code path.
+   - ✅ Show metadata + ratings background refresh job — `refreshStaleAcrossHistory()` runs on the dashboard (Phase 30).
+   - ✅ Accessibility audit against §7.1 — Phase 29 (skip-link, tablist arrow keys, prefers-reduced-motion).
+   - ✅ Responsive polish; dark mode — shipped through M1/M2 and the cumulative responsive treatments.
+   - ✅ Claude API cost monitoring + 75%-of-budget alert — Phase 22.
+   - **Deferred (operational, out-of-scope for local dev):** centralized env-var validation (existing lazy `throw` checks in `lib/anthropic.ts` / `lib/tmdb.ts` / `lib/session.ts` already surface typed errors at first use); DB backup automation (SQLite — a `cron` + file copy, owned by the deploy host).
 
 ## 14. Appendix
 
