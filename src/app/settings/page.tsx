@@ -10,6 +10,10 @@ import {
 import { getBudgetStatus } from "@/lib/llm-budget";
 import { getCurrentUser } from "@/lib/auth";
 
+// Toggling a subscription here fires a background rec-gen (LLM, 30–60s);
+// lift the function ceiling so it isn't killed mid-generation.
+export const maxDuration = 60;
+
 export default async function SettingsPage() {
   const [user, theme, subs, recModel, budget] = await Promise.all([
     getCurrentUser(),

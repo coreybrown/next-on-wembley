@@ -3,6 +3,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { getLatestRunsForCurrentUser } from "@/app/actions/recommendations";
 import { RecsView } from "@/components/recs-view";
 
+// Rec generation (the Refresh action) calls the LLM and can run 30–60s.
+// Lift the serverless function ceiling so it isn't killed mid-generation.
+export const maxDuration = 60;
+
 export default async function RecsPage() {
   const user = await getCurrentUser();
   if (!user) {
