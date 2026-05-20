@@ -108,7 +108,7 @@ export function DisagreesInspector({ shows }: Props) {
                     focus-visible:outline-offset-2
                   "
                 >
-                  <ArrowCounterClockwise size={12} weight="bold" aria-hidden />
+                  <ArrowCounterClockwise size={14} weight="bold" aria-hidden />
                   <span>Bring back</span>
                 </button>
               </li>

@@ -46,7 +46,7 @@ export function Dashboard({ entries, displayName }: Props) {
   const totalEntries = entries.length;
 
   return (
-    <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-16 sm:px-8 sm:py-20">
+    <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-10 sm:px-8 sm:py-12">
       <header className="mb-10">
         <p className="font-mono text-mono uppercase text-ink-muted">
           [a quiet borough · 2026]
@@ -98,7 +98,7 @@ export function Dashboard({ entries, displayName }: Props) {
                     "
                   >
                     <span>View In-Progress</span>
-                    <ArrowRight size={12} weight="regular" aria-hidden />
+                    <ArrowRight size={14} weight="regular" aria-hidden />
                   </Link>
                 )}
               </div>

@@ -25,8 +25,8 @@ export function ShowDetailBody({ view }: Props) {
           <span
             className="
               inline-flex items-center rounded-pill
-              bg-status-watching px-2 py-0.5
-              font-mono text-mono uppercase tracking-wide text-accent-fg
+              border border-border px-2 py-0.5
+              font-mono text-mono uppercase tracking-wide text-ink-muted
             "
           >
             Continuation

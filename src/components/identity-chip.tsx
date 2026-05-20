@@ -52,7 +52,7 @@ export function IdentityChip({ currentUser }: Props) {
               rounded-sm border border-border
               ${chipColor}
               font-display text-lg font-bold italic
-              transition-transform hover:scale-105
+              transition-colors hover:border-accent
               focus-visible:outline-2 focus-visible:outline-accent-sharp
               focus-visible:outline-offset-2
             `}

@@ -39,9 +39,9 @@ export function RecCard({ item, partnerLabel }: Props) {
       <div className="flex flex-shrink-0 flex-col items-center gap-2">
         <span
           aria-label={`Position ${item.position}`}
-          className="font-display text-2xl font-black text-ink-muted"
+          className="font-mono text-mono uppercase text-ink-muted"
         >
-          {item.position}
+          {item.position.toString().padStart(2, "0")}
         </span>
         <Link
           href={detailHref}
@@ -91,8 +91,8 @@ export function RecCard({ item, partnerLabel }: Props) {
             <span
               className="
                 inline-flex items-center rounded-pill
-                bg-status-watching px-2 py-0.5
-                font-mono text-mono uppercase tracking-wide text-accent-fg
+                border border-border px-2 py-0.5
+                font-mono text-mono uppercase tracking-wide text-ink-muted
               "
             >
               Continuation
@@ -100,7 +100,7 @@ export function RecCard({ item, partnerLabel }: Props) {
           )}
         </div>
 
-        <p className="mt-2 font-body text-base text-ink">
+        <p className="mt-2 font-body text-base font-medium text-ink">
           {expanded ? item.longExplanation : item.shortExplanation}
         </p>
         {item.longExplanation !== item.shortExplanation && (
@@ -118,12 +118,12 @@ export function RecCard({ item, partnerLabel }: Props) {
           >
             {expanded ? (
               <>
-                <CaretUp size={12} weight="bold" aria-hidden />
+                <CaretUp size={14} weight="bold" aria-hidden />
                 <span>Show less</span>
               </>
             ) : (
               <>
-                <CaretDown size={12} weight="bold" aria-hidden />
+                <CaretDown size={14} weight="bold" aria-hidden />
                 <span>Show more</span>
               </>
             )}

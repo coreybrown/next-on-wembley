@@ -255,7 +255,7 @@ export function RecsView({
           onChange={(e) => setMood(e.target.value)}
           disabled={pending}
           className="
-            w-full rounded-sm border border-border bg-surface-elevated
+            w-full rounded-sm border border-border bg-surface
             px-3 py-2
             font-body text-base text-ink
             focus:outline-2 focus:outline-accent focus:outline-offset-2
@@ -345,7 +345,7 @@ export function RecsView({
                 focus-visible:outline-offset-2
               "
             >
-              <X size={12} weight="bold" aria-hidden />
+              <X size={14} weight="bold" aria-hidden />
               <span>Clear filters</span>
             </button>
           )}
