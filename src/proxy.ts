@@ -4,7 +4,8 @@ import { sessionOptions, type SessionData } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login"];
 
-export async function middleware(req: NextRequest) {
+// Next 16 renamed the `middleware` file convention to `proxy`.
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/"),
@@ -28,7 +29,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Skip Next internals and static assets — including the metadata icon
-  // routes (/icon.svg, /apple-icon.png) — so the middleware doesn't run
+  // routes (/icon.svg, /apple-icon.png) — so the proxy doesn't run
   // on every chunk and favicons aren't auth-gated behind /login.
   matcher: [
     "/((?!_next/static|_next/image|.*\\.(?:svg|png|ico|jpe?g|gif|webp)$).*)",

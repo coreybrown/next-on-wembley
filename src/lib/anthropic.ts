@@ -10,7 +10,10 @@ function getClient(): Anthropic {
   if (!apiKey) {
     throw new AnthropicError("ANTHROPIC_API_KEY is not configured");
   }
-  client = new Anthropic({ apiKey });
+  // 55s per-request cap — a hung call fails fast instead of holding the
+  // serverless function open to its platform limit. The client-side
+  // refresh flow gives up at 60s, so this surfaces first.
+  client = new Anthropic({ apiKey, timeout: 55_000 });
   return client;
 }
 
