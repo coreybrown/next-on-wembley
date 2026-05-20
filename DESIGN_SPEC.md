@@ -468,7 +468,9 @@ supports-[backdrop-filter]:bg-surface/70
 
 Inside, an `mx-auto max-w-5xl flex h-14 items-center justify-between gap-4 px-4 sm:px-6` lays out:
 
-**Left:** the Next on Wembley logo at `h-9 w-auto` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`); strokes use `currentColor` so dark mode flips them to cream automatically. ViewBox is tightened to `180 115 440 290` (≈1.52:1) to remove dead whitespace and improve legibility at the bar's small height. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge.
+**Left:** the Next on Wembley logo at `h-10 w-10` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`) — a **square** house-with-"NOW" mark, traced from the source artwork into a single flat `currentColor` vector (`viewBox="0 0 776 776"`), so dark mode flips it to cream automatically and hover tints it accent. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge.
+
+The same traced mark backs the **favicon and app icon**: `src/app/icon.svg` (an explicit-color SVG with a `prefers-color-scheme` dark-mode rule, since a favicon has no parent text color to inherit) and `src/app/apple-icon.png` (180×180, dark mark on a cream field for iOS). The stock Next `favicon.ico` was removed.
 
 **Right:** a `<nav aria-label="Primary">` with the icon controls + IdentityChip:
 

@@ -1,30 +1,9 @@
-// Brand mark for Next on Wembley — the house-with-"NOW" logo, traced
-// from the source artwork into a single flat vector. Rendered as JSX so
-// the fill inherits the parent's text color via `currentColor`: set the
-// wrapper's `text-…` class and the mark follows the theme (light/dark)
-// and hover state without a CSS filter swap.
-
-type Props = {
-  className?: string;
-  // Accessible label override. When the logo is itself the link content,
-  // give the WRAPPING <Link> the aria-label and pass title="" here so AT
-  // doesn't double-announce.
-  title?: string;
-};
-
-export function Logo({ className, title = "Next on Wembley" }: Props) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 776 776"
-      className={className}
-      role={title ? "img" : "presentation"}
-      aria-label={title || undefined}
-      aria-hidden={title ? undefined : true}
-    >
-      {/* Single traced group; potrace emits coords at 10x with a
-          y-flip, normalised here by the transform. */}
-      <g transform="translate(0,776) scale(0.1,-0.1)" fill="currentColor" stroke="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 776 776">
+  <style>
+    path { fill: #1F1622; }
+    @media (prefers-color-scheme: dark) { path { fill: #F1E8DA; } }
+  </style>
+  <g transform="translate(0,776) scale(0.1,-0.1)" stroke="none">
         <path d="M3753 6353 c-66 -54 -192 -155 -279 -224 -87 -70 -384 -307 -659
         -528 -275 -221 -733 -589 -1017 -818 -285 -228 -518 -420 -518 -426 0 -7 13
         -28 29 -47 22 -26 32 -32 42 -24 8 6 101 81 207 167 l192 157 0 -1030 0 -1030
@@ -133,7 +112,5 @@ export function Logo({ className, title = "Next on Wembley" }: Props) {
         -62 -240 -65 -240 -4 0 -10 17 -14 38 -6 35 -90 386 -101 425 -5 15 -14 17
         -52 15 l-47 -3 -61 -245 -60 -245 -12 50 c-7 28 -35 139 -64 248 l-51 197 -54
         0 c-29 0 -53 -2 -53 -4z"/>
-      </g>
-    </svg>
-  );
-}
+  </g>
+</svg>

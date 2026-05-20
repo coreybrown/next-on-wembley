@@ -27,6 +27,10 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Skip static assets and Next internals so middleware doesn't run on every chunk.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg).*)"],
+  // Skip Next internals and static assets — including the metadata icon
+  // routes (/icon.svg, /apple-icon.png) — so the middleware doesn't run
+  // on every chunk and favicons aren't auth-gated behind /login.
+  matcher: [
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|ico|jpe?g|gif|webp)$).*)",
+  ],
 };

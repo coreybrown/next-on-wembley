@@ -101,7 +101,7 @@ export default async function RootLayout({
                     focus-visible:outline-offset-2
                   "
                 >
-                  <Logo className="h-9 w-auto" title="" />
+                  <Logo className="h-10 w-10" title="" />
                 </Link>
                 <nav
                   aria-label="Primary"
