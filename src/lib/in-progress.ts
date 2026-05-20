@@ -30,29 +30,6 @@ export function parseSeasonsJson(raw: string | null | undefined): SeasonInfo[] {
     .sort((a, b) => a.seasonNumber - b.seasonNumber);
 }
 
-// Sum episodes from currentSeason + 1 to the end of seasons[].
-// Returns null when we genuinely don't know (no seasons data and no
-// totalEpisodes fallback) — caller renders "ongoing" copy in that case.
-export function episodesRemaining(
-  currentSeason: number | null | undefined,
-  seasons: SeasonInfo[],
-  totalEpisodes: number | null | undefined,
-): number | null {
-  if (currentSeason == null || currentSeason < 1) return null;
-  if (seasons.length > 0) {
-    let remaining = 0;
-    for (const s of seasons) {
-      if (s.seasonNumber > currentSeason) remaining += s.episodeCount;
-    }
-    return remaining;
-  }
-  // Fallback: even-distribution estimate from totalEpisodes / totalSeasons.
-  // We don't know totalSeasons here without another arg — keep it null
-  // unless the caller supplies seasons.
-  if (totalEpisodes == null) return null;
-  return null;
-}
-
 // Human-readable progress label that distinguishes mid-season,
 // between-seasons (current season finished, more available), and
 // caught-up-on-all-released (waiting for next season or series ended).

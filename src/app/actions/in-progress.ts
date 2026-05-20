@@ -162,26 +162,27 @@ export async function refreshShowMetadata(showId: number): Promise<boolean> {
   return true;
 }
 
-// Refresh metadata for the current user's Watching + Paused shows whose
-// last sync is older than the staleness threshold. Throttled — we run
-// REFRESH_CONCURRENCY refreshes at a time so a long list doesn't hammer
-// TMDb. Errors per-show are swallowed so one bad fetch doesn't sink the
-// whole page render.
-// Phase 30. Same shape as refreshStaleInProgress but spans the
-// viewer's ENTIRE watch history (every status), so completed /
-// dropped / want-to-watch entries also pick up new TMDb metadata +
-// CA provider data on a periodic schedule (PRD §13 M5 background
-// refresh job). Called from the dashboard render — that's the most
-// common entry point post-login, so a freshness sweep there covers
-// any show the user might land on.
-export async function refreshStaleAcrossHistory(): Promise<{
-  refreshed: number;
-}> {
+// Refresh metadata for the current user's shows whose last sync is
+// older than the staleness threshold (or that still carry pre-Phase-6
+// null seasonsJson — one-time backfill so legacy entries get the new
+// per-season data on next visit). Throttled at REFRESH_CONCURRENCY so
+// a long list doesn't hammer TMDb. Errors per-show are swallowed so
+// one bad fetch doesn't sink the page render.
+//
+// `statuses` narrows to a subset (e.g. ["watching", "paused"] for the
+// /in-progress sweep). Omit for the dashboard sweep that covers every
+// status (PRD §13 M5 background refresh job).
+async function refreshStaleForViewer(
+  statuses?: ("watching" | "paused" | "completed" | "dropped" | "want_to_watch")[],
+): Promise<{ refreshed: number }> {
   const session = await getSession();
   if (!session.userId) return { refreshed: 0 };
 
   const entries = await prisma.watchEntry.findMany({
-    where: { userId: session.userId },
+    where: {
+      userId: session.userId,
+      ...(statuses ? { status: { in: statuses } } : {}),
+    },
     include: {
       show: {
         select: { id: true, lastSyncedAt: true, seasonsJson: true },
@@ -206,39 +207,14 @@ export async function refreshStaleAcrossHistory(): Promise<{
   return { refreshed };
 }
 
+// Dashboard sweep (every status). Phase 30.
+export async function refreshStaleAcrossHistory(): Promise<{
+  refreshed: number;
+}> {
+  return refreshStaleForViewer();
+}
+
+// /in-progress sweep (Watching/Paused only). Original M2 Phase 7 entry.
 export async function refreshStaleInProgress(): Promise<{ refreshed: number }> {
-  const session = await getSession();
-  if (!session.userId) return { refreshed: 0 };
-
-  const entries = await prisma.watchEntry.findMany({
-    where: {
-      userId: session.userId,
-      status: { in: ["watching", "paused"] },
-    },
-    include: {
-      show: {
-        select: { id: true, lastSyncedAt: true, seasonsJson: true },
-      },
-    },
-  });
-  // Refresh shows that are time-stale OR pre-Phase-6 rows (no seasonsJson yet).
-  // The latter is a one-time backfill so legacy entries get the new per-season
-  // data on next /in-progress visit without manual intervention.
-  const stale = entries
-    .map((e) => e.show)
-    .filter(
-      (s) =>
-        s.seasonsJson == null ||
-        daysSince(s.lastSyncedAt) >= STALE_THRESHOLD_DAYS,
-    );
-  // dedupe by show id in case both users share the same show
-  const uniqueIds = Array.from(new Set(stale.map((s) => s.id)));
-
-  let refreshed = 0;
-  for (let i = 0; i < uniqueIds.length; i += REFRESH_CONCURRENCY) {
-    const batch = uniqueIds.slice(i, i + REFRESH_CONCURRENCY);
-    const results = await Promise.all(batch.map(refreshShowMetadata));
-    refreshed += results.filter(Boolean).length;
-  }
-  return { refreshed };
+  return refreshStaleForViewer(["watching", "paused"]);
 }

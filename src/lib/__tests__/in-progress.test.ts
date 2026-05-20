@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   parseSeasonsJson,
-  episodesRemaining,
   progressLabel,
   isUnavailableOnSubscriptions,
   daysSince,
@@ -44,36 +43,6 @@ describe("parseSeasonsJson", () => {
     expect(parseSeasonsJson(raw).map((s) => s.seasonNumber)).toEqual([
       1, 2, 3,
     ]);
-  });
-});
-
-describe("episodesRemaining", () => {
-  const seasons = [
-    { seasonNumber: 1, episodeCount: 9 },
-    { seasonNumber: 2, episodeCount: 10 },
-    { seasonNumber: 3, episodeCount: 10 },
-  ];
-
-  it("sums episodes from seasons after currentSeason", () => {
-    expect(episodesRemaining(1, seasons, null)).toBe(20);
-    expect(episodesRemaining(2, seasons, null)).toBe(10);
-    expect(episodesRemaining(3, seasons, null)).toBe(0);
-  });
-
-  it("returns 0 when currentSeason equals or exceeds last known season", () => {
-    expect(episodesRemaining(3, seasons, null)).toBe(0);
-    expect(episodesRemaining(99, seasons, null)).toBe(0);
-  });
-
-  it("returns null when currentSeason is missing", () => {
-    expect(episodesRemaining(null, seasons, 30)).toBeNull();
-    expect(episodesRemaining(undefined, seasons, 30)).toBeNull();
-    expect(episodesRemaining(0, seasons, 30)).toBeNull();
-  });
-
-  it("returns null when seasons[] is empty and we have no estimate", () => {
-    expect(episodesRemaining(2, [], null)).toBeNull();
-    expect(episodesRemaining(2, [], 30)).toBeNull(); // intentional per PRD §258
   });
 });
 

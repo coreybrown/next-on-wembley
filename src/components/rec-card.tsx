@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
-import { PLATFORMS, type PlatformKey } from "@/lib/platforms";
+import { PLATFORMS } from "@/lib/platforms";
 import type { RecListItemView } from "@/app/actions/recommendations";
 import { VoteControlsRow } from "@/components/vote-controls-row";
 
@@ -180,10 +180,4 @@ export function RecCard({ item, partnerLabel }: Props) {
       </div>
     </article>
   );
-}
-
-// Tiny helper kept here so the page can show a fallback when a platform
-// key is somehow missing from PLATFORMS (defensive — shouldn't happen).
-export function platformDisplayName(key: string): string {
-  return PLATFORM_NAME.get(key as PlatformKey) ?? key;
 }
