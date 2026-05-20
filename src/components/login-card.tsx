@@ -12,7 +12,7 @@ export function LoginCard() {
   return (
     <article className="w-full max-w-md">
       <header className="mb-10 text-center text-ink">
-        <Logo className="mx-auto mb-6 h-40 w-auto sm:h-48" />
+        <Logo className="mx-auto mb-6 h-44 w-auto sm:h-52" />
         <p className="font-mono text-mono uppercase text-ink-muted">
           [a quiet borough · 2026]
         </p>

@@ -16,14 +16,16 @@ export function Logo({ className, title = "Next on Wembley" }: Props) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 776 776"
+      viewBox="53 130 670 515"
       className={className}
       role={title ? "img" : "presentation"}
       aria-label={title || undefined}
       aria-hidden={title ? undefined : true}
     >
       {/* Single traced group; potrace emits coords at 10x with a
-          y-flip, normalised here by the transform. */}
+          y-flip, normalised here by the transform. The viewBox windows
+          tight to the artwork (its natural ~1.3:1 box) so the mark fills
+          its display height instead of floating in square padding. */}
       <g transform="translate(0,776) scale(0.1,-0.1)" fill="currentColor" stroke="none">
         <path d="M3753 6353 c-66 -54 -192 -155 -279 -224 -87 -70 -384 -307 -659
         -528 -275 -221 -733 -589 -1017 -818 -285 -228 -518 -420 -518 -426 0 -7 13

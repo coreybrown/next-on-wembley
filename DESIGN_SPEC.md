@@ -468,9 +468,9 @@ supports-[backdrop-filter]:bg-surface/70
 
 Inside, an `mx-auto max-w-5xl flex h-14 items-center justify-between gap-4 px-4 sm:px-6` lays out:
 
-**Left:** the Next on Wembley logo at `h-10 w-10` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`) — a **square** house-with-"NOW" mark, traced from the source artwork into a single flat `currentColor` vector (`viewBox="0 0 776 776"`), so dark mode flips it to cream automatically and hover tints it accent. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge.
+**Left:** the Next on Wembley logo at `h-11 w-auto` as a `Link` to `/`. Rendered via the inline-SVG `<Logo>` component (`src/components/logo.tsx`) — the full house-with-"NOW" composition (house, "NOW" window, flanking plants, ground wave), traced from the source artwork into a single flat `currentColor` vector, so dark mode flips it to cream automatically and hover tints it accent. The `viewBox` windows **tight to the artwork's natural ~1.3:1 box** (`53 130 670 515`) rather than a padded square, so the mark fills its display height instead of floating in dead space. **No badge / no border** — the bar's own surface handles the scroll-ghosting that previously required a per-element badge. The login page uses the same component at `h-44 sm:h-52`.
 
-The same traced mark backs the **favicon and app icon**: `src/app/icon.svg` (an explicit-color SVG with a `prefers-color-scheme` dark-mode rule, since a favicon has no parent text color to inherit) and `src/app/apple-icon.png` (180×180, dark mark on a cream field for iOS). The stock Next `favicon.ico` was removed.
+The **favicon and app icon** use a deliberately **simplified variant** of the mark — just the house + "NOW" window, with the plants, ground wave, and steps masked out so it stays legible at 16–32px. `src/app/icon.svg` is an explicit-color SVG with a `prefers-color-scheme` dark-mode rule (a favicon has no parent text color to inherit); `src/app/apple-icon.png` is 180×180, dark mark on a cream field for iOS. The stock Next `favicon.ico` was removed.
 
 **Right:** a `<nav aria-label="Primary">` with the icon controls + IdentityChip:
 
@@ -483,7 +483,7 @@ The same traced mark backs the **favicon and app icon**: `src/app/icon.svg` (an 
 
 **Z-index map:** bar = 30, Show Detail drawer overlay = 40, drawer content = 50. The drawer's overlay covers the bar (standard modal etiquette; Radix's focus trap already excludes header links from tab order while open).
 
-**Login page** keeps the bar hidden — it has its own centered composition with a 160-192px logo above the masthead, so a layout-level bar would fight the vertical centering.
+**Login page** keeps the bar hidden — it has its own centered composition with a 176–208px logo above the masthead, so a layout-level bar would fight the vertical centering.
 
 #### Mobile (≤768px) — deferred bottom-tab variant
 
