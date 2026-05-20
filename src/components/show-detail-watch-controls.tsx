@@ -17,6 +17,7 @@ import {
   RATING_GLYPHS,
   USER_RATINGS,
 } from "@/lib/watch-entries";
+import { WATCH_ENTRY_ERROR_COPY } from "@/lib/action-errors";
 
 type Entry = {
   id: number;
@@ -60,7 +61,7 @@ export function ShowDetailWatchControls({
         status,
         currentSeason: status === "watching" ? 1 : null,
       });
-      if (!r.ok) setError(addErrorMessage(r.error));
+      if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
       else refreshAfter();
     });
   };
@@ -70,7 +71,7 @@ export function ShowDetailWatchControls({
     setError(null);
     startTransition(async () => {
       const r = await updateWatchEntry({ id: entry.id, status: next });
-      if (!r.ok) setError(updateErrorMessage(r.error));
+      if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
       else refreshAfter();
     });
   };
@@ -83,7 +84,7 @@ export function ShowDetailWatchControls({
     setError(null);
     startTransition(async () => {
       const r = await updateWatchEntry({ id: entry.id, currentSeason: next });
-      if (!r.ok) setError(updateErrorMessage(r.error));
+      if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
       else refreshAfter();
     });
   };
@@ -97,7 +98,7 @@ export function ShowDetailWatchControls({
         id: entry.id,
         userRating: target,
       });
-      if (!r.ok) setError(updateErrorMessage(r.error));
+      if (!r.ok) setError(WATCH_ENTRY_ERROR_COPY[r.error]);
       else refreshAfter();
     });
   };
@@ -369,40 +370,3 @@ export function ShowDetailWatchControls({
   );
 }
 
-function addErrorMessage(
-  error:
-    | "unauthorized"
-    | "not_found"
-    | "invalid_status"
-    | "invalid_rating"
-    | "invalid_season"
-    | "already_added"
-    | "tmdb_unavailable",
-): string {
-  switch (error) {
-    case "already_added":
-      return "Already on your list.";
-    case "tmdb_unavailable":
-      return "TMDb fetch failed — try again.";
-    default:
-      return `Couldn't add (${error}).`;
-  }
-}
-
-function updateErrorMessage(
-  error:
-    | "unauthorized"
-    | "not_found"
-    | "invalid_status"
-    | "invalid_rating"
-    | "invalid_season"
-    | "already_added"
-    | "tmdb_unavailable",
-): string {
-  switch (error) {
-    case "invalid_season":
-      return "Season is out of range.";
-    default:
-      return `Couldn't save (${error}).`;
-  }
-}

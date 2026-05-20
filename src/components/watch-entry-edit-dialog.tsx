@@ -5,7 +5,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   updateWatchEntry,
   deleteWatchEntry,
-  type WatchEntryActionError,
   type WatchEntryWithShow,
 } from "@/app/actions/watch-entries";
 import {
@@ -16,16 +15,7 @@ import {
   parseSeasonsJson,
   releasedSeasonsCount,
 } from "@/lib/in-progress";
-
-const ERROR_COPY: Record<WatchEntryActionError, string> = {
-  unauthorized: "Session expired — please sign in again.",
-  not_found: "Entry not found.",
-  invalid_status: "Pick a valid status.",
-  invalid_rating: "Pick a valid rating.",
-  invalid_season: "Current season is only for Watching or Paused.",
-  already_added: "This show is already on your list.",
-  tmdb_unavailable: "TMDb is unavailable — try again in a moment.",
-};
+import { WATCH_ENTRY_ERROR_COPY } from "@/lib/action-errors";
 
 type Props = {
   entry: WatchEntryWithShow | null;
@@ -48,7 +38,7 @@ export function WatchEntryEditDialog({ entry, onOpenChange }: Props) {
     startTransition(async () => {
       const res = await updateWatchEntry({ id: entry.id, ...values });
       if (!res.ok) {
-        setError(ERROR_COPY[res.error]);
+        setError(WATCH_ENTRY_ERROR_COPY[res.error]);
         return;
       }
       close();
@@ -61,7 +51,7 @@ export function WatchEntryEditDialog({ entry, onOpenChange }: Props) {
     startTransition(async () => {
       const res = await deleteWatchEntry(entry.id);
       if (!res.ok) {
-        setError(ERROR_COPY[res.error]);
+        setError(WATCH_ENTRY_ERROR_COPY[res.error]);
         return;
       }
       close();

@@ -3,24 +3,12 @@
 import { useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import type { TmdbSearchResult } from "@/lib/tmdb";
-import {
-  addWatchEntry,
-  type WatchEntryActionError,
-} from "@/app/actions/watch-entries";
+import { addWatchEntry } from "@/app/actions/watch-entries";
 import {
   WatchEntryForm,
   type WatchEntryFormValues,
 } from "@/components/watch-entry-form";
-
-const ERROR_COPY: Record<WatchEntryActionError, string> = {
-  unauthorized: "Session expired — please sign in again.",
-  not_found: "Entry not found.",
-  invalid_status: "Pick a valid status.",
-  invalid_rating: "Pick a valid rating.",
-  invalid_season: "Current season is only for Watching or Paused.",
-  already_added: "This show is already on your list.",
-  tmdb_unavailable: "TMDb is unavailable — try again in a moment.",
-};
+import { WATCH_ENTRY_ERROR_COPY } from "@/lib/action-errors";
 
 type Props = {
   show: TmdbSearchResult | null;
@@ -45,7 +33,7 @@ export function AddShowModal({ show, onOpenChange, onAdded }: Props) {
     startTransition(async () => {
       const res = await addWatchEntry({ tmdbId: show.tmdbId, ...values });
       if (!res.ok) {
-        setError(ERROR_COPY[res.error]);
+        setError(WATCH_ENTRY_ERROR_COPY[res.error]);
         return;
       }
       onAdded?.();
