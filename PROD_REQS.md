@@ -224,9 +224,9 @@ Next on Wembley fills that gap for personal household use.
 - **TMDb's CA provider data is uneven** — the same library surfaces under multiple `provider_id` values depending on access path (standalone app, Amazon Channel add-on, Apple TV Channel, ad-supported tier). We collapse every variant of each of the six supported platforms back to a single `PlatformKey` so subscription matching is robust even when only the channel-variant id is returned. Example: HBO content like *Succession* often returns only `2604` ("Crave Amazon Channel"), never `230` ("Crave") — both map to `crave`.
 - Metadata is cached locally to avoid repeated API hits and to keep ratings stable between recommendation runs.
 - Cache refresh policy:
-  - Show metadata + ratings: weekly background refresh
-  - Provider/availability data: every 14 days (changes more often)
-  - In-progress shows: targeted refresh to detect new episodes
+  - Show metadata + ratings: weekly background refresh. Implementation (M5 Phase 30): the dashboard (`/`) route calls `refreshStaleAcrossHistory()` before rendering — it scans the viewer's entire watch history (every status) and re-fetches any show whose `lastSyncedAt` is past the threshold. Throttled (`REFRESH_CONCURRENCY=2`); per-show errors swallowed. Shows persisted by the rec engine pick up fresh metadata at generation time (`upsertResolvedShow` always re-fetches), so the dashboard sweep covers the gap for shows that haven't been rec'd recently.
+  - Provider/availability data: refreshed in the same sweep above — `refreshShowMetadata` re-fetches `/tv/{id}/watch/providers` alongside metadata, so the 7-day cadence covers both.
+  - In-progress shows: existing `refreshStaleInProgress()` runs on `/in-progress` for a narrower Watching/Paused-only sweep (M2 Phase 7).
 
 ### 6.6 Show Detail
 

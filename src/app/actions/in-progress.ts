@@ -195,6 +195,45 @@ export async function refreshShowMetadata(showId: number): Promise<boolean> {
 // REFRESH_CONCURRENCY refreshes at a time so a long list doesn't hammer
 // TMDb. Errors per-show are swallowed so one bad fetch doesn't sink the
 // whole page render.
+// Phase 30. Same shape as refreshStaleInProgress but spans the
+// viewer's ENTIRE watch history (every status), so completed /
+// dropped / want-to-watch entries also pick up new TMDb metadata +
+// CA provider data on a periodic schedule (PRD §13 M5 background
+// refresh job). Called from the dashboard render — that's the most
+// common entry point post-login, so a freshness sweep there covers
+// any show the user might land on.
+export async function refreshStaleAcrossHistory(): Promise<{
+  refreshed: number;
+}> {
+  const session = await getSession();
+  if (!session.userId) return { refreshed: 0 };
+
+  const entries = await prisma.watchEntry.findMany({
+    where: { userId: session.userId },
+    include: {
+      show: {
+        select: { id: true, lastSyncedAt: true, seasonsJson: true },
+      },
+    },
+  });
+  const stale = entries
+    .map((e) => e.show)
+    .filter(
+      (s) =>
+        s.seasonsJson == null ||
+        daysSince(s.lastSyncedAt) >= STALE_THRESHOLD_DAYS,
+    );
+  const uniqueIds = Array.from(new Set(stale.map((s) => s.id)));
+
+  let refreshed = 0;
+  for (let i = 0; i < uniqueIds.length; i += REFRESH_CONCURRENCY) {
+    const batch = uniqueIds.slice(i, i + REFRESH_CONCURRENCY);
+    const results = await Promise.all(batch.map(refreshShowMetadata));
+    refreshed += results.filter(Boolean).length;
+  }
+  return { refreshed };
+}
+
 export async function refreshStaleInProgress(): Promise<{ refreshed: number }> {
   const session = await getSession();
   if (!session.userId) return { refreshed: 0 };

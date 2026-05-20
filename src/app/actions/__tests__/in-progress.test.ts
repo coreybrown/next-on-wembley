@@ -22,6 +22,7 @@ const {
   finishItAction,
   refreshShowMetadata,
   refreshStaleInProgress,
+  refreshStaleAcrossHistory,
 } = await import("@/app/actions/in-progress");
 
 beforeEach(() => {
@@ -363,5 +364,56 @@ describe("refreshStaleInProgress", () => {
     mockPrisma.showProvider.deleteMany.mockResolvedValue({ count: 0 } as never);
     const r = await refreshStaleInProgress();
     expect(r.refreshed).toBe(2);
+  });
+});
+
+describe("refreshStaleAcrossHistory", () => {
+  it("returns refreshed=0 when unauthenticated", async () => {
+    expect(await refreshStaleAcrossHistory()).toEqual({ refreshed: 0 });
+    expect(mockPrisma.watchEntry.findMany).not.toHaveBeenCalled();
+  });
+
+  it("spans EVERY status, not just watching/paused (Phase 30)", async () => {
+    mockSession.userId = 7;
+    const stale = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([
+      // Completed entry — refreshStaleInProgress would skip these,
+      // but refreshStaleAcrossHistory should include them.
+      { id: 1, show: { id: 100, lastSyncedAt: stale, seasonsJson: "[]" } },
+      { id: 2, show: { id: 200, lastSyncedAt: stale, seasonsJson: "[]" } },
+    ] as never);
+    mockPrisma.show.findUnique.mockResolvedValue({
+      id: 100,
+      tmdbId: 12,
+    } as never);
+    mockGetTvDetails.mockResolvedValue(metadataFixture);
+    mockGetTvProviders.mockResolvedValue([]);
+    mockPrisma.show.update.mockResolvedValue({} as never);
+    mockPrisma.showProvider.deleteMany.mockResolvedValue({
+      count: 0,
+    } as never);
+
+    const r = await refreshStaleAcrossHistory();
+    expect(r.refreshed).toBe(2);
+    // Verify the query DOES NOT filter on status — that's the
+    // load-bearing difference vs refreshStaleInProgress.
+    const queryArgs = mockPrisma.watchEntry.findMany.mock.calls.at(-1)![0]!;
+    expect(queryArgs.where).toEqual({ userId: 7 });
+  });
+
+  it("skips shows synced within the threshold", async () => {
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([
+      {
+        id: 1,
+        show: {
+          id: 100,
+          lastSyncedAt: new Date(),
+          seasonsJson: "[]",
+        },
+      },
+    ] as never);
+    expect(await refreshStaleAcrossHistory()).toEqual({ refreshed: 0 });
+    expect(mockPrisma.show.findUnique).not.toHaveBeenCalled();
   });
 });
