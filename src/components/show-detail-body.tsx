@@ -148,7 +148,7 @@ export function ShowDetailBody({ view }: Props) {
               className="
                 inline-flex items-center rounded-pill
                 bg-badge-unavailable px-2 py-0.5
-                font-mono text-mono uppercase text-accent-fg
+                font-mono text-mono uppercase text-ink
               "
             >
               Not on your subscriptions

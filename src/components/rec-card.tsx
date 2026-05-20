@@ -159,7 +159,7 @@ export function RecCard({ item, partnerLabel }: Props) {
               className="
                 inline-flex items-center rounded-pill
                 bg-badge-unavailable px-2 py-0.5
-                font-mono text-mono uppercase text-accent-fg
+                font-mono text-mono uppercase text-ink
               "
             >
               Unavailable on your subscriptions

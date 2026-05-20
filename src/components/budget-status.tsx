@@ -31,7 +31,7 @@ export function BudgetStatusCard({ status }: Props) {
         Anthropic spend this month
       </h2>
       <div className="rounded-md border border-border bg-surface-elevated p-4 space-y-3">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:justify-between">
           <span className="font-display text-2xl font-bold text-ink">
             ${spentUsd.toFixed(2)}{" "}
             <span className="font-mono text-mono uppercase text-ink-muted">

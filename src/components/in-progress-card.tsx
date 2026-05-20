@@ -73,9 +73,7 @@ export function InProgressCard({ data, onEdit }: Props) {
               {label && " · "}
               <span className="text-ink-muted">
                 {show.productionStatus}
-                <span className="ml-1 italic text-ink-muted/80">
-                  — may change
-                </span>
+                <span className="ml-1 text-ink-muted">— may change</span>
               </span>
             </>
           )}
@@ -87,7 +85,7 @@ export function InProgressCard({ data, onEdit }: Props) {
               className="
                 inline-flex items-center rounded-pill
                 bg-badge-unavailable px-2 py-0.5
-                font-mono text-mono uppercase text-accent-fg
+                font-mono text-mono uppercase text-ink
               "
             >
               Unavailable on your subscriptions
