@@ -1,0 +1,10 @@
+-- CreateTable
+CREATE TABLE "CoWatch" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "showId" INTEGER NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "CoWatch_showId_fkey" FOREIGN KEY ("showId") REFERENCES "Show" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CoWatch_showId_key" ON "CoWatch"("showId");

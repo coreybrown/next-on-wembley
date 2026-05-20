@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getWatchEntries } from "@/app/actions/watch-entries";
+import { getCoWatchedShowIds } from "@/app/actions/co-watch";
 import { refreshStaleAcrossHistory } from "@/app/actions/in-progress";
 import { Dashboard } from "@/components/dashboard";
 
@@ -14,6 +15,15 @@ export default async function Home() {
   // posters / production status / providers. Throttled + per-show
   // errors swallowed inside the helper.
   await refreshStaleAcrossHistory();
-  const entries = await getWatchEntries();
-  return <Dashboard entries={entries} displayName={user.displayName} />;
+  const [entries, coWatchedShowIds] = await Promise.all([
+    getWatchEntries(),
+    getCoWatchedShowIds(),
+  ]);
+  return (
+    <Dashboard
+      entries={entries}
+      displayName={user.displayName}
+      coWatchedShowIds={coWatchedShowIds}
+    />
+  );
 }

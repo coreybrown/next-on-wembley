@@ -11,6 +11,7 @@ import {
 } from "@/lib/in-progress";
 import { isValidRating } from "@/lib/watch-entries";
 import { upsertShowFromResolved } from "@/lib/show-sync";
+import { propagateCoWatch } from "@/lib/co-watch";
 import { revalidateAll } from "@/lib/revalidate";
 import type { WatchEntryActionError } from "@/app/actions/watch-entries";
 
@@ -79,6 +80,11 @@ export async function bumpSeasonAction(
     // flag — the new season is by definition not yet finished.
     data: { currentSeason: next, currentSeasonCompleted: false },
   });
+  await propagateCoWatch(entry.showId, session.userId, {
+    status: entry.status,
+    currentSeason: next,
+    currentSeasonCompleted: false,
+  });
   revalidateAll();
   return { ok: true };
 }
@@ -105,6 +111,11 @@ export async function setSeasonCompletedAction(
   await prisma.watchEntry.update({
     where: { id: entryId },
     data: { currentSeasonCompleted: completed },
+  });
+  await propagateCoWatch(entry.showId, session.userId, {
+    status: entry.status,
+    currentSeason: entry.currentSeason,
+    currentSeasonCompleted: completed,
   });
   revalidateAll();
   return { ok: true };
@@ -136,6 +147,13 @@ export async function finishItAction(
       // a null rating from the user means "skip", not "clear my existing".
       ...(rating != null ? { userRating: rating } : {}),
     },
+  });
+  // The completed status + cleared season sync; the rating does not —
+  // it's a personal taste signal, so the partner keeps their own.
+  await propagateCoWatch(entry.showId, session.userId, {
+    status: "completed",
+    currentSeason: null,
+    currentSeasonCompleted: false,
   });
   revalidateAll();
   return { ok: true };

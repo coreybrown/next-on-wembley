@@ -15,6 +15,7 @@ import {
   releasedSeasonsCount,
 } from "@/lib/in-progress";
 import { upsertShowFromResolved } from "@/lib/show-sync";
+import { propagateCoWatch } from "@/lib/co-watch";
 import { revalidateAll } from "@/lib/revalidate";
 
 export type WatchEntryActionError =
@@ -150,6 +151,15 @@ export async function updateWatchEntry(
   if (willAutoClearSeason) patch.currentSeason = null;
 
   await prisma.watchEntry.update({ where: { id: input.id }, data: patch });
+  // Mirror status / season onto the partner when the show is co-watched.
+  // Skipped for rating-only edits — ratings are personal, never synced.
+  if (input.status !== undefined || input.currentSeason !== undefined) {
+    await propagateCoWatch(entry.showId, session.userId, {
+      status: nextStatus,
+      currentSeason: willAutoClearSeason ? null : nextSeason,
+      currentSeasonCompleted: entry.currentSeasonCompleted,
+    });
+  }
   revalidateAll();
   return { ok: true };
 }
@@ -165,6 +175,9 @@ export async function deleteWatchEntry(
     return { ok: false, error: "not_found" };
   }
   await prisma.watchEntry.delete({ where: { id } });
+  // Removing a co-watched show from your list ends the co-watch — the
+  // partner keeps their entry, but progress stops syncing.
+  await prisma.coWatch.deleteMany({ where: { showId: entry.showId } });
   // Dashboard, in-progress, and rec-card WTW button visibility all
   // pivot on watch-history membership — bust all three.
   revalidateAll();

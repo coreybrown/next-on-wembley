@@ -94,6 +94,7 @@ model Show {
   recItems               RecommendationItem[]
   votes                  ShowVote[]
   continuationDetections ContinuationDetectionLog[]
+  coWatch                CoWatch?
 }
 
 model ShowProvider {
@@ -160,6 +161,19 @@ model RecommendationItem {
   shortExplanation String
   longExplanation  String
   isContinuation   Boolean              @default(false)
+}
+
+// Phase 42: marks a show the household watches together. Since there are
+// exactly two users, "co-watched" is a per-show property — one row per
+// show, not per (user, show). Presence means status / currentSeason /
+// currentSeasonCompleted are mirrored between both users' WatchEntry
+// rows: a season bump or status change on one propagates to the other.
+// Ratings and notes stay personal and are never synced.
+model CoWatch {
+  id        Int      @id @default(autoincrement())
+  showId    Int      @unique
+  show      Show     @relation(fields: [showId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
 
 // Per-(user, show) vote. Keyed on Show so the signal survives across

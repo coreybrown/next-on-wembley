@@ -5,11 +5,15 @@ import userEvent from "@testing-library/user-event";
 const mockAdd = vi.fn();
 const mockUpdate = vi.fn();
 const mockDelete = vi.fn();
+const mockSetCoWatch = vi.fn();
 
 vi.mock("@/app/actions/watch-entries", () => ({
   addWatchEntry: mockAdd,
   updateWatchEntry: mockUpdate,
   deleteWatchEntry: mockDelete,
+}));
+vi.mock("@/app/actions/co-watch", () => ({
+  setCoWatchAction: mockSetCoWatch,
 }));
 
 const { ShowDetailWatchControls } = await import(
@@ -20,6 +24,12 @@ beforeEach(() => {
   mockAdd.mockReset().mockResolvedValue({ ok: true });
   mockUpdate.mockReset().mockResolvedValue({ ok: true });
   mockDelete.mockReset().mockResolvedValue({ ok: true });
+  mockSetCoWatch.mockReset().mockResolvedValue({
+    ok: true,
+    on: true,
+    synced: { status: "watching", currentSeason: 3, currentSeasonCompleted: false },
+    partnerName: "Jaimie",
+  });
 });
 
 const watchingEntry = {
@@ -34,9 +44,12 @@ describe("<ShowDetailWatchControls /> — empty state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={null}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     // 5 status quick-add buttons.
@@ -52,9 +65,12 @@ describe("<ShowDetailWatchControls /> — empty state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={null}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^watching$/i }));
@@ -82,9 +98,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={watchingEntry}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     const statusGroup = screen.getByRole("group", { name: /status/i });
@@ -98,9 +117,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={watchingEntry}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^paused$/i }));
@@ -114,9 +136,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={watchingEntry}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     await user.click(screen.getByLabelText(/next season/i));
@@ -134,9 +159,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={{ ...watchingEntry, currentSeason: 4 }}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     expect(screen.getByLabelText(/next season/i)).toBeDisabled();
@@ -147,9 +175,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={{ ...watchingEntry, userRating: "like" }}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     // Reclicking the active rating clears it (passes null).
@@ -167,9 +198,12 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={watchingEntry}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     await user.click(
@@ -190,6 +224,7 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
     render(
       <ShowDetailWatchControls
         tmdbId={1396}
+        showId={500}
         showTitle="Severance"
         entry={{
           ...watchingEntry,
@@ -197,8 +232,76 @@ describe("<ShowDetailWatchControls /> — populated state", () => {
           currentSeason: null,
         }}
         maxSeason={4}
+        coWatch={false}
+        partnerName={null}
       />,
     );
     expect(screen.queryByLabelText(/next season/i)).toBeNull();
+  });
+});
+
+describe("<ShowDetailWatchControls /> — co-watch toggle (Phase 42)", () => {
+  it("hides the co-watch toggle when there is no partner", () => {
+    render(
+      <ShowDetailWatchControls
+        tmdbId={1396}
+        showId={500}
+        showTitle="Severance"
+        entry={watchingEntry}
+        maxSeason={4}
+        coWatch={false}
+        partnerName={null}
+      />,
+    );
+    expect(screen.queryByRole("group", { name: /watching together/i })).toBeNull();
+  });
+
+  it("enables co-watch and surfaces the synced-state notice", async () => {
+    const user = userEvent.setup();
+    render(
+      <ShowDetailWatchControls
+        tmdbId={1396}
+        showId={500}
+        showTitle="Severance"
+        entry={watchingEntry}
+        maxSeason={4}
+        coWatch={false}
+        partnerName="Jaimie"
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /watch with jaimie/i }));
+    await waitFor(() => {
+      expect(mockSetCoWatch).toHaveBeenCalledWith(500, true);
+    });
+    expect(
+      await screen.findByRole("status"),
+    ).toHaveTextContent(/you and jaimie are now watching s3/i);
+  });
+
+  it("disables co-watch when toggled off", async () => {
+    mockSetCoWatch.mockResolvedValueOnce({
+      ok: true,
+      on: false,
+      synced: null,
+      partnerName: "Jaimie",
+    });
+    const user = userEvent.setup();
+    render(
+      <ShowDetailWatchControls
+        tmdbId={1396}
+        showId={500}
+        showTitle="Severance"
+        entry={watchingEntry}
+        maxSeason={4}
+        coWatch
+        partnerName="Jaimie"
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /watching with jaimie/i }),
+    );
+    await waitFor(() => {
+      expect(mockSetCoWatch).toHaveBeenCalledWith(500, false);
+    });
   });
 });

@@ -32,9 +32,16 @@ const EMPTY_COPY: Record<WatchStatus, string> = {
 type Props = {
   entries: WatchEntryWithShow[];
   displayName: string;
+  // Phase 42: showIds the household co-watches. Splits the Watching
+  // section into "Together" / "On your own" subgroups.
+  coWatchedShowIds: number[];
 };
 
-export function Dashboard({ entries, displayName }: Props) {
+export function Dashboard({
+  entries,
+  displayName,
+  coWatchedShowIds,
+}: Props) {
   const [pendingAdd, setPendingAdd] = useState<TmdbSearchResult | null>(null);
   const [editing, setEditing] = useState<WatchEntryWithShow | null>(null);
 
@@ -44,6 +51,17 @@ export function Dashboard({ entries, displayName }: Props) {
   }));
 
   const totalEntries = entries.length;
+  const coWatchedSet = new Set(coWatchedShowIds);
+
+  const renderEntryList = (items: WatchEntryWithShow[]) => (
+    <ul className="space-y-3">
+      {items.map((entry) => (
+        <li key={entry.id}>
+          <WatchEntryCard entry={entry} onEdit={() => setEditing(entry)} />
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <main className="bg-page mx-auto min-h-svh max-w-3xl px-6 py-10 sm:px-8 sm:py-12">
@@ -106,17 +124,45 @@ export function Dashboard({ entries, displayName }: Props) {
                 <p className="font-body text-sm italic text-ink-muted">
                   {EMPTY_COPY[status]}
                 </p>
+              ) : status === "watching" &&
+                items.some((e) => coWatchedSet.has(e.showId)) ? (
+                // Phase 42: split Watching into co-watched vs. solo. Only
+                // when at least one show is co-watched — a flat list reads
+                // cleaner when there's nothing to distinguish.
+                (() => {
+                  const together = items.filter((e) =>
+                    coWatchedSet.has(e.showId),
+                  );
+                  const solo = items.filter(
+                    (e) => !coWatchedSet.has(e.showId),
+                  );
+                  return (
+                    <div className="space-y-6">
+                      <div>
+                        <h3 className="mb-3 font-mono text-mono uppercase text-ink-muted">
+                          Together
+                          <span className="ml-2 text-ink-muted/60">
+                            ({together.length})
+                          </span>
+                        </h3>
+                        {renderEntryList(together)}
+                      </div>
+                      {solo.length > 0 && (
+                        <div>
+                          <h3 className="mb-3 font-mono text-mono uppercase text-ink-muted">
+                            On your own
+                            <span className="ml-2 text-ink-muted/60">
+                              ({solo.length})
+                            </span>
+                          </h3>
+                          {renderEntryList(solo)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               ) : (
-                <ul className="space-y-3">
-                  {items.map((entry) => (
-                    <li key={entry.id}>
-                      <WatchEntryCard
-                        entry={entry}
-                        onEdit={() => setEditing(entry)}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                renderEntryList(items)
               )}
             </section>
           ))}

@@ -48,6 +48,11 @@ export type ShowDetailView = {
   userEntry: ShowDetailUserEntry | null;
   // Present only when ?recItem=N matched a row.
   recContext: ShowDetailRecContext | null;
+  // Phase 42: whether the household has marked this show co-watched.
+  coWatch: boolean;
+  // The other household member's display name — labels the co-watch
+  // toggle and the post-sync notice. Null in a single-user setup.
+  partnerName: string | null;
 };
 
 // Fetches everything needed to render /show/[tmdbId] for the current user.
@@ -58,7 +63,7 @@ export async function loadShowDetail(
   sessionUserId: number,
   recItemId: number | null,
 ): Promise<ShowDetailView | null> {
-  const [show, subs] = await Promise.all([
+  const [show, subs, partner] = await Promise.all([
     prisma.show.findUnique({
       where: { tmdbId },
       include: {
@@ -80,11 +85,18 @@ export async function loadShowDetail(
           // post-fetch logic picks the right one.
           select: { userId: true, vote: true },
         },
+        coWatch: { select: { id: true } },
       },
     }),
     prisma.userSubscription.findMany({
       where: { userId: sessionUserId },
       select: { platformKey: true },
+    }),
+    // The other household member — labels the co-watch toggle (Phase 42)
+    // and resolves partner-vote viz for co_watch rec context below.
+    prisma.user.findFirst({
+      where: { id: { not: sessionUserId } },
+      select: { id: true, displayName: true },
     }),
   ]);
   if (!show) return null;
@@ -121,12 +133,8 @@ export async function loadShowDetail(
       let partnerLabel: string | null = null;
       if (scope === "co_watch") {
         ownerUserId = sessionUserId;
-        // Resolve the OTHER household member for partner-viz on
-        // Co-watch rec context (M4 Phase 25).
-        const partner = await prisma.user.findFirst({
-          where: { id: { not: sessionUserId } },
-          select: { id: true, displayName: true },
-        });
+        // Partner-viz on Co-watch rec context (M4 Phase 25) — partner is
+        // resolved once in the top-level Promise.all above.
         if (partner) {
           partnerVote =
             show.votes.find((v) => v.userId === partner.id)?.vote ?? null;
@@ -174,5 +182,7 @@ export async function loadShowDetail(
     unavailable,
     userEntry: show.watchEntries[0] ?? null,
     recContext,
+    coWatch: show.coWatch != null,
+    partnerName: partner?.displayName ?? null,
   };
 }

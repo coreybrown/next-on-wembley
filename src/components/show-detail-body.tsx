@@ -196,9 +196,12 @@ export function ShowDetailBody({ view }: Props) {
         </h2>
         <ShowDetailWatchControls
           tmdbId={view.tmdbId}
+          showId={view.showId}
           showTitle={view.title}
           entry={view.userEntry}
           maxSeason={view.airedSeasons > 0 ? view.airedSeasons : null}
+          coWatch={view.coWatch}
+          partnerName={view.partnerName}
         />
       </section>
     </>

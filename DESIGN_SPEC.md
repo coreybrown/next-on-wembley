@@ -383,9 +383,17 @@ Per PRD §6.6.
 `ShowDetailWatchControls` renders inside the "Your list" section. Two states:
 
 - **Empty:** "Not on your list yet. Add it as…" + a row of 5 quick-add status pills (Want to Watch / Watching / Paused / Completed / Dropped). Click fires `addWatchEntry`; Watching auto-seeds `currentSeason: 1`.
-- **Populated:** Status pill row (active pill filled-accent, others outline). Season stepper (− S{n} +, capped at the show's `airedSeasons`) renders only for Watching/Paused. Rating pills (Like / Dislike / Meh — click again to clear). A separate `Remove` button at the bottom-right opens a confirm dialog ("Removes this show from your list with no signal either way") matching the WatchEntryCard pattern.
+- **Populated:** Status pill row (active pill filled-accent, others outline). Season stepper (− S{n} +, capped at the show's `airedSeasons`) renders only for Watching/Paused. Rating pills (Like / Dislike / Meh — click again to clear). A **"Watching together" co-watch toggle** (see below). A separate `Remove` button at the bottom-right opens a confirm dialog ("Removes this show from your list with no signal either way") matching the WatchEntryCard pattern.
 
 All edits auto-save inline (no Save/Cancel buttons) and trigger `router.refresh()` so the server-rendered page picks up new state. Inline error message appears below if an action fails.
+
+#### Co-watch toggle (Phase 42)
+
+Below the rating pills, a `Together` group holds a single pill toggle — "Watch with {partner}" (outline) / "Watching with {partner}" (filled-accent, UsersThree icon `fill`) — backed by `setCoWatchAction`. Hidden entirely in a single-user setup (`partnerName == null`).
+
+- A one-line helper under the toggle explains the effect ("Status and season progress sync with {partner}. Ratings stay personal.").
+- **On enable:** a `role="status"` notice in accent text names the state both profiles snapped to — e.g. *"Synced — you and Jaimie are now Watching S3."* The notice persists until the user makes another edit (status / season change clears it), so the result stays editable with the context still visible.
+- The toggle drives the dashboard's Watching-section split (PRD §6.3.1) — co-watched shows render under a "Together" subgroup heading, the rest under "On your own". The split only appears when at least one Watching entry is co-watched; otherwise the section is a flat list.
 
 #### Rec-context variant
 
