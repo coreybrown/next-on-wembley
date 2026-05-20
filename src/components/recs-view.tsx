@@ -3,7 +3,13 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RecScope } from "@prisma/client";
-import { ArrowsClockwise, X } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  CaretDown,
+  CaretUp,
+  SlidersHorizontal,
+  X,
+} from "@phosphor-icons/react";
 import {
   type RecListItemView,
   type RecListView,
@@ -101,6 +107,10 @@ export function RecsView({
     tabRefs.current[nextIdx]?.focus();
   };
   const [mood, setMood] = useState("");
+  // Phase 41: mood + filters live behind a single "Refine" disclosure so
+  // the rec list pushes up to the fold on first load. Stays closed by
+  // default; the active-filter count surfaces on the toggle.
+  const [refineOpen, setRefineOpen] = useState(false);
   const { state, errorMessage, refresh, clearError } = useRefresh();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -111,6 +121,8 @@ export function RecsView({
   const selectedGenres = paramToSet(searchParams.get("genre"));
   const anyFilterActive =
     selectedPlatforms.size > 0 || selectedGenres.size > 0;
+  const refineCount =
+    selectedPlatforms.size + selectedGenres.size + (mood.trim() ? 1 : 0);
 
   const onRefresh = async () => {
     const moodValue = mood.trim();
@@ -212,7 +224,46 @@ export function RecsView({
             );
           })}
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRefineOpen((v) => !v)}
+            aria-expanded={refineOpen}
+            aria-controls="refine-panel"
+            className={`
+              inline-flex items-center gap-2
+              rounded-md border px-3 py-2
+              font-body text-base
+              transition-colors
+              focus-visible:outline-2 focus-visible:outline-accent
+              focus-visible:outline-offset-2
+              ${
+                refineOpen || refineCount > 0
+                  ? "border-border-strong bg-surface text-ink"
+                  : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+              }
+            `}
+          >
+            <SlidersHorizontal size={16} weight="regular" aria-hidden />
+            <span>Refine</span>
+            {refineCount > 0 && (
+              <span
+                aria-label={`${refineCount} active`}
+                className="
+                  inline-flex h-5 min-w-5 items-center justify-center
+                  rounded-pill bg-accent px-1.5
+                  font-mono text-mono text-accent-fg
+                "
+              >
+                {refineCount}
+              </span>
+            )}
+            {refineOpen ? (
+              <CaretUp size={14} weight="bold" aria-hidden />
+            ) : (
+              <CaretDown size={14} weight="bold" aria-hidden />
+            )}
+          </button>
           <button
             type="button"
             onClick={onRefresh}
@@ -240,114 +291,119 @@ export function RecsView({
         </div>
       </div>
 
-      <div>
-        <label
-          htmlFor="rec-mood"
-          className="block font-mono text-mono uppercase text-ink-muted mb-2"
-        >
-          Mood (optional)
-        </label>
-        <textarea
-          id="rec-mood"
-          rows={2}
-          placeholder="Slow burn, dark, character-driven…"
-          value={mood}
-          onChange={(e) => setMood(e.target.value)}
-          disabled={pending}
-          className="
-            w-full rounded-sm border border-border bg-surface
-            px-3 py-2
-            font-body text-base text-ink
-            focus:outline-2 focus:outline-accent focus:outline-offset-2
-            disabled:cursor-not-allowed disabled:opacity-50
-          "
-        />
-      </div>
-
-      {list && (userSubKeys.length > 0 || availableGenres.length > 0) && (
+      {refineOpen && (
         <section
-          aria-label="Filters"
-          className="space-y-3 rounded-md border border-border bg-surface-elevated px-4 py-3"
+          id="refine-panel"
+          aria-label="Refine recommendations"
+          className="space-y-4 rounded-md border border-border bg-surface-elevated px-4 py-4"
         >
-          {userSubKeys.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-mono uppercase text-ink-muted">
-                Platform
-              </span>
-              {userSubKeys.map((key) => {
-                const selected = selectedPlatforms.has(key);
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => togglePlatform(key)}
-                    aria-pressed={selected}
-                    className={`
-                      rounded-pill border px-3 py-1
-                      font-mono text-mono uppercase
-                      transition-colors
-                      focus-visible:outline-2 focus-visible:outline-accent
-                      focus-visible:outline-offset-2
-                      ${
-                        selected
-                          ? "border-accent bg-accent text-accent-fg"
-                          : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                      }
-                    `}
-                  >
-                    {PLATFORM_NAME.get(key) ?? key}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {availableGenres.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-mono uppercase text-ink-muted">
-                Genre
-              </span>
-              {availableGenres.map((g) => {
-                const selected = selectedGenres.has(g);
-                return (
-                  <button
-                    key={g}
-                    type="button"
-                    onClick={() => toggleGenre(g)}
-                    aria-pressed={selected}
-                    className={`
-                      rounded-pill border px-3 py-1
-                      font-mono text-mono uppercase
-                      transition-colors
-                      focus-visible:outline-2 focus-visible:outline-accent
-                      focus-visible:outline-offset-2
-                      ${
-                        selected
-                          ? "border-accent bg-accent text-accent-fg"
-                          : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                      }
-                    `}
-                  >
-                    {g}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {anyFilterActive && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="
-                inline-flex items-center gap-1
-                font-mono text-mono uppercase text-ink-muted
-                transition-colors hover:text-ink
-                focus-visible:outline-2 focus-visible:outline-accent
-                focus-visible:outline-offset-2
-              "
+          <div>
+            <label
+              htmlFor="rec-mood"
+              className="block font-mono text-mono uppercase text-ink-muted mb-2"
             >
-              <X size={14} weight="bold" aria-hidden />
-              <span>Clear filters</span>
-            </button>
+              Mood (optional)
+            </label>
+            <textarea
+              id="rec-mood"
+              rows={2}
+              placeholder="Slow burn, dark, character-driven…"
+              value={mood}
+              onChange={(e) => setMood(e.target.value)}
+              disabled={pending}
+              className="
+                w-full rounded-sm border border-border bg-surface
+                px-3 py-2
+                font-body text-base text-ink
+                focus:outline-2 focus:outline-accent focus:outline-offset-2
+                disabled:cursor-not-allowed disabled:opacity-50
+              "
+            />
+          </div>
+
+          {list && (userSubKeys.length > 0 || availableGenres.length > 0) && (
+            <div className="space-y-3">
+              {userSubKeys.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-mono uppercase text-ink-muted">
+                    Platform
+                  </span>
+                  {userSubKeys.map((key) => {
+                    const selected = selectedPlatforms.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => togglePlatform(key)}
+                        aria-pressed={selected}
+                        className={`
+                          rounded-pill border px-3 py-1
+                          font-mono text-mono uppercase
+                          transition-colors
+                          focus-visible:outline-2 focus-visible:outline-accent
+                          focus-visible:outline-offset-2
+                          ${
+                            selected
+                              ? "border-accent bg-accent text-accent-fg"
+                              : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+                          }
+                        `}
+                      >
+                        {PLATFORM_NAME.get(key) ?? key}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {availableGenres.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-mono uppercase text-ink-muted">
+                    Genre
+                  </span>
+                  {availableGenres.map((g) => {
+                    const selected = selectedGenres.has(g);
+                    return (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => toggleGenre(g)}
+                        aria-pressed={selected}
+                        className={`
+                          rounded-pill border px-3 py-1
+                          font-mono text-mono uppercase
+                          transition-colors
+                          focus-visible:outline-2 focus-visible:outline-accent
+                          focus-visible:outline-offset-2
+                          ${
+                            selected
+                              ? "border-accent bg-accent text-accent-fg"
+                              : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+                          }
+                        `}
+                      >
+                        {g}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {anyFilterActive && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="
+                    inline-flex items-center gap-1
+                    font-mono text-mono uppercase text-ink-muted
+                    transition-colors hover:text-ink
+                    focus-visible:outline-2 focus-visible:outline-accent
+                    focus-visible:outline-offset-2
+                  "
+                >
+                  <X size={14} weight="bold" aria-hidden />
+                  <span>Clear filters</span>
+                </button>
+              )}
+            </div>
           )}
         </section>
       )}

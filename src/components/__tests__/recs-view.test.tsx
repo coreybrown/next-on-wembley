@@ -174,6 +174,7 @@ describe("RecsView — refresh", () => {
         viewerUsername="corey"
       />,
     );
+    await user.click(screen.getByRole("button", { name: /^refine/i }));
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     await waitFor(() =>
@@ -193,6 +194,7 @@ describe("RecsView — refresh", () => {
         viewerUsername="corey"
       />,
     );
+    await user.click(screen.getByRole("button", { name: /^refine/i }));
     await user.type(screen.getByLabelText(/mood/i), "   ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     await waitFor(() => expect(mockRegenerate).toHaveBeenCalledWith(undefined));
@@ -269,7 +271,8 @@ describe("RecsView — filters", () => {
     jaimie: null,
   };
 
-  it("renders platform chips for each of the user's active subs", () => {
+  it("renders platform chips for each of the user's active subs (inside Refine)", async () => {
+    const user = userEvent.setup();
     renderWithProvider(
       <RecsView
         initial={initial}
@@ -279,12 +282,14 @@ describe("RecsView — filters", () => {
         viewerUsername="corey"
       />,
     );
+    await user.click(screen.getByRole("button", { name: /^refine/i }));
     const platformSection = screen.getByText(/^platform$/i).parentElement!;
     expect(platformSection).toHaveTextContent(/netflix/i);
     expect(platformSection).toHaveTextContent(/apple tv\+/i);
   });
 
-  it("derives genre chips from the items in the current tab", () => {
+  it("derives genre chips from the items in the current tab (inside Refine)", async () => {
+    const user = userEvent.setup();
     renderWithProvider(
       <RecsView
         initial={initial}
@@ -294,6 +299,7 @@ describe("RecsView — filters", () => {
         viewerUsername="corey"
       />,
     );
+    await user.click(screen.getByRole("button", { name: /^refine/i }));
     const genreSection = screen.getByText(/^genre$/i).parentElement!;
     expect(genreSection).toHaveTextContent("Drama");
     expect(genreSection).toHaveTextContent("Sci-Fi");
@@ -301,7 +307,27 @@ describe("RecsView — filters", () => {
     expect(genreSection).toHaveTextContent("Crime");
   });
 
-  it("hides the filter section when there's no list yet", () => {
+  it("collapses mood + filters behind the Refine toggle by default", () => {
+    renderWithProvider(
+      <RecsView
+        initial={initial}
+        userSubKeys={["netflix"]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+      />,
+    );
+    // Refine button is present and closed.
+    expect(
+      screen.getByRole("button", { name: /^refine/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    // No mood textarea, no platform/genre chips on first paint.
+    expect(screen.queryByLabelText(/mood/i)).toBeNull();
+    expect(screen.queryByText(/^platform$/i)).toBeNull();
+  });
+
+  it("hides filter chips inside Refine when there's no list yet (only mood shows)", async () => {
+    const user = userEvent.setup();
     renderWithProvider(
       <RecsView
         initial={{ co_watch: null, corey: null, jaimie: null }}
@@ -311,6 +337,9 @@ describe("RecsView — filters", () => {
         viewerUsername="corey"
       />,
     );
-    expect(screen.queryByRole("region", { name: /filters/i })).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^refine/i }));
+    expect(screen.getByLabelText(/mood/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^platform$/i)).toBeNull();
+    expect(screen.queryByText(/^genre$/i)).toBeNull();
   });
 });

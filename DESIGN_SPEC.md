@@ -280,7 +280,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 - **StatusSelect** — 5-status picker (Want / Watching / Paused / Completed / Dropped). *Props: `value`, `onChange`, `compact?` (icon-only on mobile).* Each status paired with an icon. A11y: Radix Select or native; aria-label per status.
 - **SeasonStepper** — -1 / current / +1 control. *Props: `current`, `total?`, `onChange`.* States: -1 disabled at S1; +1 disabled at total. A11y: two `<button>` with `aria-label`; current value in a `<span aria-live="polite">`.
 - **MoodInput** — single-line free-text "something light tonight" field. *Props: `value`, `onChange`, `persistsAcrossFailures: true`.* State held at the Recommendations route level so rec-gen failures don't lose it (PRD §6.4.7). Cleared only on `runStatus === "succeeded"` or explicit user clear. A11y: associated label "Mood for this refresh (optional)."
-- **FilterChipGroup** — multi-select chip set per facet (platform / genre; status / whose-pick are deferred per PRD §6.4.6). *Props: `facet`, `options`, `selected[]`, `onChange`.* On /recs the group lives inline above the list (a single bordered section with one row per facet + a Clear button); URL state via `?platform=…&genre=…`. The persistent FilterRail / FilterSheet variants are deferred — the inline row covers both breakpoints adequately for M3c. A11y: `role="group"` with `aria-label` naming the facet; each chip is `<button aria-pressed>`.
+- **FilterChipGroup** — multi-select chip set per facet (platform / genre; status / whose-pick are deferred per PRD §6.4.6). *Props: `facet`, `options`, `selected[]`, `onChange`.* On /recs the group lives inside the **Refine disclosure panel** (§5.3 — collapsed by default), one row per facet + a Clear button; URL state via `?platform=…&genre=…`. The persistent FilterRail / FilterSheet variants are deferred — the Refine panel covers both breakpoints adequately. A11y: `role="group"` with `aria-label` naming the facet; each chip is `<button aria-pressed>`.
 - **IdentityChip** — current user monogram; tap opens a Radix `DropdownMenu` with three items: **Settings** (link to /settings), **Switch user** (opens the Radix Dialog with passcode entry — the same flow as before), **Log out** (calls `logoutAction`). *Props: `currentUser`.* See §9.3 for visual treatment. A11y: trigger `<button aria-label="Signed in as Corey. Open user menu."/>`; menu items as `role="menuitem"`.
 - **SearchInput** — TMDb-debounced search (200ms per PRD §6.6.2). *Props: `value`, `onChange`, `onSelect(result)`, `loading`.* States: default, focus, loading (inline spinner), error ("Search unavailable — try again" inline). A11y: `role="combobox"` with `aria-expanded` + `aria-controls`.
 
@@ -397,17 +397,30 @@ Anchors the top of the Recommendations view (PRD §6.4.7).
 
 Desktop layout:
 ```
-[Refresh] · Generated 4 hours ago · [Mood input ____________________]
-                                                          [pill state]
+[Co-watch] [Corey] [Jaimie]              [⇅ Refine (N)] [Refresh]
+└─ Refine panel (collapsed by default; expands inline) ─────────┐
+   Mood input ______________________________________           │
+   Platform: [chip] [chip]   Genre: [chip] [chip]   [Clear]     │
+└───────────────────────────────────────────────────────────────┘
 ```
 
-Mobile: wraps to two rows; MoodInput drops to its own row.
+Mobile: the tab row wraps; the Refine + Refresh buttons drop below it.
+
+#### Refine disclosure (Phase 41)
+
+Mood and the platform/genre filters are **secondary actions** and previously stacked above the list — pushing the first rec card below the fold. They now live behind a single **"Refine" disclosure toggle** sitting next to the Refresh button:
+
+- Collapsed by default. The toggle carries an active-count badge (`selected platforms + selected genres + mood-set`) so the user knows refinements are in effect without expanding.
+- `aria-expanded` on the toggle, `aria-controls="refine-panel"` pointing at the panel; the panel is a `<section aria-label="Refine recommendations">`.
+- The panel holds the MoodInput on top, then the FilterChipGroup rows (platform / genre / Clear). Filter chips only render when a list exists; the MoodInput always renders inside the open panel.
+- Mood + filter state persist across open/close (mood in route-level state, filters in the URL) — collapsing the panel never discards a refinement.
+- When filters are active but the panel is collapsed, the "Generated … · showing N of M" list-header line still signals that the list is filtered.
 
 #### Latency / error states
 
 | Window | UI state |
 |---|---|
-| Idle | Refresh button (primary), timestamp, MoodInput empty/filled. Nav pill: hidden. |
+| Idle | Refresh button (primary), timestamp, Refine toggle (with active-count badge). MoodInput + filters live inside the collapsed Refine panel. Nav pill: hidden. |
 | 0–30s (pending) | Refresh disabled + spinning; stale list dimmed `opacity: 0.5`; skeleton RecCards (3 stacked) appear above stale list inside a `border-dashed` section labelled "Generating new recommendations…"; nav pill shows "Refreshing recommendations…" with a spinning glyph (see §9.1 for the pill's personality). |
 | 30–60s (long_running) | Inline note adjacent to skeletons: "Taking longer than usual — the LLM is busy. Hang tight." Nav pill copy switches to "Still generating…" |
 | 60s (timed_out) | Skeletons replaced by error card with the typed timeout message + **Retry** and **Dismiss** buttons. Stale list **remains** dimmed-but-visible below. Server action keeps running; stale results are dropped via an invocation token. |
