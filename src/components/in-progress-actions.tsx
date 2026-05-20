@@ -182,10 +182,15 @@ export function InProgressActions({ entry }: Props) {
         onClick={toggleSeasonDone}
         disabled={isPending}
         aria-pressed={entry.currentSeasonCompleted}
-        // Visual treatment tracks the action's POLARITY, not the toggle
-        // state: "Done with SX" is the forward CTA (filled accent),
-        // "Resume SX" is the backward action (outline / neutral) so it
-        // doesn't read as the inviting next step.
+        title={
+          entry.currentSeasonCompleted
+            ? `Click to mark Season ${current} not finished`
+            : `Click to mark Season ${current} complete`
+        }
+        // Phase 39: the label is the CURRENT STATE, not the action.
+        // "Watching S2" / "Completed S2" so the user can read where
+        // they are at a glance; clicking flips state. Filled-accent
+        // signals which state is the "active marker" right now.
         className={`
           inline-flex items-center gap-2
           rounded-md border px-3 py-1.5
@@ -196,14 +201,14 @@ export function InProgressActions({ entry }: Props) {
           focus-visible:outline-offset-2
           ${
             entry.currentSeasonCompleted
-              ? "border-border bg-surface text-ink hover:border-accent hover:text-accent"
-              : "border-accent bg-accent text-accent-fg hover:opacity-90"
+              ? "border-accent bg-accent text-accent-fg hover:opacity-90"
+              : "border-border bg-surface text-ink hover:border-accent hover:text-accent"
           }
         `}
       >
         {entry.currentSeasonCompleted
-          ? `Resume S${current}`
-          : `Done with S${current}`}
+          ? `Completed S${current}`
+          : `Watching S${current}`}
       </button>
       <button
         type="button"

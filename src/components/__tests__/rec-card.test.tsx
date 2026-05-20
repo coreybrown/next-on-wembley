@@ -295,7 +295,8 @@ describe("RecCard — Want to Watch", () => {
     expect(
       screen.queryByRole("button", { name: /want to watch/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/on your list/i)).toBeInTheDocument();
+    // Replaced by a non-interactive "on your list" indicator (aria-label).
+    expect(screen.getByLabelText(/is on your list/i)).toBeInTheDocument();
   });
 
   it("hides the WTW button for continuations (already on the user's list)", () => {
@@ -324,7 +325,7 @@ describe("RecCard — Want to Watch", () => {
     await user.click(screen.getByRole("button", { name: /want to watch/i }));
     await waitFor(() => {
       expect(
-        screen.getByText(/already on your list under another status/i),
+        screen.getByText(/already on your list/i),
       ).toBeInTheDocument();
     });
   });

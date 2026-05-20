@@ -109,7 +109,7 @@ describe("<InProgressPage />", () => {
     mockGetInProgressEntries.mockResolvedValueOnce([]);
     mockGetUserSubscriptions.mockResolvedValueOnce([]);
     render(await Page());
-    expect(screen.getByText(/in progress · corey/i)).toBeInTheDocument();
+    expect(screen.getByText(/^\[in progress\]$/i)).toBeInTheDocument();
     expect(screen.getByText(/nothing in progress/i)).toBeInTheDocument();
   });
 

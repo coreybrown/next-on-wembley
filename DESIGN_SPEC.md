@@ -287,8 +287,8 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 ### 4.3 Organisms
 
 - **RecCard** — see §5.1. Compact + expanded × mobile + desktop.
-- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, **Resume/Done toggle**, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
-- **Resume/Done toggle** — single button that flips `currentSeasonCompleted`. Visual treatment tracks **action polarity, not toggle state**: "Done with S{n}" (forward action when mid-season) renders filled-accent like a CTA; "Resume S{n}" (backward action when the season's marked finished) renders outline / neutral so it doesn't read as the inviting next step. `aria-pressed` still reflects the toggle state honestly for AT.
+- **InProgressEntry** — row for a `Watching` show. Poster thumb, title, current season, episodes-remaining indicator, production-status line w/ "may change" caveat, "Unavailable" badge if applicable, SeasonStepper, **season-state toggle**, "Finished it" Button. States: default, hover, focus-within. A11y: row inside `<ul role="list">`.
+- **Season-state toggle** — single button that flips `currentSeasonCompleted`. The label is the **current state**, not the action: reads "Watching S{n}" while mid-season, "Completed S{n}" once the season's marked finished. Visual treatment now tracks **the current state**: "Completed S{n}" renders filled-accent (an explicit "you're done" marker); "Watching S{n}" renders outline so the badge reads as informational, not a CTA. `aria-pressed` reflects `currentSeasonCompleted` honestly for AT, and `title` exposes the inverse action ("Click to mark Season N complete" / "…not finished"). *Phase 39 (2026-05-19) reversed the prior "Resume / Done with S{n}" action-polarity treatment — user feedback was that an action-shaped label asking "Resume?" on a season already in progress, and "Done with S{n}?" on one already marked done, was confusing. The state-shaped label answers "where am I?" at a glance and reduces the cognitive load on the dashboard.*
 - **WatchHistoryRow** — full-history list row. Title, poster, status pill, rating, plus two IconButtons in the right-side rail: an **Edit** pencil (opens the edit dialog) and a **Remove** trash. Remove opens a Radix Dialog confirm with copy that spells out the neutral semantics — *"Removes this show from your list with no signal either way — it can still be recommended in the future."* — to distinguish it from the negative-signal `Dropped` status (PRD §6.3). Same row-pattern A11y as InProgressEntry.
 - **ShowDetailPanel** — see §5.2. Drawer + full-page variants; rec-context overlay adds long LLM explanation + VotePillGroup.
 - **RefreshHeader** — see §5.3. Timestamp + Refresh Button + MoodInput + nav pill state.
@@ -312,17 +312,17 @@ Two presentations (compact / expanded) × two breakpoints (mobile / desktop).
 #### Compact — Desktop (>768px)
 
 ```
-[poster 96x144] | Title (Fraunces italic) — TMDb rating       [More v]
+[poster 96x144] | Title (Fraunces italic) — TMDb rating          [ + ]
                 | Top-2 platform chips · +N more
                 | "Short LLM explanation, ≤100 chars."  (Chivo 500)
                 | [AGREE] [DISAGREE] [MAYBE]  Partner: [AGREE] (M4+)
-                | [Add to Want to Watch]
 ```
 
 - Poster: `--radius-md`, 96×144 (2:3), 1px `--color-border` hairline frame. Tappable → opens ShowDetailPanel.
 - Title: `text-lg`, Fraunces 500 italic, single line, truncate with full-text `title` attribute.
 - "More" affordance: ghost IconButton with chevron; expands the card **inline** (no route change).
-- VotePillGroup + "Add to Want to Watch" live in the same footer row, **never collapsed** on desktop.
+- VotePillGroup is the **footer row** and reads as the primary affordance.
+- "Add to Want to Watch" lives in a **top-right `+` IconButton** on the card, mirroring the Edit / Trash icon-button pattern on dashboard cards (Phase 40). Hides for continuations and for shows already on the viewer's list (replaced by a non-interactive Check chip). See §5.1 states table.
 - Hover: 1px `--color-accent-sharp` underline draws under the title, left-to-right, 220ms. Poster does a `rotate(-0.5deg) translateY(-2px)` (220ms ease-out). Card itself does not lift or shadow.
 
 #### Compact — Mobile (≤768px), 375px width — poster-first hero
@@ -352,7 +352,7 @@ Adds in order: long LLM explanation (≤300 chars), seasons/episodes count, all 
 | Continuation rec | Small "Continuing" Badge near title; Disagree opens prompt (M4+, PRD §6.4.4) |
 | Unavailable on subs | "Unavailable on your subscriptions" Badge under chips; poster gets duotone filter (see §9.4) |
 | Vote pills — read-only (partner viewing owner's tab) | Pills render with `disabled` + 60% opacity, `cursor: not-allowed`. The active selection still reads `aria-pressed="true"` so AT confirms the owner's pick. Tooltip on each pill: "Only the list owner can vote here." See PRD §6.4.4. |
-| Already on user's list | "Add to Want to Watch" button is replaced by an inline "On your list" tag (Check glyph + Chivo small caps). Continuations skip the WTW button entirely. |
+| Already on user's list | The top-right `+` IconButton is replaced by a non-interactive Check chip (same dimensions) with `aria-label="{Title} is on your list"`. Continuations skip the `+` button entirely. |
 | Entrance animation | `ink-in` (see §8) on first paint after rec-gen |
 
 #### A11y

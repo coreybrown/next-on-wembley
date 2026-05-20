@@ -6,6 +6,7 @@ import { CaretDown, CaretUp } from "@phosphor-icons/react";
 import { PLATFORMS } from "@/lib/platforms";
 import type { RecListItemView } from "@/app/actions/recommendations";
 import { VoteControlsRow } from "@/components/vote-controls-row";
+import { WantToWatchButton } from "@/components/want-to-watch-button";
 
 const PLATFORM_NAME = new Map<string, string>(
   PLATFORMS.map((p) => [p.key, p.displayName]),
@@ -30,12 +31,20 @@ export function RecCard({ item, partnerLabel }: Props) {
   return (
     <article
       className="
-        flex items-start gap-4
+        relative flex items-start gap-4
         rounded-md border border-border bg-surface-elevated
         px-5 py-4
         transition-colors hover:border-border-strong
       "
     >
+      <div className="absolute right-4 top-4">
+        <WantToWatchButton
+          itemId={item.id}
+          title={item.title}
+          isContinuation={item.isContinuation}
+          inWatchHistory={item.inWatchHistory}
+        />
+      </div>
       <div className="flex flex-shrink-0 flex-col items-center gap-2">
         <span
           aria-label={`Position ${item.position}`}
@@ -70,7 +79,7 @@ export function RecCard({ item, partnerLabel }: Props) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-14">
           <h3 className="font-display text-lg font-medium italic text-ink">
             <Link
               href={detailHref}

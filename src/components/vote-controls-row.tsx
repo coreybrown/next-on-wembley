@@ -2,16 +2,9 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  ThumbsUp,
-  ThumbsDown,
-  Question,
-  Plus,
-  Check,
-} from "@phosphor-icons/react";
+import { ThumbsUp, ThumbsDown, Question } from "@phosphor-icons/react";
 import type { VoteValue } from "@prisma/client";
 import { voteOnRecAction, clearVoteAction } from "@/app/actions/rec-votes";
-import { addToWantToWatchAction } from "@/app/actions/rec-watchlist";
 import {
   disagreeOnContinuationAction,
   type ContinuationOutcome,
@@ -35,6 +28,8 @@ type Props = {
   currentVote: VoteValue | null;
   canVote: boolean;
   isContinuation: boolean;
+  // Whether the viewer has the underlying show on their own list.
+  // Used to gate the Disagree-on-continuation prompt (Phase 27).
   inWatchHistory: boolean;
   // Co-watch only (M4 Phase 25). The partner's vote on this show.
   // Display-only — rendered as a small "Partner: …" line next to the
@@ -72,11 +67,6 @@ export function VoteControlsRow({
     VoteValue | null,
     VoteValue | null
   >(currentVote, (_, next) => next);
-  const [optimisticWtw, setOptimisticWtw] = useOptimistic(
-    inWatchHistory,
-    (_, next: boolean) => next,
-  );
-  const [wtwError, setWtwError] = useState<string | null>(null);
   // Phase 27. When the viewer clicks Disagree on a card they're currently
   // Watching (continuation), open a "Move to Paused/Dropped?" dialog
   // before recording the vote. The dialog gates the vote — Cancel
@@ -120,23 +110,6 @@ export function VoteControlsRow({
       }
     });
   };
-
-  const onAddToWtw = () => {
-    setWtwError(null);
-    startTransition(async () => {
-      setOptimisticWtw(true);
-      const r = await addToWantToWatchAction(itemId);
-      if (!r.ok) {
-        const message =
-          r.error === "already_in_history"
-            ? "Already on your list under another status."
-            : "Couldn't add — try again.";
-        setWtwError(message);
-      }
-    });
-  };
-
-  const showWtwButton = !isContinuation && !optimisticWtw;
 
   return (
     <>
@@ -216,42 +189,6 @@ export function VoteControlsRow({
         </span>
       )}
 
-      {showWtwButton && (
-        <button
-          type="button"
-          onClick={onAddToWtw}
-          className="
-            inline-flex items-center gap-1
-            rounded-pill border border-border bg-surface px-3 py-1
-            font-mono text-mono uppercase text-ink-secondary
-            transition-colors hover:border-border-strong
-            focus-visible:outline-2 focus-visible:outline-accent
-            focus-visible:outline-offset-2
-          "
-        >
-          <Plus size={14} weight="bold" aria-hidden />
-          <span>Want to Watch</span>
-        </button>
-      )}
-      {!showWtwButton && !isContinuation && optimisticWtw && (
-        <span
-          className="
-            inline-flex items-center gap-1
-            font-mono text-mono uppercase text-ink-muted
-          "
-        >
-          <Check size={14} weight="bold" aria-hidden />
-          <span>On your list</span>
-        </span>
-      )}
-      {wtwError && (
-        <span
-          role="status"
-          className="font-mono text-mono uppercase text-ink-muted"
-        >
-          {wtwError}
-        </span>
-      )}
     </div>
 
     <Dialog.Root open={continuationPromptOpen} onOpenChange={setContinuationPromptOpen}>

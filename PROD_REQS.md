@@ -133,13 +133,13 @@ Next on Wembley fills that gap for personal household use.
 #### 6.4.3 Ranking & Display
 - The LLM assigns each recommendation a rank (1, 2, 3, …). Rank is **implicit from card position in the list** — the card UI does not display a "#3" label. Filters subset the list without reordering, so position always reflects LLM-assigned rank.
 - **Rec card has two presentations:**
-  - **Compact (default).** Cover image, title, top 2 platform chips + "+N more" overflow, your vote pills (Agree / Disagree / Maybe), partner-vote indicator (M4+), one-line LLM explanation (compact text, ≤100 characters), "Add to Want to Watch" button, and a "More" affordance to expand.
+  - **Compact (default).** Cover image, title, top 2 platform chips + "+N more" overflow, your vote pills (Agree / Disagree / Maybe), partner-vote indicator (M4+), one-line LLM explanation (compact text, ≤100 characters), a top-right `+` IconButton to add the show to Want to Watch, and a "More" affordance to expand.
   - **Expanded (inline, on tap of "More").** Adds: full LLM explanation (long text, ≤300 characters), # seasons / # episodes, all genre tags, TMDb rating, trailer link, all platform chips.
 - **Show Detail** (drawer or route per cluster K decision) is reached by tapping the poster or title, not the "More" affordance.
 - **LLM explanation length is constrained** in the prompt: the LLM is asked to emit two versions per recommendation — a **short** (≤100 characters) and a **long** (≤300 characters). Both are stored; the compact card shows the short, the expanded card shows the long. This keeps card heights predictable and forces purposeful short copy rather than mid-sentence truncation.
-- **Two distinct card action surfaces:**
-  - **Vote pills** (Agree / Disagree / Maybe) — a ranking signal for the LLM.
-  - **"Add to Want to Watch" button** — a commitment to actually watch this show. Adds a `WatchEntry` with status `want_to_watch` for the current user.
+- **Two distinct card action surfaces, visually separated:**
+  - **Vote pills** (Agree / Disagree / Maybe) — a ranking signal for the LLM. Anchors the bottom of the card as the primary affordance.
+  - **Top-right `+` IconButton** — adds the show to Want to Watch (a commitment to actually watch this show). Mirrors the Edit / Trash icon-button pattern on dashboard cards and is deliberately separated from the vote pills so the two intents read as different gestures. Hides for continuations and shows already on the viewer's list (replaced by a non-interactive Check chip). *Phase 40 (2026-05-19): the prior labelled "Add to Want to Watch" button sat in the footer next to the vote pills and made the card actions read as a single jumbled cluster; moving it to the top-right separates "rank this" from "commit to this".*
 - Agreeing does **not** implicitly add the show to Want to Watch. The two intents are kept separate so the WTW list remains a curated commitment list, not an artifact of every Agree click.
 
 #### 6.4.4 Voting
