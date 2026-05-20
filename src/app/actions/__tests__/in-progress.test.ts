@@ -182,17 +182,84 @@ describe("setSeasonCompletedAction", () => {
     });
   });
 
-  it("toggles the flag + revalidates", async () => {
+  it("completing a non-last season just flips the flag, stays Watching", async () => {
     const { setSeasonCompletedAction } = await import(
       "@/app/actions/in-progress"
     );
     mockSession.userId = 7;
+    // currentSeason 2, ceiling 3 → not the last aired season.
     mockPrisma.watchEntry.findUnique.mockResolvedValueOnce(entry() as never);
     mockPrisma.watchEntry.update.mockResolvedValueOnce(entry() as never);
     expect(await setSeasonCompletedAction(1, true)).toEqual({ ok: true });
     expect(mockPrisma.watchEntry.update).toHaveBeenCalledWith({
       where: { id: 1 },
-      data: { currentSeasonCompleted: true },
+      data: {
+        currentSeasonCompleted: true,
+        status: "watching",
+        currentSeason: 2,
+      },
+    });
+  });
+
+  it("completing the last aired season of an ongoing show moves it to Paused", async () => {
+    const { setSeasonCompletedAction } = await import(
+      "@/app/actions/in-progress"
+    );
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findUnique.mockResolvedValueOnce(
+      entry({
+        currentSeason: 3,
+        show: {
+          id: 100,
+          totalSeasons: 3,
+          seasonsJson: null,
+          productionStatus: "Returning Series",
+        },
+      }) as never,
+    );
+    mockPrisma.watchEntry.update.mockResolvedValueOnce(entry() as never);
+    expect(await setSeasonCompletedAction(1, true)).toEqual({
+      ok: true,
+      movedTo: "paused",
+    });
+    expect(mockPrisma.watchEntry.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        currentSeasonCompleted: true,
+        status: "paused",
+        currentSeason: 3,
+      },
+    });
+  });
+
+  it("completing the last season of an ended show marks it Completed", async () => {
+    const { setSeasonCompletedAction } = await import(
+      "@/app/actions/in-progress"
+    );
+    mockSession.userId = 7;
+    mockPrisma.watchEntry.findUnique.mockResolvedValueOnce(
+      entry({
+        currentSeason: 3,
+        show: {
+          id: 100,
+          totalSeasons: 3,
+          seasonsJson: null,
+          productionStatus: "Ended",
+        },
+      }) as never,
+    );
+    mockPrisma.watchEntry.update.mockResolvedValueOnce(entry() as never);
+    expect(await setSeasonCompletedAction(1, true)).toEqual({
+      ok: true,
+      movedTo: "completed",
+    });
+    expect(mockPrisma.watchEntry.update).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        currentSeasonCompleted: true,
+        status: "completed",
+        currentSeason: null,
+      },
     });
   });
 });

@@ -49,10 +49,20 @@ export function Dashboard({
   const [pendingAdd, setPendingAdd] = useState<TmdbSearchResult | null>(null);
   const [editing, setEditing] = useState<WatchEntryWithShow | null>(null);
 
-  const grouped = SECTION_ORDER.map((status) => ({
-    status,
-    items: entries.filter((e) => e.status === status),
-  }));
+  const grouped = SECTION_ORDER.map((status) => {
+    const items = entries.filter((e) => e.status === status);
+    // Watching is sub-sorted: shows you're mid-season on come before
+    // shows where the current season is finished. Stable, so the
+    // underlying updatedAt-desc order holds within each group (and the
+    // Together / On-your-own split below inherits the order).
+    if (status === "watching") {
+      items.sort(
+        (a, b) =>
+          Number(a.currentSeasonCompleted) - Number(b.currentSeasonCompleted),
+      );
+    }
+    return { status, items };
+  });
 
   const totalEntries = entries.length;
   const coWatchedSet = new Set(coWatchedShowIds);

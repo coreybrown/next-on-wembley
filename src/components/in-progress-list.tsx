@@ -19,9 +19,18 @@ export function InProgressList({ cards, partnerName }: Props) {
   const [showPaused, setShowPaused] = useState(false);
   const [editing, setEditing] = useState<WatchEntryWithShow | null>(null);
 
-  const watching = cards.filter((c) => c.entry.status === "watching");
+  // Watching is sub-sorted: shows you're mid-season on come before shows
+  // where the current season is finished. Stable, so the underlying
+  // updatedAt-desc order holds within each group.
+  const watching = cards
+    .filter((c) => c.entry.status === "watching")
+    .sort(
+      (a, b) =>
+        Number(a.entry.currentSeasonCompleted) -
+        Number(b.entry.currentSeasonCompleted),
+    );
   const paused = cards.filter((c) => c.entry.status === "paused");
-  const visible = showPaused ? cards : watching;
+  const visible = showPaused ? [...watching, ...paused] : watching;
 
   if (cards.length === 0) {
     return (

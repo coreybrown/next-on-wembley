@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockBump = vi.fn();
 const mockFinish = vi.fn();
+const mockSetSeasonDone = vi.fn();
 vi.mock("@/app/actions/in-progress", () => ({
   bumpSeasonAction: mockBump,
   finishItAction: mockFinish,
+  setSeasonCompletedAction: mockSetSeasonDone,
 }));
 
 const { InProgressActions } = await import(
@@ -45,6 +47,7 @@ const entry = (overrides: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   mockBump.mockReset();
   mockFinish.mockReset();
+  mockSetSeasonDone.mockReset().mockResolvedValue({ ok: true });
 });
 
 describe("InProgressActions — season nudge", () => {
@@ -168,5 +171,30 @@ describe("InProgressActions — co-watch toggle (Phase 42)", () => {
       <InProgressActions entry={entry()} coWatch={false} partnerName={null} />,
     );
     expect(screen.queryByRole("button", { name: /watch with/i })).toBeNull();
+  });
+});
+
+describe("InProgressActions — season-state toggle", () => {
+  it("marks the current season complete via setSeasonCompletedAction", async () => {
+    const user = userEvent.setup();
+    render(
+      <InProgressActions entry={entry()} coWatch={false} partnerName={null} />,
+    );
+    await user.click(screen.getByRole("button", { name: /watching s2/i }));
+    await waitFor(() => {
+      expect(mockSetSeasonDone).toHaveBeenCalledWith(1, true);
+    });
+  });
+
+  it("surfaces the caught-up notice when the show is moved to Paused", async () => {
+    mockSetSeasonDone.mockResolvedValueOnce({ ok: true, movedTo: "paused" });
+    const user = userEvent.setup();
+    render(
+      <InProgressActions entry={entry()} coWatch={false} partnerName={null} />,
+    );
+    await user.click(screen.getByRole("button", { name: /watching s2/i }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /caught up — moved to paused/i,
+    );
   });
 });

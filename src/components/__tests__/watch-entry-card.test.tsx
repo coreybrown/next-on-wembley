@@ -116,4 +116,26 @@ describe("WatchEntryCard", () => {
     await user.click(screen.getByRole("button", { name: /^cancel$/i }));
     expect(mockDeleteWatchEntry).not.toHaveBeenCalled();
   });
+
+  it("poster + title link to the plain Show Detail page (no recItem)", () => {
+    render(<WatchEntryCard entry={baseEntry} onEdit={() => {}} coWatch={false} partnerName={null} />);
+    const posterLink = screen.getByRole("link", {
+      name: /open details for severance/i,
+    });
+    expect(posterLink).toHaveAttribute("href", "/show/12");
+  });
+
+  it("shows the co-watch toggle on a completed card when a partner exists", () => {
+    render(
+      <WatchEntryCard
+        entry={{ ...baseEntry, status: "completed" }}
+        onEdit={() => {}}
+        coWatch={false}
+        partnerName="Jaimie"
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: /watch with jaimie/i }),
+    ).toBeInTheDocument();
+  });
 });

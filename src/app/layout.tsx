@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Fraunces, Chivo, JetBrains_Mono } from "next/font/google";
 import { cookies } from "next/headers";
-import { FilmReel, Sparkle, GearSix } from "@phosphor-icons/react/dist/ssr";
+import { FilmReel, Sparkle } from "@phosphor-icons/react/dist/ssr";
 import { getCurrentUser } from "@/lib/auth";
 import { IdentityChip } from "@/components/identity-chip";
 import { Logo } from "@/components/logo";
@@ -133,19 +133,6 @@ export default async function RootLayout({
                     "
                   >
                     <Sparkle size={20} weight="regular" />
-                  </Link>
-                  <Link
-                    href="/settings"
-                    aria-label="Settings"
-                    className="
-                      inline-flex h-11 w-11 items-center justify-center
-                      rounded-sm text-ink-secondary
-                      transition-colors hover:bg-surface-elevated hover:text-accent
-                      focus-visible:outline-2 focus-visible:outline-accent-sharp
-                      focus-visible:outline-offset-2
-                    "
-                  >
-                    <GearSix size={20} weight="regular" />
                   </Link>
                   <IdentityChip currentUser={user} />
                 </nav>

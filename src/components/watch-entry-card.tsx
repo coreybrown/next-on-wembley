@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import * as Dialog from "@radix-ui/react-dialog";
 import { PencilSimple, Trash } from "@phosphor-icons/react";
 import {
@@ -13,6 +14,7 @@ import {
   RATING_GLYPHS,
 } from "@/lib/watch-entries";
 import { InProgressActions } from "@/components/in-progress-actions";
+import { CoWatchToggle } from "@/components/co-watch-toggle";
 
 const STATUS_PILL_COLOR: Record<string, string> = {
   want_to_watch: "bg-status-want",
@@ -34,6 +36,8 @@ type Props = {
 export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
   const { show, status, currentSeason, userRating } = entry;
   const isInProgress = status === "watching" || status === "paused";
+  // No ?recItem — opens the plain Show Detail (no rec votes/explanation).
+  const detailHref = `/show/${show.tmdbId}`;
   const [removeOpen, setRemoveOpen] = useState(false);
   const [isRemoving, startRemove] = useTransition();
 
@@ -55,24 +59,52 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
         transition-colors hover:border-border-strong
       "
     >
-      {show.posterUrl ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img
-          src={show.posterUrl}
-          alt=""
-          width={48}
-          height={72}
-          className="h-[72px] w-12 flex-shrink-0 rounded-sm bg-surface-overlay object-cover"
-        />
-      ) : (
-        <div
-          aria-hidden
-          className="h-[72px] w-12 flex-shrink-0 rounded-sm bg-surface-overlay"
-        />
-      )}
+      <Link
+        href={detailHref}
+        aria-label={`Open details for ${show.title}`}
+        className="
+          flex-shrink-0
+          focus-visible:outline-2 focus-visible:outline-accent
+          focus-visible:outline-offset-2
+        "
+      >
+        {show.posterUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={show.posterUrl}
+            alt=""
+            width={48}
+            height={72}
+            className="
+              h-[72px] w-12 rounded-sm bg-surface-overlay object-cover
+              transition-transform duration-200 ease-out
+              group-hover:-translate-y-0.5 group-hover:-rotate-[0.5deg]
+              motion-reduce:transform-none motion-reduce:transition-none
+            "
+          />
+        ) : (
+          <div
+            aria-hidden
+            className="h-[72px] w-12 rounded-sm bg-surface-overlay"
+          />
+        )}
+      </Link>
       <div className="min-w-0 flex-1">
         <h3 className="font-display text-lg font-medium italic text-ink truncate">
-          {show.title}
+          <Link
+            href={detailHref}
+            className="
+              bg-gradient-to-r from-accent-sharp to-accent-sharp
+              bg-[length:0%_2px] bg-left-bottom bg-no-repeat
+              transition-[background-size] duration-200 ease-out
+              group-hover:bg-[length:100%_2px]
+              focus-visible:bg-[length:100%_2px]
+              focus-visible:outline-none
+              motion-reduce:transition-none
+            "
+          >
+            {show.title}
+          </Link>
         </h3>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <span
@@ -105,7 +137,7 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
             </span>
           )}
         </div>
-        {isInProgress && (
+        {isInProgress ? (
           <div className="mt-3">
             <InProgressActions
               entry={entry}
@@ -113,6 +145,18 @@ export function WatchEntryCard({ entry, onEdit, coWatch, partnerName }: Props) {
               partnerName={partnerName}
             />
           </div>
+        ) : (
+          // Non-in-progress cards (want-to-watch / completed / dropped)
+          // still get a standalone co-watch toggle.
+          partnerName && (
+            <div className="mt-3">
+              <CoWatchToggle
+                showId={entry.showId}
+                coWatch={coWatch}
+                partnerName={partnerName}
+              />
+            </div>
+          )
         )}
       </div>
       <div className="flex flex-shrink-0 flex-col gap-1">

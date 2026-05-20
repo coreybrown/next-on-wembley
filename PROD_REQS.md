@@ -105,7 +105,9 @@ Next on Wembley fills that gap for personal household use.
   - Each entry also displays the show's **TMDb production status verbatim** (e.g., "Returning Series", "Ended", "Canceled") accompanied by a small caveat note (e.g., "Per TMDb — may change") to acknowledge that this status is not a permanent claim: shows are renewed, revived, or cancelled dynamically.
   - If a show is no longer available free-with-subscription on any of the user's active subscriptions in Canada, the entry shows an **"Unavailable on your subscriptions"** badge. The entry stays in the In-Progress view, and the show still appears as a continuation in rec lists (with the same badge). Hiding a partway-watched show is more disruptive than honest — the user may have an alternative way to watch (other household, library, friend's account). See §6.4.5 for the new-show vs continuation distinction.
   - `Paused` entries are hidden from In-Progress by default but can be revealed via a "Show Paused" toggle.
-  - Each entry has inline controls to advance progress without opening the edit form: a **+1 / -1 season** button pair (instantly updates `current_season`), and a **"Finished it"** shortcut that prompts for an optional Like / Dislike / Meh rating and moves the entry to `Completed`.
+  - Each entry has inline controls to advance progress without opening the edit form: a **+1 / -1 season** button pair (instantly updates `current_season`), a **season-state toggle** ("Watching S{n}" / "Completed S{n}"), and a **"Finished it"** shortcut that prompts for an optional Like / Dislike / Meh rating and moves the entry to `Completed`.
+  - **Completing the last aired season caught-up rule.** When the season-state toggle marks the **last released season** complete, the show leaves the Watching list automatically: an **ongoing** series (TMDb status not Ended/Canceled) moves to `Paused` — you're caught up and waiting, and it resurfaces as a continuation recommendation once a new season airs; an **ended** series moves to `Completed` (the whole show is finished). Completing an earlier season just marks the flag and the entry stays `Watching`. A brief notice surfaces the move. (Co-watched shows move on both profiles.)
+  - **Watching is sub-sorted:** entries you're mid-season on (current season not yet finished) sort before entries where you've finished the current season, within the existing recency order.
 - **Search:** dedicated show search by title across the user's entries and TMDb.
 - **Bulk import:** there is no bulk-import path in v1. The user populates their watch history by searching and adding shows one at a time. A CSV bulk-import flow is deferred — see §11 Future Considerations.
 
@@ -237,7 +239,7 @@ Next on Wembley fills that gap for personal household use.
 
 ### 6.6 Show Detail
 
-A single Show Detail surface is reached by tapping the poster or title from a rec card. Linking from watch history rows and In-Progress entries is **deferred** — those cards already carry inline edit affordances on the dashboard so the round-trip isn't necessary.
+A single Show Detail surface is reached by tapping the poster or title from any card — rec cards (with `?recItem=N` rec context), and the dashboard / In-Progress cards (plain `/show/[tmdbId]`, no rec votes or explanation). The cards keep their inline edit affordances; the poster + title are additionally links to the detail surface.
 
 - **Content:**
   - Full TMDb metadata: title, poster, genres, season + episode counts (with aired-vs-announced split when they diverge), air dates, TMDb community rating, production status (with "may change" caveat per §6.3), trailer, **plot summary** (TMDb's `overview` field, displayed verbatim with a "Source: TMDb" attribution).

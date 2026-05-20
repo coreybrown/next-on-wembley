@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CaretLeft, CaretRight, CheckCircle } from "@phosphor-icons/react";
 import type { UserRating } from "@prisma/client";
 import {
@@ -32,6 +32,15 @@ export function InProgressActions({ entry, coWatch, partnerName }: Props) {
   const [isPending, startTransition] = useTransition();
   const [showRatingPrompt, setShowRatingPrompt] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Transient notice when completing the last aired season moved the
+  // show out of Watching (auto-dismisses; same pattern as CoWatchToggle).
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const current = entry.currentSeason ?? 1;
   // Ceiling = highest released season number, not TMDb's
@@ -53,12 +62,23 @@ export function InProgressActions({ entry, coWatch, partnerName }: Props) {
 
   const toggleSeasonDone = () => {
     setError(null);
+    setNotice(null);
     startTransition(async () => {
       const r = await setSeasonCompletedAction(
         entry.id,
         !entry.currentSeasonCompleted,
       );
-      if (!r.ok) setError("Couldn’t update season.");
+      if (!r.ok) {
+        setError("Couldn’t update season.");
+        return;
+      }
+      if (r.movedTo === "paused") {
+        setNotice(
+          "Caught up — moved to Paused. We’ll resurface it when a new season airs.",
+        );
+      } else if (r.movedTo === "completed") {
+        setNotice("Series complete — marked Completed.");
+      }
     });
   };
 
@@ -246,6 +266,11 @@ export function InProgressActions({ entry, coWatch, partnerName }: Props) {
           coWatch={coWatch}
           partnerName={partnerName}
         />
+      )}
+      {notice && (
+        <p role="status" className="font-mono text-mono text-accent">
+          {notice}
+        </p>
       )}
     </div>
   );

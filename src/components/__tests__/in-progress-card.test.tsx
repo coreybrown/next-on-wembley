@@ -99,4 +99,13 @@ describe("InProgressCard", () => {
     );
     expect(screen.getByText(/^paused$/i)).toBeInTheDocument();
   });
+
+  it("poster links to the show detail page", () => {
+    render(
+      <InProgressCard data={data()} onEdit={() => {}} partnerName={null} />,
+    );
+    expect(
+      screen.getByRole("link", { name: /open details for severance/i }),
+    ).toHaveAttribute("href", "/show/12");
+  });
 });

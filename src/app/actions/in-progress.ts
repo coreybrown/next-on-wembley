@@ -1,6 +1,6 @@
 "use server";
 
-import type { Prisma, UserRating } from "@prisma/client";
+import type { Prisma, UserRating, WatchStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { getTvDetails, getTvProviders } from "@/lib/tmdb";
@@ -36,7 +36,12 @@ const STALE_THRESHOLD_DAYS = 7;
 const REFRESH_CONCURRENCY = 2;
 
 export type InProgressActionResult =
-  | { ok: true }
+  | {
+      ok: true;
+      // Set when completing the last aired season moved the show out of
+      // Watching — lets the UI surface a "why did this move" notice.
+      movedTo?: "paused" | "completed";
+    }
   | { ok: false; error: WatchEntryActionError };
 
 // Inline +/- season nudge for Watching/Paused entries. Clamps at 1
@@ -89,10 +94,14 @@ export async function bumpSeasonAction(
   return { ok: true };
 }
 
-// Mark the current season as finished (or un-finish it). Independent of
-// currentSeason — toggles only the boolean. This is how a user signals
-// "I'm done with S2, waiting for S3" without having to bump to a
-// season that doesn't exist yet.
+// Mark the current season as finished (or un-finish it).
+//
+// Completing the *last aired* season means the viewer is caught up, so
+// the show leaves the Watching list: an ongoing series moves to Paused
+// (it resurfaces as a continuation rec once a new season airs); an
+// ended series moves to Completed (the whole show is finished).
+// Completing an earlier season just flips the flag — the user then
+// bumps to the next season themselves.
 export async function setSeasonCompletedAction(
   entryId: number,
   completed: boolean,
@@ -100,7 +109,10 @@ export async function setSeasonCompletedAction(
   const session = await getSession();
   if (!session.userId) return { ok: false, error: "unauthorized" };
 
-  const entry = await prisma.watchEntry.findUnique({ where: { id: entryId } });
+  const entry = await prisma.watchEntry.findUnique({
+    where: { id: entryId },
+    include: { show: true },
+  });
   if (!entry || entry.userId !== session.userId) {
     return { ok: false, error: "not_found" };
   }
@@ -108,17 +120,47 @@ export async function setSeasonCompletedAction(
     return { ok: false, error: "invalid_status" };
   }
 
+  let nextStatus: WatchStatus = entry.status;
+  let nextSeason = entry.currentSeason;
+  let movedTo: "paused" | "completed" | undefined;
+
+  if (completed && entry.currentSeason != null) {
+    const ceiling = releasedSeasonsCount(
+      parseSeasonsJson(entry.show.seasonsJson),
+      entry.show.totalSeasons,
+    );
+    const onLastAiredSeason =
+      ceiling != null && entry.currentSeason >= ceiling;
+    if (onLastAiredSeason) {
+      const ended =
+        entry.show.productionStatus === "Ended" ||
+        entry.show.productionStatus === "Canceled";
+      if (ended) {
+        nextStatus = "completed";
+        nextSeason = null;
+        movedTo = "completed";
+      } else if (entry.status === "watching") {
+        nextStatus = "paused";
+        movedTo = "paused";
+      }
+    }
+  }
+
   await prisma.watchEntry.update({
     where: { id: entryId },
-    data: { currentSeasonCompleted: completed },
+    data: {
+      currentSeasonCompleted: completed,
+      status: nextStatus,
+      currentSeason: nextSeason,
+    },
   });
   await propagateCoWatch(entry.showId, session.userId, {
-    status: entry.status,
-    currentSeason: entry.currentSeason,
+    status: nextStatus,
+    currentSeason: nextSeason,
     currentSeasonCompleted: completed,
   });
   revalidateAll();
-  return { ok: true };
+  return movedTo ? { ok: true, movedTo } : { ok: true };
 }
 
 // One-click "I'm done with this" — moves status to completed, clears

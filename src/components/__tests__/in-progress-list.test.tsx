@@ -23,6 +23,7 @@ const card = (
   status: "watching" | "paused",
   id: number,
   title: string,
+  currentSeasonCompleted = false,
 ) => ({
   entry: {
     id,
@@ -30,7 +31,7 @@ const card = (
     showId: 100 + id,
     status,
     currentSeason: 1,
-    currentSeasonCompleted: false,
+    currentSeasonCompleted,
     userRating: null,
     notes: null,
     createdAt: new Date(),
@@ -102,5 +103,23 @@ describe("InProgressList", () => {
   it("hides the Show Paused toggle when there are no paused entries", () => {
     render(<InProgressList cards={[card("watching", 1, "Severance")]} partnerName={null} />);
     expect(screen.queryByLabelText(/show paused/i)).not.toBeInTheDocument();
+  });
+
+  it("sorts watching cards mid-season before season-complete", () => {
+    render(
+      <InProgressList
+        cards={[
+          card("watching", 1, "Finished Season", true),
+          card("watching", 2, "Mid Season", false),
+        ]}
+        partnerName={null}
+      />,
+    );
+    const titles = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    expect(titles.indexOf("Mid Season")).toBeLessThan(
+      titles.indexOf("Finished Season"),
+    );
   });
 });
