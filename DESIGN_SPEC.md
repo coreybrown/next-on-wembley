@@ -371,11 +371,12 @@ Per PRD §6.6.
 - **Back affordance:** persistent "Back to recs" link at the top-left of the main content. Browser back also works.
 - **Layout (vertical):** Title (Fraunces 700) + optional Continuation badge → poster + metadata grid (TMDb rating, genres, season-count split, status with caveat, trailer link) → Where-to-watch chip row with "Not on your subscriptions" badge → optional rec-context block (long LLM explanation + VoteControlsRow) → "About the show" block (TMDb `overview`, displayed verbatim, with a small "Source: TMDb" attribution underneath) → "Your list" read-only summary with pointer to dashboard for edits.
 
-#### Drawer + parallel-route variant (Phase 20b, deferred)
+#### Drawer + parallel-route variant (Phase 20b — shipped)
 
-- **Desktop (>768px):** right-side panel, ~480px wide, slides in from right (`--motion-base`, 240ms ease-out). No scrim — list stays scannable. Originating list scroll position preserved.
-- **Mobile (≤768px):** bottom sheet, full width, top-anchored at ~85vh. Slides up from below (`--motion-base`). Drag handle at top edge, `--radius-xl` top corners. Swipe-down close threshold: >40% sheet height OR velocity > 0.5; below threshold snaps back. Scrim `--color-surface-overlay` at appropriate alpha; tap-to-close.
-- **Focus management:** on open focus moves to drawer close IconButton, Radix `Dialog` traps. On close restores focus to the originating card (`document.activeElement` snapshot) and `scrollY`.
+- Reached via in-app `<Link>` from any sibling root-level route. Intercepted by `app/@modal/(.)show/[tmdbId]/page.tsx`; standalone `/show/[tmdbId]/page.tsx` remains for cold loads / shared URLs. Same body component (`ShowDetailBody`) feeds both, so visual + interaction parity is automatic.
+- **Desktop (>768px):** right-side panel, 480px wide, full-height (`h-svh`), slides in from right via Radix Dialog's data-state animation hooks. Cream overlay with `bg-surface-overlay/70` + `backdrop-blur-sm`. Originating list stays mounted underneath; scroll position is preserved by Next.js's parallel-route handling.
+- **Mobile (≤768px):** bottom sheet variant, `inset-x-0 bottom-0 max-h-[90vh] rounded-t-lg`. Same overlay + backdrop. Sticky header inside the drawer with the close button. (Swipe-down + drag handle polish is a follow-up.)
+- **Focus management:** Radix `Dialog.Content` traps focus, Esc closes. On close (any path — Esc, overlay click, X, browser back) the drawer fires `router.back()` so the URL pops back to the originating route and focus returns to the link that opened it.
 
 #### Inline-edit affordances (Phase 20c — shipped)
 

@@ -38,8 +38,13 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  // Parallel-route slot for the Show Detail drawer (Phase 20b). The
+  // `@modal` segment renders either the intercepted Show Detail
+  // (overlay drawer) or its `default.tsx` (null) when nothing matches.
+  modal: React.ReactNode;
 }) {
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("theme")?.value;
@@ -108,6 +113,7 @@ export default async function RootLayout({
           </header>
         )}
         {children}
+        {modal}
         </RefreshProvider>
       </body>
     </html>

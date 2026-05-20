@@ -238,11 +238,10 @@ A single Show Detail surface is reached by tapping the poster or title from a re
   - The current user's relationship to the show: if a `WatchEntry` exists, status pills (5 statuses, click to switch) + season stepper (Watching/Paused only) + rating pills + a Remove button with confirm dialog. Edits auto-save through `updateWatchEntry`/`deleteWatchEntry`; the page re-renders via `router.refresh()` so the server-rendered detail surface picks up the new state. When no `WatchEntry` exists, an empty-state row of "Add as …" quick-add pills fires `addWatchEntry` with `currentSeason=1` for Watching and `null` otherwise (M4 Phase 20c).
   - When entered from a recommendation context (`?recItem=N`): vote pills (the owner's vote per Phase 15.1 ownership rules — partner sees read-only on user-scoped lists) + "Add to Want to Watch" button, plus the LLM explanation in its long form (≤300 chars per §6.4.3). Voting and Add-to-WTW work the same as from the rec card.
 - **Section order (top → bottom):** title + continuation badge → poster + metadata grid → Where to watch chips → (if rec context) "Why Claude picked this" with the long explanation + vote controls → "About the show" with TMDb's plot summary → "Your list" relationship summary. Claude's reasoning leads when present because the rec context is what brought the user here; TMDb's description sits beneath as objective background.
-- **Routing pattern (current — Phase 20):** full page only at `/show/[tmdbId]` (optionally `?recItem=N` for rec context). In-app navigation pushes a new route; the list page yields to the detail page rather than overlaying a drawer.
-- **Routing pattern (Phase 20b, deferred):** intercepting / parallel routes layer a drawer over the originating list when navigated in-app, preserving scroll position; the standalone full-page route still works for shared links and cold loads.
+- **Routing pattern (hybrid — Phase 20 + Phase 20b):** the full page at `/show/[tmdbId]` (optionally `?recItem=N`) always works for cold loads and shared links. In-app navigation from a sibling root-level route (/recs, /in-progress, /, etc.) is intercepted by `app/@modal/(.)show/[tmdbId]/page.tsx` and rendered as a drawer over the originating list — the list page stays mounted underneath so scroll position is preserved.
 - **Close behavior:**
-  - Full page: browser back, or the "Back to recs" affordance at the top of the page (always shown — useful when arriving from a shared link).
-  - Drawer (Phase 20b): Esc, swipe-down (mobile), or X. Returns to the originating list at the prior scroll position.
+  - Drawer (intercepted nav): Esc, click overlay, or the X button at the top — all `router.back()` so the user returns to the originating list at the prior scroll position. Browser back also works.
+  - Full page (cold load / shared link): browser back, or the "Back to recs" affordance at the top of the page.
 
 ### 6.7 UI States
 
