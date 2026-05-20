@@ -60,6 +60,21 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${chivo.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-svh bg-surface text-ink font-body">
+        {/* Skip-link for keyboard users — sits before the fixed header
+            so a single Tab lands on it; activating jumps focus past
+            the header chrome to the page's main content. */}
+        <a
+          href="#content"
+          className="
+            sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2
+            focus:z-50 focus:rounded-sm focus:border focus:border-accent
+            focus:bg-surface-elevated focus:px-3 focus:py-1
+            focus:font-mono focus:text-mono focus:uppercase focus:text-ink
+            focus:outline-none
+          "
+        >
+          Skip to content
+        </a>
         <RefreshProvider>
         {user && (
           <Link
@@ -112,6 +127,7 @@ export default async function RootLayout({
             <IdentityChip currentUser={user} />
           </header>
         )}
+        <div id="content" tabIndex={-1} />
         {children}
         {modal}
         </RefreshProvider>

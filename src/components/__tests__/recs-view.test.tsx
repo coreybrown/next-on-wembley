@@ -94,6 +94,24 @@ describe("RecsView — populated lists", () => {
     expect(screen.getByText("Co-watch Show")).toBeInTheDocument();
   });
 
+  it("supports ArrowLeft/Right keyboard navigation between tabs (a11y)", async () => {
+    const user = userEvent.setup();
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} disagreedShows={[]} viewerUsername="corey" />);
+    const coWatch = screen.getByRole("tab", { name: /co-watch/i });
+    coWatch.focus();
+    expect(coWatch).toHaveAttribute("aria-selected", "true");
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: /corey's picks/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await user.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("tab", { name: /co-watch/i })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
   it("switches to Corey's tab on click", async () => {
     const user = userEvent.setup();
     renderWithProvider(

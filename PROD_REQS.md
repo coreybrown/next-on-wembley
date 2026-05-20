@@ -292,9 +292,11 @@ This is the realistic accessibility floor for a 2-user personal app — not a fu
 
 - **Keyboard:**
   - All interactions reachable without a mouse.
-  - Vote pills are `<button>` elements (not `<div>`); arrow keys navigate within a vote group.
+  - Vote pills are `<button>` elements; arrow keys navigate within a vote group.
+  - The /recs tablist supports Arrow-Left / Arrow-Right cycling with a roving `tabIndex` so Tab moves into the tablist and arrows move within it (WAI-ARIA Authoring Practices, Phase 29).
   - Esc closes drawers / modals / inline-expanded card states.
   - Tab order follows visual order.
+  - A "Skip to content" link sits before the fixed header so keyboard users can jump past the navigation chrome in one Tab + Enter.
 - **Focus management:**
   - Visible focus ring on all interactive elements (use `focus-visible:` Tailwind utilities).
   - After casting a vote, focus stays on the pill (no jump).
@@ -307,7 +309,7 @@ This is the realistic accessibility floor for a 2-user personal app — not a fu
   - Minimum 4.5:1 contrast for text, 3:1 for UI components (Tailwind's lightest grays often fail this — pick deliberately).
   - **State is never conveyed by color alone.** Vote state, status, availability — always pair color with an icon or text label so the meaning survives dark mode, color-vision differences, and printing.
 - **Motion:**
-  - Respect `prefers-reduced-motion` for the rec-gen shimmer, skeleton animations, card transitions, and drawer slides. Provide an instant alternative state when reduced motion is preferred.
+  - `prefers-reduced-motion: reduce` honored on the RecCard skeleton's `animate-pulse` and on the layout pill / refresh button spinner's `animate-spin` via Tailwind's `motion-reduce:animate-none` variant (Phase 29). Drawer slide-in uses Radix Dialog's data-state animation hooks — Radix respects `prefers-reduced-motion` natively. Provide an instant alternative state when reduced motion is preferred (achieved here by simply stopping the animation; the underlying static layout reads correctly without movement).
 - **Not in v1 scope:**
   - Full WCAG 2.2 AA audit.
   - Screen-reader testing across multiple AT (NVDA / JAWS / VoiceOver) matrix.

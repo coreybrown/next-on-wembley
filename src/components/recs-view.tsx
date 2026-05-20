@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RecScope } from "@prisma/client";
 import { ArrowsClockwise, X } from "@phosphor-icons/react";
@@ -88,6 +88,18 @@ export function RecsView({
   viewerUsername,
 }: Props) {
   const [active, setActive] = useState<RecScope>("co_watch");
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const onTabKeyDown = (
+    e: KeyboardEvent<HTMLButtonElement>,
+    idx: number,
+  ) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const delta = e.key === "ArrowRight" ? 1 : -1;
+    const nextIdx = (idx + delta + TAB_ORDER.length) % TAB_ORDER.length;
+    setActive(TAB_ORDER[nextIdx]!);
+    tabRefs.current[nextIdx]?.focus();
+  };
   const [mood, setMood] = useState("");
   const { state, errorMessage, refresh, clearError } = useRefresh();
   const router = useRouter();
@@ -165,15 +177,23 @@ export function RecsView({
     <div className="space-y-8">
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
-          {TAB_ORDER.map((scope) => {
+          {TAB_ORDER.map((scope, idx) => {
             const selected = scope === active;
             return (
               <button
                 key={scope}
+                ref={(el) => {
+                  tabRefs.current[idx] = el;
+                }}
                 role="tab"
                 type="button"
                 aria-selected={selected}
+                // Only the active tab is in the tab order — Tab moves
+                // to the tab list, then Left/Right cycles within. Per
+                // WAI-ARIA Authoring Practices for tablist.
+                tabIndex={selected ? 0 : -1}
                 onClick={() => setActive(scope)}
+                onKeyDown={(e) => onTabKeyDown(e, idx)}
                 className={`
                   rounded-pill border px-4 py-2
                   font-body text-sm
@@ -211,7 +231,9 @@ export function RecsView({
               size={16}
               weight="regular"
               aria-hidden
-              className={pending ? "animate-spin" : undefined}
+              className={
+                pending ? "animate-spin motion-reduce:animate-none" : undefined
+              }
             />
             <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
           </button>

@@ -12,6 +12,7 @@ export function RecCardSkeleton() {
         flex animate-pulse items-start gap-4
         rounded-md border border-border bg-surface-elevated
         px-5 py-4
+        motion-reduce:animate-none
       "
     >
       <div className="flex flex-shrink-0 flex-col items-center gap-2">

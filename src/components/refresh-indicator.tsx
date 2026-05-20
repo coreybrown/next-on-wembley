@@ -66,7 +66,7 @@ export function RefreshIndicator() {
         size={14}
         weight="regular"
         aria-hidden
-        className="animate-spin"
+        className="animate-spin motion-reduce:animate-none"
       />
       <span>{message}</span>
     </span>
