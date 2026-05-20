@@ -23,6 +23,7 @@ const baseEntry = {
     id: 100,
     tmdbId: 12,
     title: "Severance",
+    overview: null,
     posterUrl: null,
     genres: "Drama",
     totalSeasons: 3,

@@ -544,7 +544,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     mockPrisma.showVote.findMany.mockResolvedValue([] as never);
     // user.findUnique gets called once per username (corey, jaimie) for
     // the owner-vote lookup. Default to deterministic ids: 1=corey, 2=jaimie.
-    mockPrisma.user.findUnique.mockImplementation((args: never) => {
+    mockPrisma.user.findUnique.mockImplementation((args: unknown) => {
       const a = args as { where?: { username?: string } };
       if (a.where?.username === "corey")
         return { id: 1, displayName: "Corey" } as never;

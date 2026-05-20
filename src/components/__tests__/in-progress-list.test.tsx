@@ -39,6 +39,7 @@ const card = (
       id: 100 + id,
       tmdbId: id,
       title,
+      overview: null,
       posterUrl: null,
       genres: "",
       totalSeasons: 2,
