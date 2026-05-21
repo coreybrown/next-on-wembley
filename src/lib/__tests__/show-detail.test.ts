@@ -109,7 +109,7 @@ describe("loadShowDetail", () => {
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
     mockPrisma.recommendationItem.findUnique.mockResolvedValueOnce({
       id: 77,
-      isContinuation: false,
+      category: "new_show",
       longExplanation: "Why we like this for Corey.",
       run: { scope: "corey" },
     } as never);
@@ -137,7 +137,7 @@ describe("loadShowDetail", () => {
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
     mockPrisma.recommendationItem.findUnique.mockResolvedValueOnce({
       id: 77,
-      isContinuation: false,
+      category: "new_show",
       longExplanation: "Why we like this for Corey.",
       run: { scope: "corey" },
     } as never);
@@ -161,7 +161,7 @@ describe("loadShowDetail", () => {
     mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
     mockPrisma.recommendationItem.findUnique.mockResolvedValueOnce({
       id: 77,
-      isContinuation: true,
+      category: "continue_watching",
       longExplanation: "Co-watch pick.",
       run: { scope: "co_watch" },
     } as never);

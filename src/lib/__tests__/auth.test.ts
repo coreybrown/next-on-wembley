@@ -63,6 +63,7 @@ describe("loginAction", () => {
       passcodeHash: goodHash,
       recModel: "haiku",
       createdAt: new Date(),
+      subscriptionsUpdatedAt: null,
     });
     const res = await loginAction(
       { error: null },
@@ -81,6 +82,7 @@ describe("loginAction", () => {
       passcodeHash: goodHash,
       recModel: "haiku",
       createdAt: new Date(),
+      subscriptionsUpdatedAt: null,
     });
     await loginAction({ error: null }, fd({ username: "corey", passcode: "right-pass" }));
     expect(mockSession.userId).toBe(42);

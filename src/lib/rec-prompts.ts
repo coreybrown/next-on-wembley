@@ -1,4 +1,10 @@
-import type { RecScope, WatchStatus, UserRating, VoteValue } from "@prisma/client";
+import type {
+  RecScope,
+  RecFocus,
+  WatchStatus,
+  UserRating,
+  VoteValue,
+} from "@prisma/client";
 import { STATUS_LABELS, RATING_LABELS } from "@/lib/watch-entries";
 
 // One row of watch history we send to the LLM.
@@ -15,6 +21,23 @@ export type WatchEntrySummary = {
   // lists them in `totalSeasons` but they have no episodes, so we exclude
   // them via parseSeasonsJson. 0 when we have no season data.
   airedSeasons: number;
+};
+
+// The two continuation categories. A continuation is always one of these;
+// `new_show` is reserved for discovery picks.
+export type ContinuationCategory = "new_season" | "continue_watching";
+
+// One enumerated continuation candidate handed to the LLM for ranking.
+// The app computes the full set from watch state (it is NOT discovered by
+// the LLM) — the LLM only orders it by taste and writes explanations.
+export type ContinuationCandidate = {
+  tmdbId: number;
+  title: string;
+  year: string | null;
+  category: ContinuationCategory;
+  // Human-readable season marker, e.g. "Season 2 (finished) · aired S3" —
+  // gives the LLM context for the explanation it writes.
+  seasonNote: string;
 };
 
 export type VoteSummary = {
@@ -37,7 +60,11 @@ export type UserContext = {
 export const REC_SYSTEM_PROMPT = `You are a television recommendation engine for two specific viewers, Corey and Jaimie, who watch together and separately in Canada.
 
 GOAL
-Recommend the exact number of candidate TV shows the user prompt requests. The system over-generates intentionally and then validates every pick against TMDb — unresolvable hints get dropped before the final list lands, so always meet the requested count. Output is a JSON object matching the provided schema. No prose, no preamble, no markdown — only the JSON object.
+Produce TV recommendations in three categories and return a JSON object matching the provided schema. No prose, no preamble, no markdown — only the JSON object. The system over-generates new-show picks intentionally and validates every pick against TMDb — unresolvable hints get dropped before the final list lands.
+
+CATEGORIES
+- "new_show" — a show NOT already on the viewer's list. This is discovery: you choose the shows. The user prompt says exactly how many new_show candidates to return.
+- "new_season" / "continue_watching" — continuations. You do NOT discover these. The user prompt gives an explicit "Continuations to rank" list, each row pre-tagged with its category. You MUST output every show in that list exactly once, copying its given category and tmdbId verbatim. Your job for these is ranking + writing explanations, nothing else. Never invent a continuation that is not in that list.
 
 LISTS
 - "co_watch" — picks both Corey and Jaimie will enjoy together. Lean toward shared genres + shared subscriptions.
@@ -47,38 +74,42 @@ COHERENCE RULES — most important
 - Each recommendation's \`tmdbId\`, \`title\`, \`shortExplanation\`, and \`longExplanation\` MUST all describe the SAME show. Never write an explanation for one show and pair it with another show's title or tmdbId. If you are unsure which tmdbId belongs to a show, leave the explanation generic to that show — do not borrow text from a different recommendation.
 - Do NOT mention specific streaming platforms (Netflix, Crave, Apple TV+, Disney+, Prime Video, Paramount+) inside your explanations. Availability chips are rendered separately by the system from authoritative provider data. Talk about the show itself: plot, tone, performances, what makes it a fit for this viewer.
 
-CANDIDATE QUALITY
+NEW-SHOW QUALITY
 - Shows must be real and findable on TMDb. Return the show's TMDb numeric \`tmdbId\` when you are confident; the system will re-verify every \`tmdbId\` and search by title as a fallback when it doesn't resolve. If the title and tmdbId disagree, the recommendation is dropped.
-- Region is Canada. Prefer titles available free-with-subscription on the user's active platforms; the system will hard-exclude unavailable new-show picks for non-continuations.
-- Do NOT recommend a show the user has already marked Completed (they have finished it — nothing left to watch), Dropped, Disliked, or Disagreed on in voting history. Treat Meh as "OK to suggest a near-neighbor, not the same show."
-- A "continuation" is a show the user already has on their list with status Watching or Paused where they have UNWATCHED AIRED content remaining. Each watch-history entry shows two season markers:
-   - \`season=N\` — the season they're on. \`(finished)\` means they completed it.
-   - \`aired=Sm\` — the highest season that has AIRED episodes per TMDb.
-  Use them together: a show IS a valid continuation when EITHER \`aired=Sm\` > \`season=N\` (a later season has dropped) OR \`season=N\` lacks the \`(finished)\` marker (mid-season). A show is NOT a continuation when \`season=N (finished)\` and \`aired=Sm\` where m equals N — fully caught up; do not include it even if a later season has been announced.
-- **Include valid continuations in your output.** Users want to keep going on shows they're actively watching, so when valid continuations exist in their watch history, prioritize them (they often belong near the top of the list). Mark them with \`isContinuation: true\` and set \`tmdbId\` to that exact show's TMDb id.
-- A "new pick" is a show NOT already on the user's list. Mark these with \`isContinuation: false\`.
-- Mix continuations with new picks in the same list when both apply. Rank by your judgement of fit.
+- Region is Canada. Prefer titles available free-with-subscription on the viewer's active platforms; the system will hard-exclude unavailable new_show picks.
+- Do NOT recommend as a new_show any show the viewer has already marked Completed, Dropped, Disliked, Disagreed on, or that already appears in the "Continuations to rank" list. Treat Meh as "OK to suggest a near-neighbour, not the same show."
+
+RANKING CONTINUATIONS
+- Rank the continuations by taste, exactly as you would new shows: weigh genre fit, the viewer's ratings, and their watch history. Two continuations are NOT equal — a show in a genre they love and rate highly outranks one they only mildly enjoy.
+- Write fresh explanations for each: why this viewer should pick it back up now.
+
+FOCUS
+The user prompt may state a focus. It biases EMPHASIS, never inclusion: always return the requested new_show count AND every continuation regardless of focus.
+- "discover" — the viewers want fresh new shows; spend extra care on strong, varied new_show picks.
+- "new_seasons" — the viewers want to know what got a new season; rank the new_season continuations with particular care.
+- "queue" — the viewers want their in-progress queue; rank the continue_watching continuations with particular care.
+- "mixed" — no bias; rank everything on pure fit.
 
 CO-WATCH SPLIT RULE (co_watch scope only)
 When the user prompt's "Vote combinations on shared shows" section lists shows where both Corey and Jaimie have voted, apply these treatments to the candidate's RANK in the Co-watch list:
 - Agree + Agree → strongly boost. Both want it.
 - Agree + Maybe (either order) → boost.
 - Maybe + Maybe → neutral.
-- Agree + Disagree (split — either order) → **DEMOTE** the rec (do not exclude). The agreer's positive signal still earns a slot, but rank it below unanimous picks.
-- Disagree + Maybe (either order) → demote-heavy. Lean negative; usually exclude unless very strong fit.
-- Disagree + Disagree → exclude. Neither wants it.
-This rule overrides the "don't recommend a show the user has Disagreed on" line above for co_watch only — a single Disagree on a Co-watch candidate demotes rather than excludes, so the partner's Agree still surfaces something for them together.
+- Agree + Disagree (split — either order) → DEMOTE the rec (do not exclude). The agreer's positive signal still earns a slot, but rank it below unanimous picks.
+- Disagree + Maybe (either order) → demote-heavy. Lean negative; usually exclude a new_show unless very strong fit.
+- Disagree + Disagree → exclude a new_show. Neither wants it.
+This rule overrides the "don't recommend a show the viewer Disagreed on" line for co_watch new_show picks only — a single Disagree demotes rather than excludes. It never removes a continuation: continuations are always included.
 
-OUTPUT FIELDS
-- \`tmdbId\` — TMDb id you believe is correct. Integer.
+OUTPUT FIELDS (per recommendation)
+- \`category\` — "new_show", "new_season", or "continue_watching". For continuations, copy the category from the "Continuations to rank" row.
+- \`tmdbId\` — TMDb id you believe is correct. Integer. For continuations, copy it from the row verbatim.
 - \`title\` — exact title as it appears on TMDb.
 - \`year\` — first air year as a string (e.g. "2022"). Empty string if unknown.
-- \`shortExplanation\` — ≤ 100 characters, one-sentence reason for this user / pair. About the show itself; do not name platforms.
+- \`shortExplanation\` — ≤ 100 characters, one-sentence reason for this viewer / pair. About the show itself; do not name platforms.
 - \`longExplanation\` — ≤ 300 characters, two- or three-sentence justification referencing their history. About the show itself; do not name platforms.
-- \`isContinuation\` — boolean per the rule above.
 
 POSITION
-The order of the array IS the ranking. Best fit first.`;
+Output new_show recommendations first, ranked best fit first, then the continuations ranked best fit first. The array order IS the ranking within each category.`;
 
 const STATUS_TEXT: Record<WatchStatus, string> = STATUS_LABELS;
 const RATING_TEXT: Record<UserRating, string> = RATING_LABELS;
@@ -86,6 +117,15 @@ const VOTE_TEXT: Record<VoteValue, string> = {
   agree: "Agree",
   disagree: "Disagree",
   maybe: "Maybe",
+};
+
+// One-line focus hint appended to the user prompt. `mixed` adds nothing —
+// the absence of a focus line is itself the "no bias" signal.
+const FOCUS_TEXT: Record<RecFocus, string | null> = {
+  mixed: null,
+  discover: "discover — prioritise fresh, varied new shows",
+  new_seasons: "new_seasons — emphasise shows that have a new season",
+  queue: "queue — emphasise the viewer's in-progress shows",
 };
 
 function formatEntries(entries: WatchEntrySummary[]): string {
@@ -120,6 +160,20 @@ function formatSubs(subs: string[]): string {
   return subs.join(", ");
 }
 
+// Renders the explicit continuation set the LLM must rank. Each row is
+// self-describing: category, tmdbId, and a season marker for context.
+function formatContinuations(continuations: ContinuationCandidate[]): string {
+  if (continuations.length === 0) {
+    return "(none — the viewer has no shows with unwatched aired content)";
+  }
+  return continuations
+    .map(
+      (c) =>
+        `- ${c.title}${c.year ? ` (${c.year})` : ""} · category=${c.category} · tmdbId=${c.tmdbId} · ${c.seasonNote}`,
+    )
+    .join("\n");
+}
+
 // Co-watch only. Each entry represents a show where BOTH household
 // members have voted; the prompt lists these so the LLM can apply the
 // CO-WATCH SPLIT RULE in the system prompt (Phase 26).
@@ -140,13 +194,14 @@ type BuildUserPromptInput = {
   // user-scoped lists.
   voteCombinations?: VoteCombination[];
   mood?: string;
-  // How many raw candidates to ask the LLM for. Set by the action per
-  // scope (co-watch asks for more). Defaults to 16 so test fixtures and
-  // ad-hoc callers don't have to thread it through.
-  candidateCount?: number;
+  // Which intent this refresh is biased toward.
+  focus: RecFocus;
+  // The full enumerated continuation set the LLM must rank (membership is
+  // computed by the app, not discovered by the LLM).
+  continuations: ContinuationCandidate[];
+  // How many new_show discovery candidates to ask the LLM for.
+  newShowCount: number;
 };
-
-const DEFAULT_CANDIDATE_COUNT = 16;
 
 export function buildUserPrompt(input: BuildUserPromptInput): string {
   const {
@@ -156,7 +211,9 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
     sharedSubscriptions,
     voteCombinations,
     mood,
-    candidateCount = DEFAULT_CANDIDATE_COUNT,
+    focus,
+    continuations,
+    newShowCount,
   } = input;
   const lines: string[] = [];
 
@@ -202,14 +259,23 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
     lines.push(`${primary.displayName}'s recent votes:\n${formatVotes(primary.recentVotes)}`);
   }
 
+  lines.push("");
+  lines.push(`Continuations to rank (output EVERY one, category + tmdbId copied verbatim):\n${formatContinuations(continuations)}`);
+
   if (mood && mood.trim()) {
     lines.push("");
     lines.push(`Mood: ${mood.trim()}`);
   }
 
+  const focusText = FOCUS_TEXT[focus];
+  if (focusText) {
+    lines.push("");
+    lines.push(`Focus: ${focusText}`);
+  }
+
   lines.push("");
   lines.push(
-    `Return EXACTLY ${candidateCount} candidate recommendations ranked best fit first. The system trims to a smaller final list after TMDb validation, so always meet this candidate count.`,
+    `Return EXACTLY ${newShowCount} new_show candidate recommendations ranked best fit first, PLUS exactly ${continuations.length} continuation recommendation(s) — one for every show in the "Continuations to rank" list. The system trims new_show picks to a smaller final list after TMDb validation, so always meet the new_show count.`,
   );
 
   return lines.join("\n");
@@ -226,20 +292,23 @@ export const RECOMMENDATIONS_SCHEMA = {
       items: {
         type: "object",
         properties: {
+          category: {
+            type: "string",
+            enum: ["new_show", "new_season", "continue_watching"],
+          },
           tmdbId: { type: "integer" },
           title: { type: "string" },
           year: { type: "string" },
           shortExplanation: { type: "string" },
           longExplanation: { type: "string" },
-          isContinuation: { type: "boolean" },
         },
         required: [
+          "category",
           "tmdbId",
           "title",
           "year",
           "shortExplanation",
           "longExplanation",
-          "isContinuation",
         ],
         additionalProperties: false,
       },
@@ -250,12 +319,12 @@ export const RECOMMENDATIONS_SCHEMA = {
 } as const;
 
 export type RawRecommendation = {
+  category: "new_show" | "new_season" | "continue_watching";
   tmdbId: number;
   title: string;
   year: string;
   shortExplanation: string;
   longExplanation: string;
-  isContinuation: boolean;
 };
 
 export type RecommendationsResponse = {

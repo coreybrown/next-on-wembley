@@ -5,6 +5,9 @@ import { parseSeasonsJson } from "@/lib/in-progress";
 
 export type ShowDetailRecContext = {
   itemId: number;
+  // True for any continuation (new_season or continue_watching) — the
+  // detail page only needs the binary "already on the list" distinction
+  // to gate the WTW button and the disagree prompt.
   isContinuation: boolean;
   longExplanation: string;
   // Owner's vote on the show (per Phase 15.1 ownership rules). Read-only
@@ -119,7 +122,7 @@ export async function loadShowDetail(
       where: { id: recItemId },
       select: {
         id: true,
-        isContinuation: true,
+        category: true,
         longExplanation: true,
         run: { select: { scope: true } },
       },
@@ -155,7 +158,7 @@ export async function loadShowDetail(
           : null;
       recContext = {
         itemId: item.id,
-        isContinuation: item.isContinuation,
+        isContinuation: item.category !== "new_show",
         longExplanation: item.longExplanation,
         currentVote: ownerVote,
         canVote,

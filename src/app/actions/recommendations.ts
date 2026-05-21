@@ -1,6 +1,6 @@
 "use server";
 
-import type { RecScope, VoteValue } from "@prisma/client";
+import type { RecScope, RecFocus, RecItemCategory, VoteValue } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
 import {
@@ -18,49 +18,99 @@ import {
   buildUserPrompt,
   RECOMMENDATIONS_SCHEMA,
   type RecommendationsResponse,
-  type RawRecommendation,
   type WatchEntrySummary,
   type VoteCombination,
+  type ContinuationCandidate,
+  type ContinuationCategory,
 } from "@/lib/rec-prompts";
 import { getUserContext, intersectSubscriptions } from "@/lib/rec-context";
 import { titlesAreCompatible } from "@/lib/rec-titles";
 import { upsertShowFromResolved, type ResolvedShow } from "@/lib/show-sync";
 import { revalidateRecSurfaces } from "@/lib/revalidate";
 
-// Final list size after TMDb validation, per scope. Co-watch carries
-// more picks because it's the household's default browsing surface (the
-// landing tab); the personal lists stay at 10 to match the PRD §10
-// "vote-on-top-10" metric.
-const TARGET_LIST_LENGTH_BY_SCOPE: Record<RecScope, number> = {
-  co_watch: 25,
-  corey: 10,
-  jaimie: 10,
+// New-show floor per scope. `mixed` / `new_seasons` / `queue` focus use
+// `default`; `discover` focus bumps it so a "find me new shows" refresh
+// actually fills a long discovery section. Co-watch carries more — it's
+// the household's landing tab.
+const NEW_SHOW_TARGET: Record<RecScope, { default: number; discover: number }> = {
+  co_watch: { default: 8, discover: 20 },
+  corey: { default: 5, discover: 12 },
+  jaimie: { default: 5, discover: 12 },
 };
 
-// Raw candidates to request from the LLM, per scope. Larger than the
-// target by ~1.3× to absorb TMDb-resolution and provider-overlap drops
-// without under-filling.
-const CANDIDATE_COUNT_BY_SCOPE: Record<RecScope, number> = {
-  co_watch: 32,
-  corey: 16,
-  jaimie: 16,
+// Hard cap on how many continuations a run stores — bounds prompt tokens.
+// The real count is min(cap, however many the viewer actually has), so a
+// viewer with 3 in-progress shows simply gets 3.
+const CONTINUATION_CAP: Record<RecScope, number> = {
+  co_watch: 12,
+  corey: 8,
+  jaimie: 8,
 };
+
+// Over-ask multiplier for new-show candidates: the LLM is asked for ~1.6×
+// the target so TMDb-resolution and provider-overlap drops don't leave the
+// discovery section under-filled.
+const NEW_SHOW_OVERASK = 1.6;
+
+function newShowTargetFor(scope: RecScope, focus: RecFocus): number {
+  const t = NEW_SHOW_TARGET[scope];
+  return focus === "discover" ? t.discover : t.default;
+}
 
 // Validates an LLM-flagged continuation against the user's actual watch
 // state. Drops the bug where a show with an announced-but-unaired next
 // season (e.g. Severance after S2 wraps, before S3 drops) gets re-pitched
 // to a user who's already finished everything that's aired.
 function isValidContinuation(entry: WatchEntrySummary): boolean {
-  // Only Watching/Paused can have a continuation per PRD §… ; Completed
-  // or Dropped shouldn't be re-suggested.
+  // Only Watching/Paused can have a continuation — Completed or Dropped
+  // shouldn't be re-suggested.
   if (entry.status !== "watching" && entry.status !== "paused") return false;
-  // Missing season data — be lenient, defer to the LLM's judgement.
+  // Missing season data — be lenient, treat as a continuation.
   if (entry.airedSeasons === 0) return true;
   // Mid-season: more episodes left in the current aired season.
   if (!entry.currentSeasonCompleted) return true;
   // Finished current season: valid only if a later season has aired.
   const current = entry.currentSeason ?? 0;
   return entry.airedSeasons > current;
+}
+
+// Splits a valid continuation into its two sub-kinds: mid-season vs. a
+// finished season with a newer one available.
+function classifyContinuation(entry: WatchEntrySummary): ContinuationCategory {
+  if (!entry.currentSeasonCompleted) return "continue_watching";
+  return "new_season";
+}
+
+// Human-readable season marker for the prompt — gives the LLM enough
+// context to write a sensible "pick it back up" explanation.
+function seasonNote(entry: WatchEntrySummary): string {
+  const parts: string[] = [];
+  if (entry.currentSeason != null) {
+    parts.push(
+      `on season ${entry.currentSeason}${entry.currentSeasonCompleted ? " (finished)" : " (in progress)"}`,
+    );
+  }
+  if (entry.airedSeasons > 0) parts.push(`aired through S${entry.airedSeasons}`);
+  return parts.join(", ") || "season data unknown";
+}
+
+// Deterministic fallback explanation for a continuation the LLM dropped
+// from its output — keeps the category complete even when the model
+// misbehaves (the reconcile step appends these).
+function fallbackExplanation(category: ContinuationCategory): {
+  short: string;
+  long: string;
+} {
+  if (category === "new_season") {
+    return {
+      short: "A new season has aired since you last watched.",
+      long: "A new season has aired since you finished your last one. Pick this back up to stay current.",
+    };
+  }
+  return {
+    short: "You're mid-season — episodes left to watch.",
+    long: "You still have unwatched episodes in the season you're on. Jump back in to keep your progress going.",
+  };
 }
 
 export type GenerateRecommendationsError =
@@ -84,16 +134,12 @@ export type GenerateRecommendationsResult =
 // Tries to resolve an LLM-suggested tmdbId to a real TMDb show + current
 // CA providers. Falls back to a title search when the hint is bogus.
 // Returns null if neither route works (we drop the rec).
-// `ResolvedShow` lives in lib/show-sync now — it's the input shape the
-// upsert helper takes.
-
 async function resolveTmdbHint(
   tmdbId: number,
   fallbackTitle: string,
 ): Promise<ResolvedShow | null> {
   // Sequential rather than parallel so a bogus tmdbId doesn't burn a
-  // wasted /watch/providers call. The savings vs an LLM-call-dominated
-  // refresh are negligible.
+  // wasted /watch/providers call.
   let metadata: TmdbShowMetadata | null = null;
   try {
     const fromHint = await getTvDetails(tmdbId);
@@ -135,9 +181,7 @@ const upsertResolvedShow = (resolved: ResolvedShow) =>
   upsertShowFromResolved(resolved);
 
 // Maps RecScope to the username that owns that list. Hard-coded — the app
-// is two-user-specific by design (see PRD §2). For co_watch we resolve to
-// the trigger user; for user lists we resolve to that named user. Skips
-// the extra DB lookup when the trigger user is also the owner.
+// is two-user-specific by design (see PRD §2).
 async function resolveOwnerUserId(
   scope: RecScope,
   triggerUser: { id: number; username: string },
@@ -149,10 +193,7 @@ async function resolveOwnerUserId(
 }
 
 // Co-watch only (Phase 26). Intersects the two users' recent votes by
-// show title so the LLM gets an explicit "split rule" input — each
-// entry says how Corey + Jaimie voted on the same show. The LLM
-// applies the CO-WATCH SPLIT RULE in the system prompt to demote splits
-// rather than excluding them.
+// show title so the LLM gets an explicit "split rule" input.
 function computeVoteCombinations(
   primary: { recentVotes: { title: string; vote: VoteValue }[] },
   other: { recentVotes: { title: string; vote: VoteValue }[] },
@@ -178,9 +219,44 @@ async function findOtherUserId(notUserId: number): Promise<number | null> {
   return u?.id ?? null;
 }
 
+// Enumerates the complete continuation set from watch state. Membership is
+// computed here — NOT discovered by the LLM — which is what makes the
+// new_season / continue_watching sections reliably complete. For co_watch
+// a show only qualifies when BOTH viewers are mid-show; the category is
+// taken from the primary viewer's entry (co-watched shows mirror season
+// state between the two users anyway).
+function enumerateContinuations(
+  scope: RecScope,
+  primaryEntries: WatchEntrySummary[],
+  otherEntries: WatchEntrySummary[] | null,
+  cap: number,
+): ContinuationCandidate[] {
+  const otherByTmdbId = otherEntries
+    ? new Map(otherEntries.map((e) => [e.tmdbId, e]))
+    : null;
+  const out: ContinuationCandidate[] = [];
+  for (const entry of primaryEntries) {
+    if (!isValidContinuation(entry)) continue;
+    if (scope === "co_watch") {
+      const otherEntry = otherByTmdbId?.get(entry.tmdbId);
+      if (!otherEntry || !isValidContinuation(otherEntry)) continue;
+    }
+    out.push({
+      tmdbId: entry.tmdbId,
+      title: entry.title,
+      year: entry.year ?? null,
+      category: classifyContinuation(entry),
+      seasonNote: seasonNote(entry),
+    });
+    if (out.length >= cap) break;
+  }
+  return out;
+}
+
 export async function generateRecommendations(
   scope: RecScope,
   mood?: string,
+  focus: RecFocus = "mixed",
 ): Promise<GenerateRecommendationsResult> {
   const session = await getSession();
   if (!session.userId) return { ok: false, error: "unauthorized" };
@@ -219,10 +295,26 @@ export async function generateRecommendations(
     if (!primaryContext) return { ok: false, error: "not_found" };
   }
 
-  const targetListLength = TARGET_LIST_LENGTH_BY_SCOPE[scope];
+  // Enumerate the complete continuation set up front (the LLM ranks it,
+  // it does not discover it).
+  const continuations = enumerateContinuations(
+    scope,
+    primaryContext.watchEntries,
+    otherContext?.watchEntries ?? null,
+    CONTINUATION_CAP[scope],
+  );
+  const continuationByTmdbId = new Map(
+    continuations.map((c) => [c.tmdbId, c]),
+  );
+
+  const newShowTarget = newShowTargetFor(scope, focus);
+  const newShowCandidateCount = Math.ceil(newShowTarget * NEW_SHOW_OVERASK);
+
   const userPrompt = buildUserPrompt({
     scope,
-    candidateCount: CANDIDATE_COUNT_BY_SCOPE[scope],
+    focus,
+    continuations,
+    newShowCount: newShowCandidateCount,
     primary: primaryContext,
     other: otherContext,
     sharedSubscriptions: sharedSubs,
@@ -231,9 +323,7 @@ export async function generateRecommendations(
   });
 
   // Budget gate per PRD §10. Hard pause when this month's logged spend
-  // hits the cap. Checked here (not just in regenerateAllLists) so the
-  // setRecModelAction auto-regen + future single-list entrypoints are
-  // protected too.
+  // hits the cap.
   const budget = await getBudgetStatus();
   if (budget.state === "exceeded") {
     return {
@@ -250,16 +340,18 @@ export async function generateRecommendations(
       systemPrompt: REC_SYSTEM_PROMPT,
       userPrompt,
       outputSchema: RECOMMENDATIONS_SCHEMA as unknown as Record<string, unknown>,
-      // ~250 output tokens per candidate (short + long explanation, year,
-      // tmdbId, title, isContinuation). 1.3× safety on top.
+      // ~250 output tokens per recommendation (short + long explanation,
+      // year, tmdbId, title, category). 1.3× safety on top. Continuations
+      // and new-show candidates both count.
       maxTokens: Math.max(
         4096,
-        Math.ceil(CANDIDATE_COUNT_BY_SCOPE[scope] * 250 * 1.3),
+        Math.ceil(
+          (newShowCandidateCount + continuations.length) * 250 * 1.3,
+        ),
       ),
     });
     llmOut = result.data;
-    // Per-call spend log feeds the PRD §10 monthly budget. Fire-and-
-    // forget — a log failure must not poison a successful generation.
+    // Per-call spend log feeds the PRD §10 monthly budget. Fire-and-forget.
     void logLlmCall({
       modelId,
       inputTokens: result.usage.inputTokens,
@@ -273,6 +365,7 @@ export async function generateRecommendations(
         scope,
         modelId,
         mood: mood ?? null,
+        focus,
         status: "failed",
         errorMessage: message,
       },
@@ -287,6 +380,7 @@ export async function generateRecommendations(
       scope,
       modelId,
       mood: mood ?? null,
+      focus,
       status: "ok",
     },
   });
@@ -297,9 +391,7 @@ export async function generateRecommendations(
       ? sharedSubs ?? []
       : primaryContext.subscriptions;
 
-  // Watch entries keyed by tmdbId for continuation validation. For
-  // user-scoped lists, only that user's history counts; for co_watch we
-  // accept either user having unwatched aired content.
+  // Watch entries keyed by tmdbId for the already-completed guard.
   const primaryEntriesByTmdbId = new Map<number, WatchEntrySummary>(
     primaryContext.watchEntries.map((e) => [e.tmdbId, e]),
   );
@@ -309,134 +401,166 @@ export async function generateRecommendations(
       )
     : null;
 
-  // Validate, upsert, persist. Drop unresolvable hints and (for new picks)
-  // shows that don't overlap with the relevant subs. Continuations stay
-  // visible regardless of availability (PRD §162) — the UI badges them.
-  const persisted: Array<{
-    rec: RawRecommendation;
-    showId: number;
-    metadata: TmdbShowMetadata;
-    providers: TmdbProviderInfo[];
-  }> = [];
-
-  const dropped: Array<{
-    title: string;
+  type PersistedItem = {
     tmdbId: number;
-    reason: string;
-  }> = [];
+    showId: number | null;
+    title: string;
+    year: string | null;
+    posterUrl: string | null;
+    shortExplanation: string;
+    longExplanation: string;
+    category: RecItemCategory;
+  };
 
+  const dropped: Array<{ title: string; tmdbId: number; reason: string }> = [];
+
+  // ---- New shows: the LLM-discovered picks (membership is the LLM's
+  // call). Resolve against TMDb, gate on provider overlap, dedupe, cap.
+  const newShowRecs = llmOut.recommendations.filter(
+    (r) => r.category === "new_show" && !continuationByTmdbId.has(r.tmdbId),
+  );
+  // An LLM-labelled continuation that isn't in the enumerated set is a
+  // hallucination — it continues nothing. Record it as dropped.
+  for (const r of llmOut.recommendations) {
+    if (r.category !== "new_show" && !continuationByTmdbId.has(r.tmdbId)) {
+      dropped.push({
+        title: r.title,
+        tmdbId: r.tmdbId,
+        reason: "continuation_not_enumerated",
+      });
+    }
+  }
+  const newShowItems: PersistedItem[] = [];
   const persistedTmdbIds = new Set<number>();
-
-  for (const rec of llmOut.recommendations) {
-    if (persisted.length >= targetListLength) break;
+  for (const rec of newShowRecs) {
+    if (newShowItems.length >= newShowTarget) break;
     const resolved = await resolveTmdbHint(rec.tmdbId, rec.title);
     if (!resolved) {
+      dropped.push({ title: rec.title, tmdbId: rec.tmdbId, reason: "tmdb_unresolved" });
+      continue;
+    }
+    const resolvedTmdbId = resolved.metadata.tmdbId;
+    // A resolved id might land on an enumerated continuation — that show
+    // belongs in the continuation pass, not here.
+    if (continuationByTmdbId.has(resolvedTmdbId)) {
       dropped.push({
-        title: rec.title,
-        tmdbId: rec.tmdbId,
-        reason: "tmdb_unresolved",
+        title: resolved.metadata.title,
+        tmdbId: resolvedTmdbId,
+        reason: "resolved_to_continuation",
       });
       continue;
     }
-
-    // The LLM occasionally emits the same show twice in its 16 candidates
-    // (often with near-identical explanations). Keep the higher-ranked
-    // occurrence and drop the rest.
-    if (persistedTmdbIds.has(resolved.metadata.tmdbId)) {
+    if (persistedTmdbIds.has(resolvedTmdbId)) {
       dropped.push({
         title: resolved.metadata.title,
-        tmdbId: resolved.metadata.tmdbId,
+        tmdbId: resolvedTmdbId,
         reason: "duplicate_of_higher_ranked",
       });
       continue;
     }
-
-    const resolvedTmdbId = resolved.metadata.tmdbId;
+    // A "new show" is by definition NOT on anyone's list. If it already
+    // has a watch entry it's either a continuation (handled below) or a
+    // caught-up show with nothing to watch — drop it from discovery.
     const primaryEntry = primaryEntriesByTmdbId.get(resolvedTmdbId);
     const otherEntry = otherEntriesByTmdbId?.get(resolvedTmdbId);
-
-    // Already-completed shows have nothing left to watch — never
-    // recommend them (the LLM is told this too, but enforce it). On
-    // co_watch, either viewer having completed it is enough to drop.
-    if (
-      primaryEntry?.status === "completed" ||
-      otherEntry?.status === "completed"
-    ) {
+    if (primaryEntry || otherEntry) {
       dropped.push({
         title: resolved.metadata.title,
         tmdbId: resolvedTmdbId,
-        reason: "already_completed",
+        reason: "already_in_watch_history",
       });
       continue;
     }
-
-    if (rec.isContinuation) {
-      // The LLM occasionally invents continuations for shows nobody has
-      // watched. Drop those — they'd otherwise bypass the provider gate
-      // and show up as un-badged "continuations" that don't continue
-      // anything.
-      if (!primaryEntry && !otherEntry) {
-        dropped.push({
-          title: resolved.metadata.title,
-          tmdbId: resolvedTmdbId,
-          reason: "continuation_not_in_history",
-        });
-        continue;
-      }
-      const primaryValid = primaryEntry
-        ? isValidContinuation(primaryEntry)
-        : false;
-      const otherValid = otherEntry ? isValidContinuation(otherEntry) : false;
-      // A continuation belongs on the co_watch list only when BOTH
-      // viewers are mid-show; a show only one person watches is a solo
-      // continuation and stays on that person's list. Solo lists have
-      // no `otherEntry`, so the rule there is just `primaryValid`.
-      const continuationValid =
-        scope === "co_watch" ? primaryValid && otherValid : primaryValid;
-      if (!continuationValid) {
-        dropped.push({
-          title: resolved.metadata.title,
-          tmdbId: resolvedTmdbId,
-          reason:
-            scope === "co_watch"
-              ? "continuation_not_co_watched"
-              : "continuation_no_new_aired_content",
-        });
-        continue;
-      }
-    } else {
-      const providerKeys = resolved.providers.map((p) => p.platformKey);
-      const hasOverlap = providerKeys.some((k) => gateSubs.includes(k));
-      if (!hasOverlap) {
-        dropped.push({
-          title: resolved.metadata.title,
-          tmdbId: resolved.metadata.tmdbId,
-          reason: `no_provider_overlap (CA providers: ${providerKeys.join("|") || "none"})`,
-        });
-        continue;
-      }
+    const providerKeys = resolved.providers.map((p) => p.platformKey);
+    if (!providerKeys.some((k) => gateSubs.includes(k))) {
+      dropped.push({
+        title: resolved.metadata.title,
+        tmdbId: resolvedTmdbId,
+        reason: `no_provider_overlap (CA providers: ${providerKeys.join("|") || "none"})`,
+      });
+      continue;
     }
     const showId = await upsertResolvedShow(resolved);
-    persisted.push({
-      rec,
+    newShowItems.push({
+      tmdbId: resolvedTmdbId,
       showId,
-      metadata: resolved.metadata,
-      providers: resolved.providers,
+      title: resolved.metadata.title,
+      year: rec.year || null,
+      posterUrl: resolved.metadata.posterUrl,
+      shortExplanation: rec.shortExplanation,
+      longExplanation: rec.longExplanation,
+      category: "new_show",
     });
-    persistedTmdbIds.add(resolved.metadata.tmdbId);
+    persistedTmdbIds.add(resolvedTmdbId);
+  }
+
+  // ---- Continuations: the app already enumerated the set; the LLM only
+  // ranked it. Take the LLM's order, then reconcile any it dropped so the
+  // category is always complete. Shows are already in our DB (they have a
+  // WatchEntry) — no TMDb call needed.
+  const continuationShows = await prisma.show.findMany({
+    where: { tmdbId: { in: continuations.map((c) => c.tmdbId) } },
+    select: { id: true, tmdbId: true, title: true, posterUrl: true },
+  });
+  const showByTmdbId = new Map(continuationShows.map((s) => [s.tmdbId, s]));
+
+  const continuationItems: PersistedItem[] = [];
+  const seenContinuationTmdbIds = new Set<number>();
+  const addContinuation = (
+    candidate: ContinuationCandidate,
+    explanation: { short: string; long: string },
+  ) => {
+    if (seenContinuationTmdbIds.has(candidate.tmdbId)) return;
+    const show = showByTmdbId.get(candidate.tmdbId);
+    if (!show) {
+      dropped.push({
+        title: candidate.title,
+        tmdbId: candidate.tmdbId,
+        reason: "continuation_show_missing",
+      });
+      return;
+    }
+    seenContinuationTmdbIds.add(candidate.tmdbId);
+    continuationItems.push({
+      tmdbId: candidate.tmdbId,
+      showId: show.id,
+      title: show.title,
+      year: candidate.year,
+      posterUrl: show.posterUrl,
+      shortExplanation: explanation.short,
+      longExplanation: explanation.long,
+      category: candidate.category,
+    });
+  };
+  // LLM-ranked order first.
+  for (const rec of llmOut.recommendations) {
+    const candidate = continuationByTmdbId.get(rec.tmdbId);
+    if (!candidate) continue;
+    addContinuation(candidate, {
+      short: rec.shortExplanation,
+      long: rec.longExplanation,
+    });
+  }
+  // Reconcile: any enumerated continuation the LLM omitted gets appended
+  // with a deterministic explanation. This is the hard guarantee that the
+  // new_season / continue_watching sections are never sparse.
+  for (const candidate of continuations) {
+    if (seenContinuationTmdbIds.has(candidate.tmdbId)) continue;
+    addContinuation(candidate, fallbackExplanation(candidate.category));
   }
 
   if (dropped.length > 0) {
     console.warn(
-      `[recs] scope=${scope} dropped ${dropped.length}/${llmOut.recommendations.length} (kept ${persisted.length}):\n` +
+      `[recs] scope=${scope} focus=${focus} dropped ${dropped.length} (kept ${newShowItems.length} new + ${continuationItems.length} continuations):\n` +
         dropped
           .map((d) => `  - "${d.title}" (tmdbId=${d.tmdbId}): ${d.reason}`)
           .join("\n"),
     );
   }
 
+  const persisted: PersistedItem[] = [...newShowItems, ...continuationItems];
+
   if (persisted.length === 0) {
-    // Mark the run as failed-but-recorded so the UI can surface the issue.
     await prisma.recommendationRun.update({
       where: { id: run.id },
       data: { status: "failed", errorMessage: "no_valid_items" },
@@ -448,14 +572,14 @@ export async function generateRecommendations(
     data: persisted.map((p, i) => ({
       runId: run.id,
       position: i + 1,
-      tmdbId: p.metadata.tmdbId,
+      tmdbId: p.tmdbId,
       showId: p.showId,
-      title: p.metadata.title,
-      year: p.rec.year || null,
-      posterUrl: p.metadata.posterUrl,
-      shortExplanation: p.rec.shortExplanation,
-      longExplanation: p.rec.longExplanation,
-      isContinuation: p.rec.isContinuation,
+      title: p.title,
+      year: p.year,
+      posterUrl: p.posterUrl,
+      shortExplanation: p.shortExplanation,
+      longExplanation: p.longExplanation,
+      category: p.category,
     })),
   });
 
@@ -467,16 +591,18 @@ export async function generateRecommendations(
 // auto-refresh and the manual Refresh button (Phase 11).
 export async function regenerateAllLists(
   mood?: string,
+  focus: RecFocus = "mixed",
 ): Promise<Array<GenerateRecommendationsResult>> {
   return Promise.all([
-    generateRecommendations("co_watch", mood),
-    generateRecommendations("corey", mood),
-    generateRecommendations("jaimie", mood),
+    generateRecommendations("co_watch", mood, focus),
+    generateRecommendations("corey", mood, focus),
+    generateRecommendations("jaimie", mood, focus),
   ]);
 }
 
 export type RecListItemView = {
   id: number;
+  // Rank within the item's category section (1-based).
   position: number;
   tmdbId: number;
   title: string;
@@ -484,7 +610,8 @@ export type RecListItemView = {
   posterUrl: string | null;
   shortExplanation: string;
   longExplanation: string;
-  isContinuation: boolean;
+  // Which of the three recommendation categories this item belongs to.
+  category: RecItemCategory;
   providerKeys: string[];
   // Parsed from Show.genres (comma-separated). Used for the genre
   // filter on /recs.
@@ -512,6 +639,8 @@ export type RecListView = {
   runId: number;
   modelId: string;
   mood: string | null;
+  // Which intent this run was biased toward. Pre-focus runs read as `mixed`.
+  focus: RecFocus;
   createdAt: Date;
   items: RecListItemView[];
 };
@@ -563,9 +692,7 @@ function parseGenres(raw: string | null): string[] {
 
 // Loads the most-recent ok-status run for each scope and shapes the items
 // for /recs rendering. `unavailable` flags are computed against the
-// trigger user's own subs (the most useful gate for personal lists; the
-// co-watch list uses the same single-user view since both households
-// share most platforms).
+// trigger user's own subs.
 export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
   const session = await getSession();
   const empty: Record<RecScope, RecListView | null> = {
@@ -601,8 +728,7 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       select: { id: true, displayName: true },
     }),
     // Disagrees the SESSION user owns. Fed into the inspector at the
-    // bottom of their own tab (Phase 28). Co-watch doesn't use this
-    // since it has no disagree filter.
+    // bottom of their own tab (Phase 28).
     prisma.showVote.findMany({
       where: { userId: session.userId, vote: "disagree" },
       orderBy: { createdAt: "desc" },
@@ -628,7 +754,6 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     jaimie: jaimieUser?.id ?? null,
   };
   // Partner = the other household member, for co_watch partner-vote viz.
-  // Two-user app, so just pick the user that isn't the viewer.
   const partnerUser =
     session.userId === coreyUser?.id ? jaimieUser : coreyUser;
   const partnerUserId = partnerUser?.id ?? null;
@@ -659,10 +784,6 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
                 select: {
                   genres: true,
                   providers: { select: { platformKey: true } },
-                  // Per-show vote rows for the user(s) we care about
-                  // (owner only for user-scoped; both for co_watch).
-                  // The unique (showId, userId) constraint guarantees
-                  // ≤1 row per user.
                   votes: {
                     where: { userId: { in: voteUserIds } },
                     select: { vote: true, userId: true },
@@ -674,8 +795,6 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
         },
       });
       if (!run) return;
-      // Per-item helpers — votes is keyed by userId now (Phase 25), so
-      // we look up by id rather than positional indexing.
       const ownerVoteOf = (
         item: (typeof run.items)[number],
       ): VoteValue | null =>
@@ -687,10 +806,9 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
           ? item.show?.votes.find((v) => v.userId === partnerUserId)?.vote ?? null
           : null;
       // Disagree hard-excludes from user-scoped lists per PRD. Co-watch
-      // gets the M4 split-rule demote treatment later; for now leave it
+      // gets the M4 split-rule demote treatment; for now leave it
       // unchanged so a single user's disagree doesn't drop a co-watch
-      // pick the partner might still want. We renumber positions after
-      // filtering so the visible list doesn't show gaps.
+      // pick the partner might still want.
       const afterDisagreeFilter =
         scope === "co_watch"
           ? run.items
@@ -701,19 +819,27 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       // Hide those new picks immediately — continuations stay visible
       // (badged "Unavailable on your subscriptions" by the card).
       const visibleItems = afterDisagreeFilter.filter((item) => {
-        if (item.isContinuation) return true;
+        if (item.category !== "new_show") return true;
         const providerKeys =
           item.show?.providers.map((p) => p.platformKey) ?? [];
         if (providerKeys.length === 0) return true; // unknown — don't hide
         return providerKeys.some((k) => subKeys.includes(k));
       });
+      // Position is rendered per category section, so renumber within
+      // each category — items already arrive in stored-position order.
+      const positionByCategory: Record<RecItemCategory, number> = {
+        new_show: 0,
+        new_season: 0,
+        continue_watching: 0,
+      };
       result[scope] = {
         scope,
         runId: run.id,
         modelId: run.modelId,
         mood: run.mood,
+        focus: run.focus ?? "mixed",
         createdAt: run.createdAt,
-        items: visibleItems.map((item, index) => {
+        items: visibleItems.map((item) => {
           const providerKeys =
             item.show?.providers.map((p) => p.platformKey) ?? [];
           const unavailable =
@@ -721,14 +847,14 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
             !providerKeys.some((k) => subKeys.includes(k));
           return {
             id: item.id,
-            position: index + 1,
+            position: ++positionByCategory[item.category],
             tmdbId: item.tmdbId,
             title: item.title,
             year: item.year,
             posterUrl: item.posterUrl,
             shortExplanation: item.shortExplanation,
             longExplanation: item.longExplanation,
-            isContinuation: item.isContinuation,
+            category: item.category,
             providerKeys,
             genres: parseGenres(item.show?.genres ?? null),
             unavailable,
@@ -751,7 +877,7 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
   }));
 
   // Stale when subscriptions were last changed after the most recent
-  // run across all scopes. No runs yet → nothing to be stale against.
+  // run across all scopes.
   const latestRunAt = scopes
     .map((s) => result[s]?.createdAt)
     .filter((d): d is Date => d != null)

@@ -13,6 +13,14 @@ const PLATFORM_NAME = new Map<string, string>(
 
 const VISIBLE_PROVIDERS = 2;
 
+// Badge text per category. `new_show` carries no badge — the section
+// heading already names it, and an un-badged card reads as the default.
+const CATEGORY_BADGE: Record<string, string | null> = {
+  new_show: null,
+  new_season: "New season",
+  continue_watching: "Continuing",
+};
+
 type Props = {
   item: RecListItemView;
   // Display name to attribute the partner vote to on Co-watch cards
@@ -24,6 +32,10 @@ export function RecCard({ item, partnerLabel }: Props) {
   const visibleProviders = item.providerKeys.slice(0, VISIBLE_PROVIDERS);
   const overflowCount = item.providerKeys.length - visibleProviders.length;
   const detailHref = `/show/${item.tmdbId}?recItem=${item.id}`;
+  // Continuations (new_season + continue_watching) are already on the
+  // viewer's list — the WTW button and disagree prompt key off this.
+  const isContinuation = item.category !== "new_show";
+  const categoryBadge = CATEGORY_BADGE[item.category];
 
   return (
     <article
@@ -103,7 +115,7 @@ export function RecCard({ item, partnerLabel }: Props) {
               </span>
             )}
           </h3>
-          {item.isContinuation && (
+          {categoryBadge && (
             <span
               className="
                 inline-flex items-center rounded-pill
@@ -111,7 +123,7 @@ export function RecCard({ item, partnerLabel }: Props) {
                 font-mono text-mono uppercase tracking-wide text-ink-muted
               "
             >
-              Continuation
+              {categoryBadge}
             </span>
           )}
         </div>
@@ -176,7 +188,7 @@ export function RecCard({ item, partnerLabel }: Props) {
           title={item.title}
           currentVote={item.currentVote}
           canVote={item.canVote}
-          isContinuation={item.isContinuation}
+          isContinuation={isContinuation}
           inWatchHistory={item.inWatchHistory}
           partnerVote={item.partnerVote}
           partnerLabel={partnerLabel}
@@ -187,7 +199,7 @@ export function RecCard({ item, partnerLabel }: Props) {
       <WantToWatchButton
         itemId={item.id}
         title={item.title}
-        isContinuation={item.isContinuation}
+        isContinuation={isContinuation}
         inWatchHistory={item.inWatchHistory}
       />
     </article>

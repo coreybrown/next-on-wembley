@@ -119,6 +119,10 @@ beforeEach(() => {
   mockPrisma.recommendationRun.update.mockReset();
   mockPrisma.recommendationItem.createMany.mockReset();
   mockPrisma.show.upsert.mockReset();
+  // Continuations are looked up from the DB by tmdbId — default to no
+  // continuation shows so new-show-only tests aren't side-tracked.
+  mockPrisma.show.findMany.mockReset();
+  mockPrisma.show.findMany.mockResolvedValue([] as never);
   mockPrisma.showProvider.deleteMany.mockReset();
   mockPrisma.showProvider.createMany.mockReset();
   // Phase 22 budget gate: default to plenty of headroom so existing
@@ -191,10 +195,12 @@ describe("generateRecommendations — Anthropic failure", () => {
 });
 
 describe("generateRecommendations — happy path", () => {
-  it("validates each rec, upserts the show, and persists 10 items", async () => {
+  it("validates each rec, upserts the show, and caps the new-show list at the scope target", async () => {
     mockSession.userId = 1;
     mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
     mockGetUserContext.mockResolvedValueOnce(baseContext());
+    // LLM over-generates; the personal-scope new-show target is 5, so the
+    // first 5 resolvable picks are kept and the rest trimmed.
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: Array.from({ length: 10 }, (_, i) => ({
         tmdbId: 100 + i,
@@ -202,7 +208,7 @@ describe("generateRecommendations — happy path", () => {
         year: "2024",
         shortExplanation: `short ${i}`,
         longExplanation: `long ${i}`,
-        isContinuation: false,
+        category: "new_show",
       })),
     });
     // Every tmdbId resolves; every show is on netflix (user's only sub).
@@ -221,12 +227,12 @@ describe("generateRecommendations — happy path", () => {
     } as never);
 
     const r = await generateRecommendations("corey");
-    expect(r).toEqual({ ok: true, runId: 42, itemCount: 10 });
+    expect(r).toEqual({ ok: true, runId: 42, itemCount: 5 });
     expect(mockPrisma.recommendationItem.createMany).toHaveBeenCalledOnce();
     const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
       data: Array<unknown>;
     }).data;
-    expect(payload).toHaveLength(10);
+    expect(payload).toHaveLength(5);
     expect(mockRevalidatePath).toHaveBeenCalledWith("/recs");
   });
 
@@ -254,11 +260,11 @@ describe("generateRecommendations — happy path", () => {
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
         // 1: new pick, netflix → kept
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // 2: new pick, only on apple_tv_plus → dropped
-        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // 3: continuation, only on apple_tv_plus → kept (badged in UI)
-        { tmdbId: 102, title: "T102", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+        { tmdbId: 102, title: "T102", year: "2024", shortExplanation: "s", longExplanation: "l", category: "continue_watching" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
@@ -272,15 +278,24 @@ describe("generateRecommendations — happy path", () => {
         tmdbId: args.where.tmdbId,
       })) as never,
     );
+    // The continuation show (T102) already exists in the DB — the
+    // continuation pass looks it up rather than calling TMDb.
+    mockPrisma.show.findMany.mockResolvedValueOnce([
+      { id: 102, tmdbId: 102, title: "T102", posterUrl: null },
+    ] as never);
     mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
 
     const r = await generateRecommendations("corey");
     expect(r).toEqual({ ok: true, runId: 1, itemCount: 2 });
     const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
-      data: Array<{ tmdbId: number; isContinuation: boolean; position: number }>;
+      data: Array<{ tmdbId: number; category: string; position: number }>;
     }).data;
     expect(payload.map((p) => p.tmdbId)).toEqual([100, 102]);
     expect(payload.map((p) => p.position)).toEqual([1, 2]);
+    expect(payload.map((p) => p.category)).toEqual([
+      "new_show",
+      "continue_watching",
+    ]);
   });
 
   it("drops continuations when the user finished all aired seasons (Severance-S3-unaired bug)", async () => {
@@ -305,8 +320,8 @@ describe("generateRecommendations — happy path", () => {
     );
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
-        { tmdbId: 200, title: "Severance", year: "2022", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
+        { tmdbId: 200, title: "Severance", year: "2022", shortExplanation: "s", longExplanation: "l", category: "continue_watching" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) =>
@@ -337,10 +352,10 @@ describe("generateRecommendations — happy path", () => {
     mockGetUserContext.mockResolvedValueOnce(baseContext({ subscriptions: ["netflix"] }));
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "first", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "first", longExplanation: "l", category: "new_show" },
         // Same tmdbId again — should drop with reason duplicate_of_higher_ranked.
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "second", longExplanation: "l", isContinuation: false },
-        { tmdbId: 200, title: "T200", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "second", longExplanation: "l", category: "new_show" },
+        { tmdbId: 200, title: "T200", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
@@ -371,9 +386,9 @@ describe("generateRecommendations — happy path", () => {
     mockGetUserContext.mockResolvedValueOnce(baseContext({ subscriptions: ["netflix"] }));
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // Hallucinated continuation — show isn't in the user's history.
-        { tmdbId: 999, title: "T999", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+        { tmdbId: 999, title: "T999", year: "2024", shortExplanation: "s", longExplanation: "l", category: "continue_watching" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
@@ -411,7 +426,7 @@ describe("generateRecommendations — happy path", () => {
           year: "2022",
           shortExplanation: "s",
           longExplanation: "l",
-          isContinuation: false,
+          category: "new_show",
         },
       ],
     });
@@ -450,7 +465,7 @@ describe("generateRecommendations — happy path", () => {
     mockGetUserContext.mockResolvedValueOnce(baseContext());
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 999_999, title: "Real Show", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 999_999, title: "Real Show", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
       ],
     });
     // First (hint) call rejects; search returns a different id.
@@ -495,9 +510,9 @@ describe("generateRecommendations — happy path", () => {
     );
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // LLM re-suggested a show Corey has Completed — must be dropped.
-        { tmdbId: 200, title: "Finished Show", year: "2022", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 200, title: "Finished Show", year: "2022", shortExplanation: "s", longExplanation: "l", category: "new_show" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) =>
@@ -528,7 +543,7 @@ describe("generateRecommendations — happy path", () => {
     mockGetUserContext.mockResolvedValueOnce(baseContext());
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
-        { tmdbId: 999_999, title: "Ghost", year: "", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 999_999, title: "Ghost", year: "", shortExplanation: "s", longExplanation: "l", category: "new_show" },
       ],
     });
     mockGetTvDetails.mockRejectedValue(new Error("404"));
@@ -559,9 +574,9 @@ describe("generateRecommendations — co_watch scope", () => {
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
         // 1: on netflix (shared) → kept
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // 2: only on crave (trigger only, not shared) → dropped
-        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 101, title: "T101", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) => tmdbDetails(id, `T${id}`));
@@ -609,9 +624,9 @@ describe("generateRecommendations — co_watch scope", () => {
     mockGenerateStructured.mockResolvedValueOnce({
       recommendations: [
         // New pick on the shared sub → kept.
-        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", category: "new_show" },
         // Continuation only one viewer watches → dropped from co_watch.
-        { tmdbId: 102, title: "Solo Show", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+        { tmdbId: 102, title: "Solo Show", year: "2024", shortExplanation: "s", longExplanation: "l", category: "continue_watching" },
       ],
     });
     mockGetTvDetails.mockImplementation(async (id) =>
@@ -663,6 +678,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
     scope,
     modelId: "claude-haiku-4-5",
     mood: null,
+    focus: null,
     createdAt: new Date("2026-05-19T00:00:00Z"),
     items: [
       {
@@ -675,7 +691,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         posterUrl: null,
         shortExplanation: "s",
         longExplanation: "l",
-        isContinuation: false,
+        category: "new_show",
         show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
       },
       {
@@ -688,7 +704,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         posterUrl: null,
         shortExplanation: "s",
         longExplanation: "l",
-        isContinuation: false,
+        category: "new_show",
         show: {
           genres: null,
           providers: [{ platformKey: "netflix" }],
@@ -712,7 +728,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
         posterUrl: null,
         shortExplanation: "s",
         longExplanation: "l",
-        isContinuation: false,
+        category: "new_show",
         show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
       },
     ],
@@ -749,6 +765,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       scope: "corey" as never,
       modelId: "claude-haiku-4-5",
       mood: null,
+      focus: null,
       createdAt: new Date("2026-05-19T00:00:00Z"),
       items: [
         // Persisted under "had Netflix" — now stale.
@@ -762,7 +779,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
           posterUrl: null,
           shortExplanation: "s",
           longExplanation: "l",
-          isContinuation: false,
+          category: "new_show",
           show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
         },
         // Still available on the user's current sub.
@@ -776,7 +793,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
           posterUrl: null,
           shortExplanation: "s",
           longExplanation: "l",
-          isContinuation: false,
+          category: "new_show",
           show: { providers: [{ platformKey: "crave" }], votes: [] },
         },
         // Continuation — stays visible regardless of provider gap.
@@ -790,7 +807,7 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
           posterUrl: null,
           shortExplanation: "s",
           longExplanation: "l",
-          isContinuation: true,
+          category: "continue_watching",
           show: { genres: null, providers: [{ platformKey: "netflix" }], votes: [] },
         },
       ],

@@ -4,6 +4,7 @@ import {
   buildUserPrompt,
   RECOMMENDATIONS_SCHEMA,
   type UserContext,
+  type ContinuationCandidate,
 } from "@/lib/rec-prompts";
 
 const corey: UserContext = {
@@ -54,6 +55,13 @@ const jaimie: UserContext = {
   recentVotes: [],
 };
 
+// Defaults for the required-but-not-under-test buildUserPrompt fields.
+const promptBase = {
+  focus: "mixed" as const,
+  continuations: [] as ContinuationCandidate[],
+  newShowCount: 16,
+};
+
 describe("REC_SYSTEM_PROMPT", () => {
   it("is stable across calls (load-bearing for prompt caching)", () => {
     // Read it twice; must be byte-identical. Any timestamp / random
@@ -64,9 +72,9 @@ describe("REC_SYSTEM_PROMPT", () => {
   });
 
   it("defers the candidate count to the user prompt and declares the JSON-only constraint", () => {
-    // System prompt stays generic so per-scope counts (10 for personal,
-    // 25 for co-watch) can vary without invalidating the prompt cache.
-    expect(REC_SYSTEM_PROMPT).toMatch(/the user prompt requests/i);
+    // System prompt stays generic so per-scope counts can vary without
+    // invalidating the prompt cache.
+    expect(REC_SYSTEM_PROMPT).toMatch(/the user prompt/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/canada/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/no prose|only the json|no preamble/i);
   });
@@ -85,11 +93,23 @@ describe("REC_SYSTEM_PROMPT", () => {
     expect(REC_SYSTEM_PROMPT).toMatch(/corey/i);
     expect(REC_SYSTEM_PROMPT).toMatch(/jaimie/i);
   });
+
+  it("describes the three recommendation categories", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/new_show/);
+    expect(REC_SYSTEM_PROMPT).toMatch(/new_season/);
+    expect(REC_SYSTEM_PROMPT).toMatch(/continue_watching/);
+  });
+
+  it("instructs the model to rank continuations by taste, not discover them", () => {
+    expect(REC_SYSTEM_PROMPT).toMatch(/ranking continuations/i);
+    expect(REC_SYSTEM_PROMPT).toMatch(/do not discover/i);
+  });
 });
 
 describe("buildUserPrompt", () => {
   it("co_watch includes both display names and shared subs", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "co_watch",
       primary: corey,
       other: jaimie,
@@ -104,6 +124,7 @@ describe("buildUserPrompt", () => {
 
   it("co_watch includes both users' watch histories", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "co_watch",
       primary: corey,
       other: jaimie,
@@ -117,6 +138,7 @@ describe("buildUserPrompt", () => {
 
   it("co_watch includes vote signals from both users", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "co_watch",
       primary: corey,
       other: jaimie,
@@ -128,12 +150,12 @@ describe("buildUserPrompt", () => {
 
   it("co_watch throws without an `other` user", () => {
     expect(() =>
-      buildUserPrompt({ scope: "co_watch", primary: corey }),
+      buildUserPrompt({ ...promptBase, scope: "co_watch", primary: corey }),
     ).toThrow(/other.*context/i);
   });
 
   it("user-scope prompt has only the primary user's data", () => {
-    const out = buildUserPrompt({ scope: "corey", primary: corey });
+    const out = buildUserPrompt({ ...promptBase, scope: "corey", primary: corey });
     expect(out).toContain("Corey");
     expect(out).not.toContain("Shogun"); // Jaimie's show
     expect(out).not.toContain("Shared active subscriptions");
@@ -145,18 +167,19 @@ describe("buildUserPrompt", () => {
       watchEntries: [],
       recentVotes: [],
     };
-    const out = buildUserPrompt({ scope: "corey", primary: empty });
+    const out = buildUserPrompt({ ...promptBase, scope: "corey", primary: empty });
     expect(out).toMatch(/none yet/i);
   });
 
   it("flags zero subscriptions explicitly", () => {
     const noSubs: UserContext = { ...corey, subscriptions: [] };
-    const out = buildUserPrompt({ scope: "corey", primary: noSubs });
+    const out = buildUserPrompt({ ...promptBase, scope: "corey", primary: noSubs });
     expect(out).toMatch(/every show will be unavailable/i);
   });
 
   it("includes the mood line when provided", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "corey",
       primary: corey,
       mood: "Something dark and slow-paced",
@@ -165,28 +188,75 @@ describe("buildUserPrompt", () => {
   });
 
   it("omits the mood line for empty/whitespace input", () => {
-    const out = buildUserPrompt({ scope: "corey", primary: corey, mood: "   " });
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      mood: "   ",
+    });
     expect(out).not.toMatch(/^Mood:/m);
   });
 
-  it("trailing instruction reinforces the requested candidate count (default)", () => {
-    const out = buildUserPrompt({ scope: "corey", primary: corey });
-    expect(out).toMatch(/exactly 16.*candidate/i);
+  it("trailing instruction reinforces the requested new-show count", () => {
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      newShowCount: 8,
+    });
+    expect(out).toMatch(/exactly 8 new_show/i);
   });
 
-  it("respects an explicit candidateCount (e.g. co-watch's larger pool)", () => {
+  it("lists the enumerated continuations the model must rank", () => {
+    const continuations: ContinuationCandidate[] = [
+      {
+        tmdbId: 95396,
+        title: "Severance",
+        year: "2022",
+        category: "continue_watching",
+        seasonNote: "on season 2 (in progress)",
+      },
+    ];
     const out = buildUserPrompt({
-      scope: "co_watch",
+      ...promptBase,
+      scope: "corey",
       primary: corey,
-      other: jaimie,
-      sharedSubscriptions: ["netflix"],
-      candidateCount: 32,
+      continuations,
     });
-    expect(out).toMatch(/exactly 32.*candidate/i);
+    expect(out).toMatch(/continuations to rank/i);
+    expect(out).toContain("category=continue_watching");
+    expect(out).toContain("tmdbId=95396");
+  });
+
+  it("renders the empty-continuations marker when there are none", () => {
+    const out = buildUserPrompt({ ...promptBase, scope: "corey", primary: corey });
+    expect(out).toMatch(/no shows with unwatched aired content/i);
+  });
+
+  it("includes a focus line for a non-mixed focus", () => {
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      focus: "discover",
+    });
+    expect(out).toMatch(/^Focus:/m);
+    expect(out).toMatch(/discover/i);
+  });
+
+  it("omits the focus line for the mixed focus", () => {
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      focus: "mixed",
+    });
+    expect(out).not.toMatch(/^Focus:/m);
   });
 
   it("includes a 'Vote combinations on shared shows' section for co-watch when given (Phase 26)", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "co_watch",
       primary: corey,
       other: jaimie,
@@ -203,6 +273,7 @@ describe("buildUserPrompt", () => {
 
   it("omits the Vote-combinations section for user-scoped lists", () => {
     const out = buildUserPrompt({
+      ...promptBase,
       scope: "corey",
       primary: corey,
       voteCombinations: [
@@ -225,7 +296,7 @@ describe("RECOMMENDATIONS_SCHEMA", () => {
         .properties
     ) as Record<string, unknown>;
     expect(Object.keys(itemProps).sort()).toEqual([
-      "isContinuation",
+      "category",
       "longExplanation",
       "shortExplanation",
       "title",

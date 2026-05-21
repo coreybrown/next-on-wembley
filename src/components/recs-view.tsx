@@ -8,7 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { RecScope } from "@prisma/client";
+import type { RecScope, RecFocus, RecItemCategory } from "@prisma/client";
 import {
   ArrowsClockwise,
   CaretDown,
@@ -50,6 +50,59 @@ const TAB_ORDER: readonly RecScope[] = ["co_watch", "corey", "jaimie"] as const;
 const PLATFORM_NAME = new Map<string, string>(
   PLATFORMS.map((p) => [p.key, p.displayName]),
 );
+
+// The three recommendation sections. `focus` is the RecFocus value that
+// makes this category the headline section; the section heading and the
+// focus selector both read off this table.
+const CATEGORY_META: Record<
+  RecItemCategory,
+  { label: string; blurb: string; focus: RecFocus }
+> = {
+  new_show: {
+    label: "New for you",
+    blurb: "Shows you haven't started.",
+    focus: "discover",
+  },
+  new_season: {
+    label: "New seasons",
+    blurb: "Shows you watch that have a new season out.",
+    focus: "new_seasons",
+  },
+  continue_watching: {
+    label: "Continue watching",
+    blurb: "Shows you're partway through.",
+    focus: "queue",
+  },
+};
+
+const CATEGORY_BASE_ORDER: readonly RecItemCategory[] = [
+  "new_show",
+  "new_season",
+  "continue_watching",
+] as const;
+
+// Focus selector options, in display order.
+const FOCUS_OPTIONS: ReadonlyArray<{ value: RecFocus; label: string }> = [
+  { value: "mixed", label: "Mixed" },
+  { value: "discover", label: "Discover new" },
+  { value: "new_seasons", label: "New seasons" },
+  { value: "queue", label: "My queue" },
+];
+
+// Non-focused sections collapse to this many cards, with a "show all"
+// expander, so a focused refresh keeps the headline section dominant.
+const TEASER_COUNT = 3;
+
+// Section order for a given focus: the focused category leads, the rest
+// keep their base order behind it. `mixed` keeps the base order outright.
+function sectionOrder(focus: RecFocus): RecItemCategory[] {
+  if (focus === "mixed") return [...CATEGORY_BASE_ORDER];
+  const focused = CATEGORY_BASE_ORDER.find(
+    (c) => CATEGORY_META[c].focus === focus,
+  );
+  if (!focused) return [...CATEGORY_BASE_ORDER];
+  return [focused, ...CATEGORY_BASE_ORDER.filter((c) => c !== focused)];
+}
 
 type Props = {
   initial: Record<RecScope, RecListView | null>;
@@ -126,9 +179,18 @@ export function RecsView({
     tabRefs.current[nextIdx]?.focus();
   };
   const [mood, setMood] = useState("");
+  // The focus the NEXT refresh will use. Seeded from the most recent run
+  // so the selector reflects what's currently on screen.
+  const [focus, setFocus] = useState<RecFocus>(
+    initial.co_watch?.focus ?? "mixed",
+  );
+  // Manually-expanded teaser sections, keyed `${scope}:${category}` so
+  // the state survives tab switches without a reset effect.
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({});
   // Phase 41: mood + filters live behind a single "Refine" disclosure so
-  // the rec list pushes up to the fold on first load. Stays closed by
-  // default; the active-filter count surfaces on the toggle.
+  // the rec list pushes up to the fold on first load.
   const [refineOpen, setRefineOpen] = useState(false);
   const { state, errorMessage, refresh, clearError } = useRefresh();
   const router = useRouter();
@@ -141,22 +203,22 @@ export function RecsView({
   const anyFilterActive =
     selectedPlatforms.size > 0 || selectedGenres.size > 0;
   const refineCount =
-    selectedPlatforms.size + selectedGenres.size + (mood.trim() ? 1 : 0);
+    selectedPlatforms.size +
+    selectedGenres.size +
+    (mood.trim() ? 1 : 0) +
+    (focus !== "mixed" ? 1 : 0);
 
   const onRefresh = async () => {
     const moodValue = mood.trim();
-    await refresh(moodValue || undefined);
+    await refresh(moodValue || undefined, focus);
     if (state === "success") setMood("");
   };
 
-  // Per PRD §6.4.6, the platform filter can only narrow to a subset of
-  // the user's active subs — show those as the chip options. Genres
-  // come from the items in the current tab.
   const list = initial[active];
 
   // Format the "Generated" timestamp on the client so it reflects the
   // viewer's timezone — formatting during SSR would lock in the server's
-  // UTC clock. Null until mounted; the line tolerates the brief gap.
+  // UTC clock.
   const [generatedLabel, setGeneratedLabel] = useState<string | null>(null);
   useEffect(() => {
     if (!list) {
@@ -187,6 +249,17 @@ export function RecsView({
       list ? applyFilters(list.items, selectedPlatforms, selectedGenres) : [],
     [list, selectedPlatforms, selectedGenres],
   );
+
+  // Bucket the filtered items by category for the grouped sections.
+  const itemsByCategory = useMemo(() => {
+    const buckets: Record<RecItemCategory, RecListItemView[]> = {
+      new_show: [],
+      new_season: [],
+      continue_watching: [],
+    };
+    for (const item of filteredItems) buckets[item.category].push(item);
+    return buckets;
+  }, [filteredItems]);
 
   const updateParam = (key: string, values: Set<string>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -222,6 +295,11 @@ export function RecsView({
   };
 
   const anyList = TAB_ORDER.some((s) => initial[s] !== null);
+
+  // Section layout is driven by the focus the run was GENERATED with,
+  // not the pending selector value.
+  const runFocus: RecFocus = list?.focus ?? "mixed";
+  const orderedCategories = sectionOrder(runFocus);
 
   return (
     <div className="space-y-8">
@@ -360,6 +438,44 @@ export function RecsView({
           aria-label="Refine recommendations"
           className="space-y-4 rounded-md border border-border bg-surface-elevated px-4 py-4"
         >
+          {/* Focus biases the NEXT refresh: which category leads and
+              gets the most picks. It's a generation input, so it only
+              takes effect after Refresh. */}
+          <div>
+            <span className="block font-mono text-mono uppercase text-ink-muted mb-2">
+              Focus (applies on next refresh)
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              {FOCUS_OPTIONS.map((opt) => {
+                const selected = focus === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFocus(opt.value)}
+                    aria-pressed={selected}
+                    disabled={pending}
+                    className={`
+                      rounded-pill border px-3 py-1
+                      font-mono text-mono uppercase
+                      transition-colors
+                      focus-visible:outline-2 focus-visible:outline-accent
+                      focus-visible:outline-offset-2
+                      disabled:cursor-not-allowed disabled:opacity-50
+                      ${
+                        selected
+                          ? "border-accent bg-accent text-accent-fg"
+                          : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+                      }
+                    `}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div>
             <label
               htmlFor="rec-mood"
@@ -578,6 +694,12 @@ export function RecsView({
             Generated {generatedLabel ?? "…"}
             {" · "}
             {list.modelId}
+            {runFocus !== "mixed"
+              ? ` · focus: ${
+                  FOCUS_OPTIONS.find((o) => o.value === runFocus)?.label ??
+                  runFocus
+                }`
+              : ""}
             {list.mood ? ` · mood: ${list.mood}` : ""}
             {anyFilterActive && (
               <>
@@ -586,23 +708,115 @@ export function RecsView({
               </>
             )}
           </p>
-          <ul className="mt-4 space-y-4">
-            {filteredItems.map((item, idx) => (
-              <li
-                key={item.id}
-                className="animate-ink-in"
-                // Stagger 60ms per card per DESIGN_SPEC §8.1. Capped
-                // around the visible window so a 25-pick co-watch list
-                // doesn't leave the last card waiting >1.5s to appear.
-                style={{ animationDelay: `${Math.min(idx, 10) * 60}ms` }}
-              >
-                <RecCard
-                  item={item}
-                  partnerLabel={partnerDisplayName ?? "Partner"}
-                />
-              </li>
-            ))}
-          </ul>
+
+          <div className="mt-6 space-y-10">
+            {orderedCategories.map((category) => {
+              const items = itemsByCategory[category];
+              const meta = CATEGORY_META[category];
+              const isFocused =
+                runFocus !== "mixed" && meta.focus === runFocus;
+              // Hide an empty section unless it's the headline one — a
+              // focused-but-empty section still explains itself.
+              if (items.length === 0 && !isFocused) return null;
+
+              const sectionKey = `${active}:${category}`;
+              const manuallyExpanded = expandedSections[sectionKey] ?? false;
+              // Teaser only when a focus is active, this isn't the
+              // headline section, and there's more than a teaser's worth.
+              const collapsible =
+                runFocus !== "mixed" &&
+                !isFocused &&
+                items.length > TEASER_COUNT;
+              const showAll = !collapsible || manuallyExpanded;
+              const visible = showAll
+                ? items
+                : items.slice(0, TEASER_COUNT);
+              const hiddenCount = items.length - visible.length;
+
+              return (
+                <section
+                  key={category}
+                  aria-label={meta.label}
+                  className="space-y-3"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h2 className="font-display text-2xl font-bold text-ink">
+                      {meta.label}
+                    </h2>
+                    <span className="font-mono text-mono uppercase text-ink-muted">
+                      {items.length}
+                    </span>
+                    <span className="font-body text-sm text-ink-muted">
+                      {meta.blurb}
+                    </span>
+                  </div>
+
+                  {items.length === 0 ? (
+                    <p className="font-body text-base text-ink-muted">
+                      {category === "new_show"
+                        ? "No new picks this time — try refreshing."
+                        : "Nothing here right now."}
+                    </p>
+                  ) : (
+                    <>
+                      <ul className="space-y-4">
+                        {visible.map((item, idx) => (
+                          <li
+                            key={item.id}
+                            className="animate-ink-in"
+                            // Stagger 60ms per card per DESIGN_SPEC §8.1,
+                            // capped so a long section doesn't leave the
+                            // last card waiting.
+                            style={{
+                              animationDelay: `${Math.min(idx, 10) * 60}ms`,
+                            }}
+                          >
+                            <RecCard
+                              item={item}
+                              partnerLabel={partnerDisplayName ?? "Partner"}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                      {collapsible && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedSections((prev) => ({
+                              ...prev,
+                              [sectionKey]: !manuallyExpanded,
+                            }))
+                          }
+                          className="
+                            inline-flex items-center gap-1
+                            font-mono text-mono uppercase text-accent
+                            transition-colors hover:underline
+                            focus-visible:outline-2 focus-visible:outline-accent
+                            focus-visible:outline-offset-2
+                          "
+                        >
+                          {manuallyExpanded ? (
+                            <>
+                              <CaretUp size={12} weight="bold" aria-hidden />
+                              <span>Show less</span>
+                            </>
+                          ) : (
+                            <>
+                              <CaretDown size={12} weight="bold" aria-hidden />
+                              <span>Show all {items.length}</span>
+                              <span className="sr-only">
+                                ({hiddenCount} more)
+                              </span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </section>
+              );
+            })}
+          </div>
         </div>
       )}
 

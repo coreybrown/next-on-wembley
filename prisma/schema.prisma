@@ -44,6 +44,25 @@ enum RecRunStatus {
   failed
 }
 
+// The kind of recommendation an item represents. Replaces the old
+// isContinuation boolean — splits the "continuation" intent into a show
+// that got a new season vs. one the viewer is mid-season on.
+enum RecItemCategory {
+  new_show
+  new_season
+  continue_watching
+}
+
+// Which intent a refresh was biased toward. Drives both generation
+// (how many new-show candidates to ask for) and the /recs section
+// layout. Null on pre-existing runs — treated as `mixed`.
+enum RecFocus {
+  mixed
+  discover
+  new_seasons
+  queue
+}
+
 enum VoteValue {
   agree
   disagree
@@ -151,6 +170,9 @@ model RecommendationRun {
   // Optional free-text mood from the refresh form. Persisted so the UI can
   // restore it on retry (PRD §6 latency UX).
   mood         String?
+  // Which intent this refresh was biased toward. Null on runs generated
+  // before the focus selector landed — read as `mixed`.
+  focus        RecFocus?
   status       RecRunStatus
   errorMessage String?
   createdAt    DateTime             @default(now())
@@ -170,7 +192,7 @@ model RecommendationItem {
   posterUrl        String?
   shortExplanation String
   longExplanation  String
-  isContinuation   Boolean              @default(false)
+  category         RecItemCategory      @default(new_show)
 }
 
 // Phase 42: marks a show the household watches together. Since there are

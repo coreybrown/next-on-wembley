@@ -30,7 +30,7 @@ const item = (overrides: Partial<RecListItemView> = {}): RecListItemView => ({
   posterUrl: null,
   shortExplanation: "Short pitch.",
   longExplanation: "Longer pitch with more detail.",
-  isContinuation: false,
+  category: "new_show",
   providerKeys: ["apple_tv_plus"],
   genres: [],
   unavailable: false,
@@ -69,9 +69,20 @@ describe("RecCard", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders the Continuation badge when isContinuation=true", () => {
-    render(<RecCard item={item({ isContinuation: true })} />);
-    expect(screen.getByText(/^continuation$/i)).toBeInTheDocument();
+  it("renders the 'Continuing' badge for a continue_watching item", () => {
+    render(<RecCard item={item({ category: "continue_watching" })} />);
+    expect(screen.getByText(/^continuing$/i)).toBeInTheDocument();
+  });
+
+  it("renders the 'New season' badge for a new_season item", () => {
+    render(<RecCard item={item({ category: "new_season" })} />);
+    expect(screen.getByText(/^new season$/i)).toBeInTheDocument();
+  });
+
+  it("renders no category badge for a new_show item", () => {
+    render(<RecCard item={item({ category: "new_show" })} />);
+    expect(screen.queryByText(/^continuing$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^new season$/i)).not.toBeInTheDocument();
   });
 
   it("shows the first 2 platform chips and a +N more counter", () => {
@@ -178,7 +189,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: true })}
+        item={item({ category: "continue_watching", inWatchHistory: true })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^disagree$/i }));
@@ -195,7 +206,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: true })}
+        item={item({ category: "continue_watching", inWatchHistory: true })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^disagree$/i }));
@@ -211,7 +222,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: true })}
+        item={item({ category: "continue_watching", inWatchHistory: true })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^disagree$/i }));
@@ -227,7 +238,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: true })}
+        item={item({ category: "continue_watching", inWatchHistory: true })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^disagree$/i }));
@@ -242,7 +253,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: false })}
+        item={item({ category: "continue_watching", inWatchHistory: false })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^disagree$/i }));
@@ -259,7 +270,7 @@ describe("RecCard — Disagree-on-continuation prompt (Phase 27)", () => {
     const user = userEvent.setup();
     render(
       <RecCard
-        item={item({ isContinuation: true, inWatchHistory: true })}
+        item={item({ category: "continue_watching", inWatchHistory: true })}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^agree$/i }));
@@ -288,7 +299,7 @@ describe("RecCard — Want to Watch", () => {
   });
 
   it("hides the WTW button for continuations (already on the user's list)", () => {
-    render(<RecCard item={item({ isContinuation: true })} />);
+    render(<RecCard item={item({ category: "continue_watching" })} />);
     expect(
       screen.queryByRole("button", { name: /want to watch/i }),
     ).not.toBeInTheDocument();

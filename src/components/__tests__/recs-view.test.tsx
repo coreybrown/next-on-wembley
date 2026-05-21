@@ -15,12 +15,19 @@ vi.mock("@/app/actions/recommendations", async () => {
 
 const { RecsView } = await import("@/components/recs-view");
 const { RefreshProvider } = await import("@/components/refresh-context");
+import type { RecScope } from "@prisma/client";
+import type {
+  RecListItemView,
+  RecListView,
+} from "@/app/actions/recommendations";
 
 function renderWithProvider(ui: React.ReactNode) {
   return render(<RefreshProvider>{ui}</RefreshProvider>);
 }
 
-const makeItem = (overrides: Record<string, unknown> = {}) => ({
+const makeItem = (
+  overrides: Partial<RecListItemView> = {},
+): RecListItemView => ({
   id: 1,
   position: 1,
   tmdbId: 100,
@@ -29,7 +36,7 @@ const makeItem = (overrides: Record<string, unknown> = {}) => ({
   posterUrl: null,
   shortExplanation: "Short.",
   longExplanation: "Long.",
-  isContinuation: false,
+  category: "new_show",
   providerKeys: ["netflix"],
   genres: [],
   unavailable: false,
@@ -40,11 +47,15 @@ const makeItem = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
-const makeRun = (scope: string, items: ReturnType<typeof makeItem>[]) => ({
-  scope: scope as never,
+const makeRun = (
+  scope: RecScope,
+  items: RecListItemView[],
+): RecListView => ({
+  scope,
   runId: 1,
   modelId: "claude-haiku-4-5",
   mood: null,
+  focus: "mixed",
   createdAt: new Date("2026-05-19T12:00:00Z"),
   items,
 });
@@ -184,7 +195,7 @@ describe("RecsView — refresh", () => {
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     await waitFor(() =>
-      expect(mockRegenerate).toHaveBeenCalledWith("dark and slow"),
+      expect(mockRegenerate).toHaveBeenCalledWith("dark and slow", "mixed"),
     );
   });
 
@@ -204,7 +215,9 @@ describe("RecsView — refresh", () => {
     await user.click(screen.getByRole("button", { name: /^refine/i }));
     await user.type(screen.getByLabelText(/mood/i), "   ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
-    await waitFor(() => expect(mockRegenerate).toHaveBeenCalledWith(undefined));
+    await waitFor(() =>
+      expect(mockRegenerate).toHaveBeenCalledWith(undefined, "mixed"),
+    );
   });
 
   it("renders an error when all three lists fail", async () => {
