@@ -195,7 +195,11 @@ describe("RecsView — refresh", () => {
     await user.type(screen.getByLabelText(/mood/i), "  dark and slow  ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     await waitFor(() =>
-      expect(mockRegenerate).toHaveBeenCalledWith("dark and slow", "mixed"),
+      expect(mockRegenerate).toHaveBeenCalledWith({
+        mood: "dark and slow",
+        genres: undefined,
+        platforms: undefined,
+      }),
     );
   });
 
@@ -216,7 +220,11 @@ describe("RecsView — refresh", () => {
     await user.type(screen.getByLabelText(/mood/i), "   ");
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     await waitFor(() =>
-      expect(mockRegenerate).toHaveBeenCalledWith(undefined, "mixed"),
+      expect(mockRegenerate).toHaveBeenCalledWith({
+        mood: undefined,
+        genres: undefined,
+        platforms: undefined,
+      }),
     );
   });
 
@@ -351,7 +359,7 @@ describe("RecsView — filters", () => {
     expect(platformSection).toHaveTextContent(/apple tv\+/i);
   });
 
-  it("derives genre chips from the items in the current tab (inside Refine)", async () => {
+  it("renders the fixed genre chip list inside Refine (a generation input)", async () => {
     const user = userEvent.setup();
     renderWithProvider(
       <RecsView
@@ -365,10 +373,11 @@ describe("RecsView — filters", () => {
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
     const genreSection = screen.getByText(/^genre$/i).parentElement!;
+    // Fixed curated list — not derived from the current run's items.
     expect(genreSection).toHaveTextContent("Drama");
-    expect(genreSection).toHaveTextContent("Sci-Fi");
     expect(genreSection).toHaveTextContent("Comedy");
-    expect(genreSection).toHaveTextContent("Crime");
+    expect(genreSection).toHaveTextContent("Mystery");
+    expect(genreSection).toHaveTextContent("Documentary");
   });
 
   it("collapses mood + filters behind the Refine toggle by default", () => {
@@ -391,7 +400,7 @@ describe("RecsView — filters", () => {
     expect(screen.queryByText(/^platform$/i)).toBeNull();
   });
 
-  it("hides filter chips inside Refine when there's no list yet (only mood shows)", async () => {
+  it("shows genre + platform chips inside Refine even with no list yet (they're generation inputs)", async () => {
     const user = userEvent.setup();
     renderWithProvider(
       <RecsView
@@ -405,7 +414,9 @@ describe("RecsView — filters", () => {
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
     expect(screen.getByLabelText(/mood/i)).toBeInTheDocument();
-    expect(screen.queryByText(/^platform$/i)).toBeNull();
-    expect(screen.queryByText(/^genre$/i)).toBeNull();
+    // Genre/platform feed the next refresh, so they don't depend on an
+    // existing run — they render regardless.
+    expect(screen.getByText(/^genre$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^platform$/i)).toBeInTheDocument();
   });
 });

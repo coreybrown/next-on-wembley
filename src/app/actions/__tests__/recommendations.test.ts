@@ -199,10 +199,11 @@ describe("generateRecommendations — happy path", () => {
     mockSession.userId = 1;
     mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
     mockGetUserContext.mockResolvedValueOnce(baseContext());
-    // LLM over-generates; the personal-scope new-show target is 5, so the
-    // first 5 resolvable picks are kept and the rest trimmed.
+    // LLM over-generates; /recs runs in discover mode where the
+    // personal-scope new-show target is 12, so the first 12 resolvable
+    // picks are kept and the rest trimmed.
     mockGenerateStructured.mockResolvedValueOnce({
-      recommendations: Array.from({ length: 10 }, (_, i) => ({
+      recommendations: Array.from({ length: 15 }, (_, i) => ({
         tmdbId: 100 + i,
         title: `Show ${i}`,
         year: "2024",
@@ -227,12 +228,12 @@ describe("generateRecommendations — happy path", () => {
     } as never);
 
     const r = await generateRecommendations("corey");
-    expect(r).toEqual({ ok: true, runId: 42, itemCount: 5 });
+    expect(r).toEqual({ ok: true, runId: 42, itemCount: 12 });
     expect(mockPrisma.recommendationItem.createMany).toHaveBeenCalledOnce();
     const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
       data: Array<unknown>;
     }).data;
-    expect(payload).toHaveLength(5);
+    expect(payload).toHaveLength(12);
     expect(mockRevalidatePath).toHaveBeenCalledWith("/recs");
   });
 

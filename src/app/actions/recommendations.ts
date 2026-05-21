@@ -253,11 +253,26 @@ function enumerateContinuations(
   return out;
 }
 
+// Refine-panel inputs that shape a refresh. All optional — an empty
+// object is an unrefined refresh.
+export type RefreshInputs = {
+  mood?: string;
+  // Soft genre nudge for the new-show picks.
+  genres?: string[];
+  // Hard platform restriction for the new-show picks (and the provider
+  // gate). Must be a subset of the viewer's active subscriptions.
+  platforms?: string[];
+};
+
 export async function generateRecommendations(
   scope: RecScope,
-  mood?: string,
-  focus: RecFocus = "mixed",
+  inputs: RefreshInputs = {},
 ): Promise<GenerateRecommendationsResult> {
+  const { mood, genres, platforms } = inputs;
+  // /recs is a discovery surface (the queue lives on Home), so every
+  // run is generated in "discover" mode — new-show picks lead and get
+  // the larger candidate target.
+  const focus: RecFocus = "discover";
   const session = await getSession();
   if (!session.userId) return { ok: false, error: "unauthorized" };
 
@@ -313,6 +328,8 @@ export async function generateRecommendations(
   const userPrompt = buildUserPrompt({
     scope,
     focus,
+    genres,
+    platforms,
     continuations,
     newShowCount: newShowCandidateCount,
     primary: primaryContext,
@@ -390,6 +407,12 @@ export async function generateRecommendations(
     scope === "co_watch"
       ? sharedSubs ?? []
       : primaryContext.subscriptions;
+  // A platform restriction from the Refine panel narrows the gate to the
+  // chosen platforms — "find new shows specifically on Netflix".
+  const effectiveGateSubs =
+    platforms && platforms.length > 0
+      ? gateSubs.filter((k) => platforms.includes(k))
+      : gateSubs;
 
   // Watch entries keyed by tmdbId for the already-completed guard.
   const primaryEntriesByTmdbId = new Map<number, WatchEntrySummary>(
@@ -472,7 +495,7 @@ export async function generateRecommendations(
       continue;
     }
     const providerKeys = resolved.providers.map((p) => p.platformKey);
-    if (!providerKeys.some((k) => gateSubs.includes(k))) {
+    if (!providerKeys.some((k) => effectiveGateSubs.includes(k))) {
       dropped.push({
         title: resolved.metadata.title,
         tmdbId: resolvedTmdbId,
@@ -590,13 +613,12 @@ export async function generateRecommendations(
 // Convenience: regenerate all three lists in parallel. Used by the rec-model
 // auto-refresh and the manual Refresh button (Phase 11).
 export async function regenerateAllLists(
-  mood?: string,
-  focus: RecFocus = "mixed",
+  inputs: RefreshInputs = {},
 ): Promise<Array<GenerateRecommendationsResult>> {
   return Promise.all([
-    generateRecommendations("co_watch", mood, focus),
-    generateRecommendations("corey", mood, focus),
-    generateRecommendations("jaimie", mood, focus),
+    generateRecommendations("co_watch", inputs),
+    generateRecommendations("corey", inputs),
+    generateRecommendations("jaimie", inputs),
   ]);
 }
 

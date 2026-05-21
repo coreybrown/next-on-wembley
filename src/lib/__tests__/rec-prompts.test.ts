@@ -254,6 +254,33 @@ describe("buildUserPrompt", () => {
     expect(out).not.toMatch(/^Focus:/m);
   });
 
+  it("includes a soft genre-preference line when genres are given", () => {
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      genres: ["Drama", "Comedy"],
+    });
+    expect(out).toMatch(/preferred genres: drama, comedy/i);
+    expect(out).toMatch(/lean.*toward|still rank by overall fit/i);
+  });
+
+  it("includes a platform restriction line when platforms are given", () => {
+    const out = buildUserPrompt({
+      ...promptBase,
+      scope: "corey",
+      primary: corey,
+      platforms: ["netflix"],
+    });
+    expect(out).toMatch(/platform restriction.*netflix/i);
+  });
+
+  it("omits genre + platform lines when none are given", () => {
+    const out = buildUserPrompt({ ...promptBase, scope: "corey", primary: corey });
+    expect(out).not.toMatch(/preferred genres/i);
+    expect(out).not.toMatch(/platform restriction/i);
+  });
+
   it("includes a 'Vote combinations on shared shows' section for co-watch when given (Phase 26)", () => {
     const out = buildUserPrompt({
       ...promptBase,

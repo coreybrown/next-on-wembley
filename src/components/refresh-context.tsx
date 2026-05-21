@@ -8,8 +8,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { RecFocus } from "@prisma/client";
-import { regenerateAllLists } from "@/app/actions/recommendations";
+import {
+  regenerateAllLists,
+  type RefreshInputs,
+} from "@/app/actions/recommendations";
 
 // Phase 18: background-generation state machine.
 // idle → pending → (after 30s, long_running) → (after 60s, timed_out)
@@ -36,7 +38,7 @@ const SUCCESS_FLASH_MS = 4_000;
 type RefreshContextValue = {
   state: RefreshState;
   errorMessage: string | null;
-  refresh: (mood?: string, focus?: RecFocus) => Promise<void>;
+  refresh: (inputs?: RefreshInputs) => Promise<void>;
   clearError: () => void;
 };
 
@@ -101,7 +103,7 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
     timeoutTimerRef.current = null;
   };
 
-  const refresh = useCallback(async (mood?: string, focus: RecFocus = "mixed") => {
+  const refresh = useCallback(async (inputs: RefreshInputs = {}) => {
     const myInvocation = ++invocationRef.current;
     if (successFlashRef.current) clearTimeout(successFlashRef.current);
     clearTimers();
@@ -126,7 +128,7 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
     }, TIMEOUT_MS);
 
     try {
-      const results = await regenerateAllLists(mood, focus);
+      const results = await regenerateAllLists(inputs);
       if (invocationRef.current !== myInvocation) return; // stale
       clearTimers();
       const failures = results.filter((r) => !r.ok) as FailureResult[];

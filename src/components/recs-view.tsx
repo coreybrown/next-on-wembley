@@ -7,8 +7,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import type { RecScope, RecFocus, RecItemCategory } from "@prisma/client";
+import type { RecScope, RecItemCategory } from "@prisma/client";
 import {
   ArrowsClockwise,
   CaretDown,
@@ -22,6 +21,7 @@ import {
   type DisagreedShow,
 } from "@/app/actions/recommendations";
 import { PLATFORMS } from "@/lib/platforms";
+import { TV_GENRES } from "@/lib/genres";
 import { RecCard } from "@/components/rec-card";
 import { RecCardSkeleton } from "@/components/rec-card-skeleton";
 import { DisagreesInspector } from "@/components/disagrees-inspector";
@@ -37,8 +37,7 @@ const TAB_LABELS: Record<RecScope, string> = {
 };
 
 // Shorter labels for the tab pills themselves — the full names wrapped
-// to two lines on narrow phones. The full label rides along as the tab's
-// aria-label, and TAB_LABELS still feeds the empty-state copy.
+// to two lines on narrow phones.
 const TAB_LABELS_SHORT: Record<RecScope, string> = {
   co_watch: "Co-watch",
   corey: "Corey",
@@ -51,58 +50,36 @@ const PLATFORM_NAME = new Map<string, string>(
   PLATFORMS.map((p) => [p.key, p.displayName]),
 );
 
-// The three recommendation sections. `focus` is the RecFocus value that
-// makes this category the headline section; the section heading and the
-// focus selector both read off this table.
-const CATEGORY_META: Record<
-  RecItemCategory,
-  { label: string; blurb: string; focus: RecFocus }
-> = {
-  new_show: {
-    label: "New for you",
-    blurb: "Shows you haven't started.",
-    focus: "discover",
-  },
-  new_season: {
-    label: "New seasons",
-    blurb: "Shows you watch that have a new season out.",
-    focus: "new_seasons",
-  },
-  continue_watching: {
-    label: "Continue watching",
-    blurb: "Shows you're partway through.",
-    focus: "queue",
-  },
-};
-
-const CATEGORY_BASE_ORDER: readonly RecItemCategory[] = [
+// The three recommendation sections, in fixed display order. /recs is a
+// discovery surface, so "New for you" always leads. "New seasons" is
+// time-sensitive news and stays fully expanded; only "Continue watching"
+// (a queue reminder the viewer already knows) collapses to a teaser.
+const CATEGORY_ORDER: readonly RecItemCategory[] = [
   "new_show",
   "new_season",
   "continue_watching",
 ] as const;
 
-// Focus selector options, in display order.
-const FOCUS_OPTIONS: ReadonlyArray<{ value: RecFocus; label: string }> = [
-  { value: "mixed", label: "Mixed" },
-  { value: "discover", label: "Discover new" },
-  { value: "new_seasons", label: "New seasons" },
-  { value: "queue", label: "My queue" },
-];
+const CATEGORY_META: Record<
+  RecItemCategory,
+  { label: string; blurb: string }
+> = {
+  new_show: {
+    label: "New for you",
+    blurb: "Shows you haven't started.",
+  },
+  new_season: {
+    label: "New seasons",
+    blurb: "Shows you watch that have a new season out.",
+  },
+  continue_watching: {
+    label: "Continue watching",
+    blurb: "Shows you're partway through.",
+  },
+};
 
-// Non-focused sections collapse to this many cards, with a "show all"
-// expander, so a focused refresh keeps the headline section dominant.
+// Only "Continue watching" collapses; it teasers to this many cards.
 const TEASER_COUNT = 3;
-
-// Section order for a given focus: the focused category leads, the rest
-// keep their base order behind it. `mixed` keeps the base order outright.
-function sectionOrder(focus: RecFocus): RecItemCategory[] {
-  if (focus === "mixed") return [...CATEGORY_BASE_ORDER];
-  const focused = CATEGORY_BASE_ORDER.find(
-    (c) => CATEGORY_META[c].focus === focus,
-  );
-  if (!focused) return [...CATEGORY_BASE_ORDER];
-  return [focused, ...CATEGORY_BASE_ORDER.filter((c) => c !== focused)];
-}
 
 type Props = {
   initial: Record<RecScope, RecListView | null>;
@@ -114,48 +91,12 @@ type Props = {
   // disagrees" inspector at the bottom of their own tab (Phase 28).
   disagreedShows: DisagreedShow[];
   // Session user's username. Inspector only renders on the matching
-  // user-scoped tab (Corey only sees his own buried-disagrees on
-  // Corey's Picks).
+  // user-scoped tab.
   viewerUsername: string;
   // True when subscriptions changed after the latest rec run — shows a
-  // "refresh to update" note (sub changes no longer auto-regenerate).
+  // "refresh to update" note.
   subscriptionsStale: boolean;
 };
-
-// Parses a comma-separated search param into a Set of non-empty trimmed
-// tokens. Returns an empty set for null/empty input.
-function paramToSet(raw: string | null): Set<string> {
-  if (!raw) return new Set();
-  return new Set(
-    raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-  );
-}
-
-function setToParam(values: Set<string>): string {
-  return [...values].join(",");
-}
-
-function applyFilters(
-  items: RecListItemView[],
-  platforms: Set<string>,
-  genres: Set<string>,
-): RecListItemView[] {
-  if (platforms.size === 0 && genres.size === 0) return items;
-  return items.filter((item) => {
-    if (platforms.size > 0) {
-      const hit = item.providerKeys.some((k) => platforms.has(k));
-      if (!hit) return false;
-    }
-    if (genres.size > 0) {
-      const hit = item.genres.some((g) => genres.has(g));
-      if (!hit) return false;
-    }
-    return true;
-  });
-}
 
 export function RecsView({
   initial,
@@ -179,46 +120,46 @@ export function RecsView({
     tabRefs.current[nextIdx]?.focus();
   };
   const [mood, setMood] = useState("");
-  // The focus the NEXT refresh will use. Seeded from the most recent run
-  // so the selector reflects what's currently on screen.
-  const [focus, setFocus] = useState<RecFocus>(
-    initial.co_watch?.focus ?? "mixed",
+  // Refine inputs — genre is a soft nudge, platform a hard restriction.
+  // Both feed the LLM on the next refresh (they no longer filter the
+  // current list), so they behave like mood: a generation input.
+  const [selectedGenres, setSelectedGenres] = useState<Set<string>>(
+    () => new Set(),
   );
-  // Manually-expanded teaser sections, keyed `${scope}:${category}` so
-  // the state survives tab switches without a reset effect.
-  const [expandedSections, setExpandedSections] = useState<
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Set<string>>(
+    () => new Set(),
+  );
+  // Manually-expanded "Continue watching" teaser, keyed by scope.
+  const [expandedScopes, setExpandedScopes] = useState<
     Record<string, boolean>
   >({});
-  // Phase 41: mood + filters live behind a single "Refine" disclosure so
-  // the rec list pushes up to the fold on first load.
   const [refineOpen, setRefineOpen] = useState(false);
   const { state, errorMessage, refresh, clearError } = useRefresh();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
   const pending = isRefreshActive(state);
 
-  const selectedPlatforms = paramToSet(searchParams.get("platform"));
-  const selectedGenres = paramToSet(searchParams.get("genre"));
-  const anyFilterActive =
-    selectedPlatforms.size > 0 || selectedGenres.size > 0;
   const refineCount =
-    selectedPlatforms.size +
     selectedGenres.size +
-    (mood.trim() ? 1 : 0) +
-    (focus !== "mixed" ? 1 : 0);
+    selectedPlatforms.size +
+    (mood.trim() ? 1 : 0);
 
   const onRefresh = async () => {
     const moodValue = mood.trim();
-    await refresh(moodValue || undefined, focus);
+    await refresh({
+      mood: moodValue || undefined,
+      genres: selectedGenres.size > 0 ? [...selectedGenres] : undefined,
+      platforms:
+        selectedPlatforms.size > 0 ? [...selectedPlatforms] : undefined,
+    });
+    // Mood is a one-shot vibe — clear it. Genre/platform are sticky
+    // session preferences, so they survive the refresh.
     if (state === "success") setMood("");
   };
 
   const list = initial[active];
 
   // Format the "Generated" timestamp on the client so it reflects the
-  // viewer's timezone — formatting during SSR would lock in the server's
-  // UTC clock.
+  // viewer's timezone.
   const [generatedLabel, setGeneratedLabel] = useState<string | null>(null);
   useEffect(() => {
     if (!list) {
@@ -235,75 +176,46 @@ export function RecsView({
     );
   }, [list]);
 
-  const availableGenres = useMemo<string[]>(() => {
-    if (!list) return [];
-    const seen = new Set<string>();
-    for (const item of list.items) {
-      for (const g of item.genres) seen.add(g);
-    }
-    return [...seen].sort();
-  }, [list]);
-
-  const filteredItems = useMemo(
-    () =>
-      list ? applyFilters(list.items, selectedPlatforms, selectedGenres) : [],
-    [list, selectedPlatforms, selectedGenres],
-  );
-
-  // Bucket the filtered items by category for the grouped sections.
+  // Bucket the run's items into the three category sections.
   const itemsByCategory = useMemo(() => {
     const buckets: Record<RecItemCategory, RecListItemView[]> = {
       new_show: [],
       new_season: [],
       continue_watching: [],
     };
-    for (const item of filteredItems) buckets[item.category].push(item);
+    if (list) for (const item of list.items) buckets[item.category].push(item);
     return buckets;
-  }, [filteredItems]);
+  }, [list]);
 
-  const updateParam = (key: string, values: Set<string>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (values.size === 0) {
-      params.delete(key);
-    } else {
-      params.set(key, setToParam(values));
-    }
-    const query = params.toString();
-    router.push(query ? `/recs?${query}` : "/recs", { scroll: false });
+  const toggleGenre = (g: string) => {
+    setSelectedGenres((prev) => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
   };
 
   const togglePlatform = (key: string) => {
-    const next = new Set(selectedPlatforms);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    updateParam("platform", next);
+    setSelectedPlatforms((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
-  const toggleGenre = (key: string) => {
-    const next = new Set(selectedGenres);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    updateParam("genre", next);
-  };
-
-  const clearFilters = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete("platform");
-    params.delete("genre");
-    const query = params.toString();
-    router.push(query ? `/recs?${query}` : "/recs", { scroll: false });
+  const clearRefine = () => {
+    setSelectedGenres(new Set());
+    setSelectedPlatforms(new Set());
+    setMood("");
   };
 
   const anyList = TAB_ORDER.some((s) => initial[s] !== null);
 
-  // Section layout is driven by the focus the run was GENERATED with,
-  // not the pending selector value.
-  const runFocus: RecFocus = list?.focus ?? "mixed";
-  const orderedCategories = sectionOrder(runFocus);
-
   return (
     <div className="space-y-8">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="font-mono text-mono uppercase text-ink-muted">
             [Recommendations]
@@ -313,34 +225,75 @@ export function RecsView({
           </h1>
           <div aria-hidden className="mt-3 h-[2px] w-16 bg-accent-sharp" />
         </div>
-        {/* Refresh regenerates ALL three lists — a page-level action, so
-            it sits at the masthead (not in the per-tab row) and wears a
-            quiet outline, leaving filled-accent to mark only the active
-            tab. */}
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={pending}
-          className="
-            inline-flex w-full items-center justify-center gap-2 sm:w-auto
-            rounded-md border border-border-strong bg-surface px-4 py-2
-            font-body text-base text-ink
-            transition-colors hover:border-accent hover:text-accent
-            disabled:cursor-not-allowed disabled:opacity-50
-            focus-visible:outline-2 focus-visible:outline-accent
-            focus-visible:outline-offset-2
-          "
-        >
-          <ArrowsClockwise
-            size={16}
-            weight="regular"
-            aria-hidden
-            className={
-              pending ? "animate-spin motion-reduce:animate-none" : undefined
-            }
-          />
-          <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
-        </button>
+        {/* Refresh + Refine sit together: Refine configures the inputs,
+            Refresh runs them. Grouping makes that relationship legible. */}
+        <div className="flex w-full gap-2 sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setRefineOpen((v) => !v)}
+            aria-expanded={refineOpen}
+            aria-controls="refine-panel"
+            className={`
+              inline-flex flex-1 items-center justify-center gap-2 sm:flex-none
+              rounded-md border px-3 py-2
+              font-body text-base
+              transition-colors
+              focus-visible:outline-2 focus-visible:outline-accent
+              focus-visible:outline-offset-2
+              ${
+                refineOpen || refineCount > 0
+                  ? "border-border-strong bg-surface text-ink"
+                  : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+              }
+            `}
+          >
+            <SlidersHorizontal size={16} weight="regular" aria-hidden />
+            <span>Refine</span>
+            {refineCount > 0 && (
+              <span
+                aria-label={`${refineCount} active`}
+                className="
+                  inline-flex h-5 min-w-5 items-center justify-center
+                  rounded-pill bg-accent px-1.5
+                  font-mono text-mono text-accent-fg
+                "
+              >
+                {refineCount}
+              </span>
+            )}
+            {refineOpen ? (
+              <CaretUp size={14} weight="bold" aria-hidden />
+            ) : (
+              <CaretDown size={14} weight="bold" aria-hidden />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={pending}
+            className="
+              inline-flex flex-1 items-center justify-center gap-2 sm:flex-none
+              rounded-md border border-border-strong bg-surface px-4 py-2
+              font-body text-base text-ink
+              transition-colors hover:border-accent hover:text-accent
+              disabled:cursor-not-allowed disabled:opacity-50
+              focus-visible:outline-2 focus-visible:outline-accent
+              focus-visible:outline-offset-2
+            "
+          >
+            <ArrowsClockwise
+              size={16}
+              weight="regular"
+              aria-hidden
+              className={
+                pending ? "animate-spin motion-reduce:animate-none" : undefined
+              }
+            />
+            <span>
+              {pending ? "Generating…" : anyList ? "Refresh" : "Generate"}
+            </span>
+          </button>
+        </div>
       </header>
 
       {subscriptionsStale && (
@@ -353,127 +306,32 @@ export function RecsView({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
-          {TAB_ORDER.map((scope, idx) => {
-            const selected = scope === active;
-            return (
-              <button
-                key={scope}
-                ref={(el) => {
-                  tabRefs.current[idx] = el;
-                }}
-                role="tab"
-                type="button"
-                aria-selected={selected}
-                aria-label={TAB_LABELS[scope]}
-                // Only the active tab is in the tab order — Tab moves
-                // to the tab list, then Left/Right cycles within. Per
-                // WAI-ARIA Authoring Practices for tablist.
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setActive(scope)}
-                onKeyDown={(e) => onTabKeyDown(e, idx)}
-                className={`
-                  rounded-pill border px-4 py-2
-                  font-body text-base font-medium whitespace-nowrap
-                  transition-colors
-                  ${
-                    selected
-                      ? "border-accent bg-accent text-accent-fg"
-                      : "border-border-strong bg-surface text-ink hover:border-accent"
-                  }
-                  focus-visible:outline-2 focus-visible:outline-accent
-                  focus-visible:outline-offset-2
-                `}
-              >
-                {TAB_LABELS_SHORT[scope]}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          onClick={() => setRefineOpen((v) => !v)}
-          aria-expanded={refineOpen}
-          aria-controls="refine-panel"
-          className={`
-            ml-auto inline-flex items-center gap-2
-            rounded-md border px-3 py-2
-            font-body text-base
-            transition-colors
-            focus-visible:outline-2 focus-visible:outline-accent
-            focus-visible:outline-offset-2
-            ${
-              refineOpen || refineCount > 0
-                ? "border-border-strong bg-surface text-ink"
-                : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-            }
-          `}
-        >
-          <SlidersHorizontal size={16} weight="regular" aria-hidden />
-          <span>Refine</span>
-          {refineCount > 0 && (
-            <span
-              aria-label={`${refineCount} active`}
-              className="
-                inline-flex h-5 min-w-5 items-center justify-center
-                rounded-pill bg-accent px-1.5
-                font-mono text-mono text-accent-fg
-              "
-            >
-              {refineCount}
-            </span>
-          )}
-          {refineOpen ? (
-            <CaretUp size={14} weight="bold" aria-hidden />
-          ) : (
-            <CaretDown size={14} weight="bold" aria-hidden />
-          )}
-        </button>
-      </div>
-
       {refineOpen && (
         <section
           id="refine-panel"
           aria-label="Refine recommendations"
           className="space-y-4 rounded-md border border-border bg-surface-elevated px-4 py-4"
         >
-          {/* Focus biases the NEXT refresh: which category leads and
-              gets the most picks. It's a generation input, so it only
-              takes effect after Refresh. */}
-          <div>
-            <span className="block font-mono text-mono uppercase text-ink-muted mb-2">
-              Focus (applies on next refresh)
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              {FOCUS_OPTIONS.map((opt) => {
-                const selected = focus === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setFocus(opt.value)}
-                    aria-pressed={selected}
-                    disabled={pending}
-                    className={`
-                      rounded-pill border px-3 py-1
-                      font-mono text-mono uppercase
-                      transition-colors
-                      focus-visible:outline-2 focus-visible:outline-accent
-                      focus-visible:outline-offset-2
-                      disabled:cursor-not-allowed disabled:opacity-50
-                      ${
-                        selected
-                          ? "border-accent bg-accent text-accent-fg"
-                          : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                      }
-                    `}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="font-mono text-mono uppercase text-ink-muted">
+              Refine — shapes your next refresh
+            </p>
+            {refineCount > 0 && (
+              <button
+                type="button"
+                onClick={clearRefine}
+                className="
+                  inline-flex items-center gap-1
+                  font-mono text-mono uppercase text-ink-muted
+                  transition-colors hover:text-ink
+                  focus-visible:outline-2 focus-visible:outline-accent
+                  focus-visible:outline-offset-2
+                "
+              >
+                <X size={14} weight="bold" aria-hidden />
+                <span>Clear</span>
+              </button>
+            )}
           </div>
 
           <div>
@@ -500,92 +358,110 @@ export function RecsView({
             />
           </div>
 
-          {list && (userSubKeys.length > 0 || availableGenres.length > 0) && (
-            <div className="space-y-3">
-              {userSubKeys.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-mono uppercase text-ink-muted">
-                    Platform
-                  </span>
-                  {userSubKeys.map((key) => {
-                    const selected = selectedPlatforms.has(key);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => togglePlatform(key)}
-                        aria-pressed={selected}
-                        className={`
-                          rounded-pill border px-3 py-1
-                          font-mono text-mono uppercase
-                          transition-colors
-                          focus-visible:outline-2 focus-visible:outline-accent
-                          focus-visible:outline-offset-2
-                          ${
-                            selected
-                              ? "border-accent bg-accent text-accent-fg"
-                              : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                          }
-                        `}
-                      >
-                        {PLATFORM_NAME.get(key) ?? key}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {availableGenres.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-mono uppercase text-ink-muted">
-                    Genre
-                  </span>
-                  {availableGenres.map((g) => {
-                    const selected = selectedGenres.has(g);
-                    return (
-                      <button
-                        key={g}
-                        type="button"
-                        onClick={() => toggleGenre(g)}
-                        aria-pressed={selected}
-                        className={`
-                          rounded-pill border px-3 py-1
-                          font-mono text-mono uppercase
-                          transition-colors
-                          focus-visible:outline-2 focus-visible:outline-accent
-                          focus-visible:outline-offset-2
-                          ${
-                            selected
-                              ? "border-accent bg-accent text-accent-fg"
-                              : "border-border bg-surface text-ink-secondary hover:border-border-strong"
-                          }
-                        `}
-                      >
-                        {g}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {anyFilterActive && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-mono uppercase text-ink-muted">
+              Genre
+            </span>
+            {TV_GENRES.map((g) => {
+              const selected = selectedGenres.has(g);
+              return (
                 <button
+                  key={g}
                   type="button"
-                  onClick={clearFilters}
-                  className="
-                    inline-flex items-center gap-1
-                    font-mono text-mono uppercase text-ink-muted
-                    transition-colors hover:text-ink
+                  onClick={() => toggleGenre(g)}
+                  aria-pressed={selected}
+                  disabled={pending}
+                  className={`
+                    rounded-pill border px-3 py-1
+                    font-mono text-mono uppercase
+                    transition-colors
                     focus-visible:outline-2 focus-visible:outline-accent
                     focus-visible:outline-offset-2
-                  "
+                    disabled:cursor-not-allowed disabled:opacity-50
+                    ${
+                      selected
+                        ? "border-accent bg-accent text-accent-fg"
+                        : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+                    }
+                  `}
                 >
-                  <X size={14} weight="bold" aria-hidden />
-                  <span>Clear filters</span>
+                  {g}
                 </button>
-              )}
+              );
+            })}
+          </div>
+
+          {userSubKeys.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono text-mono uppercase text-ink-muted">
+                Platform
+              </span>
+              {userSubKeys.map((key) => {
+                const selected = selectedPlatforms.has(key);
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => togglePlatform(key)}
+                    aria-pressed={selected}
+                    disabled={pending}
+                    className={`
+                      rounded-pill border px-3 py-1
+                      font-mono text-mono uppercase
+                      transition-colors
+                      focus-visible:outline-2 focus-visible:outline-accent
+                      focus-visible:outline-offset-2
+                      disabled:cursor-not-allowed disabled:opacity-50
+                      ${
+                        selected
+                          ? "border-accent bg-accent text-accent-fg"
+                          : "border-border bg-surface text-ink-secondary hover:border-border-strong"
+                      }
+                    `}
+                  >
+                    {PLATFORM_NAME.get(key) ?? key}
+                  </button>
+                );
+              })}
             </div>
           )}
         </section>
       )}
+
+      <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
+        {TAB_ORDER.map((scope, idx) => {
+          const selected = scope === active;
+          return (
+            <button
+              key={scope}
+              ref={(el) => {
+                tabRefs.current[idx] = el;
+              }}
+              role="tab"
+              type="button"
+              aria-selected={selected}
+              aria-label={TAB_LABELS[scope]}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => setActive(scope)}
+              onKeyDown={(e) => onTabKeyDown(e, idx)}
+              className={`
+                rounded-pill border px-4 py-2
+                font-body text-base font-medium whitespace-nowrap
+                transition-colors
+                ${
+                  selected
+                    ? "border-accent bg-accent text-accent-fg"
+                    : "border-border-strong bg-surface text-ink hover:border-accent"
+                }
+                focus-visible:outline-2 focus-visible:outline-accent
+                focus-visible:outline-offset-2
+              `}
+            >
+              {TAB_LABELS_SHORT[scope]}
+            </button>
+          );
+        })}
+      </div>
 
       {pending && (
         <section
@@ -661,77 +537,29 @@ export function RecsView({
             {TAB_LABELS[active].toLowerCase()}.
           </p>
         </section>
-      ) : filteredItems.length === 0 ? (
-        <section
-          className="
-            bg-empty rounded-md border border-border
-            px-6 py-12 text-center
-          "
-        >
-          <p className="font-display italic text-base text-ink-secondary">
-            No recommendations match your filters.
-          </p>
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="
-              mt-3 inline-flex items-center gap-1
-              font-mono text-mono uppercase text-accent
-              hover:underline
-              focus-visible:outline-2 focus-visible:outline-accent
-              focus-visible:outline-offset-2
-            "
-          >
-            <X size={12} weight="bold" aria-hidden />
-            <span>Clear filters</span>
-          </button>
-        </section>
       ) : (
         <div className={pending ? "opacity-50" : undefined}>
           <p className="truncate font-mono text-mono uppercase text-ink-muted">
-            {/* Secondary context — kept to a single compact line so it
-                never wraps. Date is client-formatted (viewer's TZ). */}
             Generated {generatedLabel ?? "…"}
             {" · "}
             {list.modelId}
-            {runFocus !== "mixed"
-              ? ` · focus: ${
-                  FOCUS_OPTIONS.find((o) => o.value === runFocus)?.label ??
-                  runFocus
-                }`
-              : ""}
             {list.mood ? ` · mood: ${list.mood}` : ""}
-            {anyFilterActive && (
-              <>
-                {" · "}
-                showing {filteredItems.length} of {list.items.length}
-              </>
-            )}
           </p>
 
           <div className="mt-6 space-y-10">
-            {orderedCategories.map((category) => {
+            {CATEGORY_ORDER.map((category) => {
               const items = itemsByCategory[category];
               const meta = CATEGORY_META[category];
-              const isFocused =
-                runFocus !== "mixed" && meta.focus === runFocus;
-              // Hide an empty section unless it's the headline one — a
-              // focused-but-empty section still explains itself.
-              if (items.length === 0 && !isFocused) return null;
+              // New shows always render (with an empty note if the LLM
+              // returned none); the queue sections only when populated.
+              if (items.length === 0 && category !== "new_show") return null;
 
-              const sectionKey = `${active}:${category}`;
-              const manuallyExpanded = expandedSections[sectionKey] ?? false;
-              // Teaser only when a focus is active, this isn't the
-              // headline section, and there's more than a teaser's worth.
               const collapsible =
-                runFocus !== "mixed" &&
-                !isFocused &&
+                category === "continue_watching" &&
                 items.length > TEASER_COUNT;
-              const showAll = !collapsible || manuallyExpanded;
-              const visible = showAll
-                ? items
-                : items.slice(0, TEASER_COUNT);
-              const hiddenCount = items.length - visible.length;
+              const expanded = expandedScopes[active] ?? false;
+              const showAll = !collapsible || expanded;
+              const visible = showAll ? items : items.slice(0, TEASER_COUNT);
 
               return (
                 <section
@@ -753,9 +581,7 @@ export function RecsView({
 
                   {items.length === 0 ? (
                     <p className="font-body text-base text-ink-muted">
-                      {category === "new_show"
-                        ? "No new picks this time — try refreshing."
-                        : "Nothing here right now."}
+                      No new picks this time — try refreshing.
                     </p>
                   ) : (
                     <>
@@ -764,9 +590,6 @@ export function RecsView({
                           <li
                             key={item.id}
                             className="animate-ink-in"
-                            // Stagger 60ms per card per DESIGN_SPEC §8.1,
-                            // capped so a long section doesn't leave the
-                            // last card waiting.
                             style={{
                               animationDelay: `${Math.min(idx, 10) * 60}ms`,
                             }}
@@ -782,9 +605,9 @@ export function RecsView({
                         <button
                           type="button"
                           onClick={() =>
-                            setExpandedSections((prev) => ({
+                            setExpandedScopes((prev) => ({
                               ...prev,
-                              [sectionKey]: !manuallyExpanded,
+                              [active]: !expanded,
                             }))
                           }
                           className="
@@ -795,7 +618,7 @@ export function RecsView({
                             focus-visible:outline-offset-2
                           "
                         >
-                          {manuallyExpanded ? (
+                          {expanded ? (
                             <>
                               <CaretUp size={12} weight="bold" aria-hidden />
                               <span>Show less</span>
@@ -804,9 +627,6 @@ export function RecsView({
                             <>
                               <CaretDown size={12} weight="bold" aria-hidden />
                               <span>Show all {items.length}</span>
-                              <span className="sr-only">
-                                ({hiddenCount} more)
-                              </span>
                             </>
                           )}
                         </button>

@@ -196,6 +196,10 @@ type BuildUserPromptInput = {
   mood?: string;
   // Which intent this refresh is biased toward.
   focus: RecFocus;
+  // Refine inputs (Phase 44). Soft genre guidance + a hard platform
+  // restriction for the new_show picks. Empty/omitted means no constraint.
+  genres?: string[];
+  platforms?: string[];
   // The full enumerated continuation set the LLM must rank (membership is
   // computed by the app, not discovered by the LLM).
   continuations: ContinuationCandidate[];
@@ -212,6 +216,8 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
     voteCombinations,
     mood,
     focus,
+    genres,
+    platforms,
     continuations,
     newShowCount,
   } = input;
@@ -265,6 +271,22 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
   if (mood && mood.trim()) {
     lines.push("");
     lines.push(`Mood: ${mood.trim()}`);
+  }
+
+  // Refine inputs (Phase 44). Genre is a soft nudge; platform is a hard
+  // restriction on the new_show picks. Continuations are unaffected —
+  // they're the viewer's existing shows.
+  if (genres && genres.length > 0) {
+    lines.push("");
+    lines.push(
+      `Preferred genres: ${genres.join(", ")} — lean the new_show picks toward these, but still rank by overall fit.`,
+    );
+  }
+  if (platforms && platforms.length > 0) {
+    lines.push("");
+    lines.push(
+      `Platform restriction: only recommend new_show picks available on ${platforms.join(", ")}.`,
+    );
   }
 
   const focusText = FOCUS_TEXT[focus];
