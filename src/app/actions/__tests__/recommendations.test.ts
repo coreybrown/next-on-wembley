@@ -473,6 +473,55 @@ describe("generateRecommendations — happy path", () => {
     expect(payload[0]!.tmdbId).toBe(555);
   });
 
+  it("drops new picks for shows the user has already Completed", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockGetUserContext.mockResolvedValueOnce(
+      baseContext({
+        subscriptions: ["netflix"],
+        // Corey already finished tmdbId 200 — nothing left to watch.
+        watchEntries: [
+          {
+            tmdbId: 200,
+            title: "Finished Show",
+            status: "completed",
+            currentSeason: 3,
+            currentSeasonCompleted: true,
+            rating: "like",
+            airedSeasons: 3,
+          },
+        ],
+      }),
+    );
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        // LLM re-suggested a show Corey has Completed — must be dropped.
+        { tmdbId: 200, title: "Finished Show", year: "2022", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+      ],
+    });
+    mockGetTvDetails.mockImplementation(async (id) =>
+      tmdbDetails(id, id === 200 ? "Finished Show" : `T${id}`),
+    );
+    mockGetTvProviders.mockResolvedValue([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockImplementation(
+      (async (args: { where: { tmdbId: number } }) => ({
+        id: args.where.tmdbId,
+        tmdbId: args.where.tmdbId,
+      })) as never,
+    );
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 1 } as never);
+
+    const r = await generateRecommendations("corey");
+    expect(r).toEqual({ ok: true, runId: 1, itemCount: 1 });
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number }>;
+    }).data;
+    expect(payload.map((p) => p.tmdbId)).toEqual([100]);
+  });
+
   it("returns no_valid_items + marks the run failed when every rec drops", async () => {
     mockSession.userId = 1;
     mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
@@ -530,6 +579,61 @@ describe("generateRecommendations — co_watch scope", () => {
 
     const r = await generateRecommendations("co_watch");
     expect(r).toEqual({ ok: true, runId: 11, itemCount: 1 });
+  });
+
+  it("drops a continuation onto co_watch only when BOTH viewers are mid-show", async () => {
+    mockSession.userId = 1;
+    mockPrisma.user.findUnique.mockResolvedValueOnce(triggerUserRow() as never);
+    mockPrisma.user.findFirst.mockResolvedValueOnce({ id: 2 } as never);
+    // Trigger user is mid-show on tmdbId 102 with unwatched aired content;
+    // the other viewer has never watched it → not a co-watch continuation.
+    mockGetUserContext.mockResolvedValueOnce(
+      baseContext({
+        subscriptions: ["netflix"],
+        watchEntries: [
+          {
+            tmdbId: 102,
+            title: "Solo Show",
+            status: "watching",
+            currentSeason: 1,
+            currentSeasonCompleted: false,
+            rating: null,
+            airedSeasons: 2,
+          },
+        ],
+      }),
+    );
+    mockGetUserContext.mockResolvedValueOnce(
+      baseContext({ subscriptions: ["netflix"], watchEntries: [] }),
+    );
+    mockGenerateStructured.mockResolvedValueOnce({
+      recommendations: [
+        // New pick on the shared sub → kept.
+        { tmdbId: 100, title: "T100", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: false },
+        // Continuation only one viewer watches → dropped from co_watch.
+        { tmdbId: 102, title: "Solo Show", year: "2024", shortExplanation: "s", longExplanation: "l", isContinuation: true },
+      ],
+    });
+    mockGetTvDetails.mockImplementation(async (id) =>
+      tmdbDetails(id, id === 102 ? "Solo Show" : `T${id}`),
+    );
+    mockGetTvProviders.mockResolvedValue([
+      { platformKey: "netflix", monetizationType: "flatrate" },
+    ]);
+    mockPrisma.show.upsert.mockImplementation(
+      (async (args: { where: { tmdbId: number } }) => ({
+        id: args.where.tmdbId,
+        tmdbId: args.where.tmdbId,
+      })) as never,
+    );
+    mockPrisma.recommendationRun.create.mockResolvedValueOnce({ id: 12 } as never);
+
+    const r = await generateRecommendations("co_watch");
+    expect(r).toEqual({ ok: true, runId: 12, itemCount: 1 });
+    const payload = (mockPrisma.recommendationItem.createMany.mock.calls[0]![0] as {
+      data: Array<{ tmdbId: number }>;
+    }).data;
+    expect(payload.map((p) => p.tmdbId)).toEqual([100]);
   });
 });
 
@@ -721,6 +825,57 @@ describe("getLatestRunsForCurrentUser — disagree filter", () => {
       "Still in",
     ]);
     expect(result.runs.co_watch?.items[1]?.currentVote).toBe("disagree");
+  });
+
+  it("flags subscriptionsStale when subscriptions changed after the latest run", async () => {
+    mockSession.userId = 7;
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    // runWithItems is dated 2026-05-19; subs were toggled the next day.
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(runWithItems("co_watch") as never)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    mockPrisma.user.findUnique.mockImplementation((args: unknown) => {
+      const a = args as { where?: { username?: string; id?: number } };
+      if (a.where?.username === "corey")
+        return { id: 1, displayName: "Corey" } as never;
+      if (a.where?.username === "jaimie")
+        return { id: 2, displayName: "Jaimie" } as never;
+      if (a.where?.id === 7)
+        return {
+          subscriptionsUpdatedAt: new Date("2026-05-20T00:00:00Z"),
+        } as never;
+      return null as never;
+    });
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.subscriptionsStale).toBe(true);
+  });
+
+  it("does not flag subscriptionsStale when subscriptions changed before the run", async () => {
+    mockSession.userId = 7;
+    mockPrisma.userSubscription.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.watchEntry.findMany.mockResolvedValueOnce([] as never);
+    mockPrisma.recommendationRun.findFirst
+      .mockResolvedValueOnce(runWithItems("co_watch") as never)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+    mockPrisma.user.findUnique.mockImplementation((args: unknown) => {
+      const a = args as { where?: { username?: string; id?: number } };
+      if (a.where?.username === "corey")
+        return { id: 1, displayName: "Corey" } as never;
+      if (a.where?.username === "jaimie")
+        return { id: 2, displayName: "Jaimie" } as never;
+      if (a.where?.id === 7)
+        return {
+          subscriptionsUpdatedAt: new Date("2026-05-18T00:00:00Z"),
+        } as never;
+      return null as never;
+    });
+
+    const result = await getLatestRunsForCurrentUser();
+    expect(result.subscriptionsStale).toBe(false);
   });
 
   it("returns disagreedShows for the inspector (Phase 28)", async () => {

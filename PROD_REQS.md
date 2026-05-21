@@ -89,7 +89,7 @@ Next on Wembley fills that gap for personal household use.
 
 ### 6.2 User Settings
 - Each user maintains a list of **active streaming subscriptions** (e.g., Netflix, Disney+, Apple TV+, Crave, Prime Video). This list is editable at any time.
-- **Effect on recommendations:** when a user adds or removes a subscription, the app auto-triggers a regeneration of all three rec lists for that user (and Co-watch, since combined availability shifts). See §6.4.7 Refresh Cadence for the stale-list behavior during regeneration.
+- **Effect on recommendations:** changing a subscription does **not** auto-regenerate the rec lists (that's three LLM calls — too costly to fire on every toggle). The change is recorded and /recs surfaces a "subscriptions changed — Refresh to update" note; the user regenerates with a manual Refresh when ready. See §6.4.7 Refresh Cadence for the stale-list behavior.
 - Region is fixed to **Canada** in v1 (used for streaming availability lookups).
 
 ### 6.3 Watch History
@@ -177,7 +177,7 @@ Next on Wembley fills that gap for personal household use.
 
 #### 6.4.5 Exclusions & "Watched" Label
 - Shows marked `Completed` or `Dropped` do **not** appear in recommendations and are labeled **Watched** in any view where they show up (e.g., filtered list, search results).
-- Previously-Completed shows with no new episodes available are excluded from recommendations. (This rule applies only to entries with status `Completed` or `Dropped`; it does not block new-show candidates the user has never watched.)
+- Previously-Completed shows with no new episodes available are excluded from recommendations. (This rule applies only to entries with status `Completed` or `Dropped`; it does not block new-show candidates the user has never watched.) The exclusion is enforced two ways: the LLM prompt tells Claude not to recommend a Completed show, and a **hard post-generation filter** drops any rec that resolves to a show the relevant user has marked `Completed` — for Co-watch, either viewer having completed it is enough to drop.
 - If new episodes/seasons become available for a previously-Completed show, it re-enters the recommendation pool and is ranked accordingly.
 - **Subscription availability — new-show recs:** shows not available free-with-subscription in Canada on at least one of the relevant user's active subscriptions are **excluded** from new-show recs entirely. There's no commitment to break, and surfacing them would be unactionable.
 - **Subscription availability — continuation recs:** shows the user has already started (`Watching` status) but that are no longer available on their active subscriptions **still appear** as continuations, labeled **"Unavailable on your subscriptions."** The user has an existing investment in the show and may have an alternative way to watch.
@@ -198,15 +198,14 @@ Next on Wembley fills that gap for personal household use.
 
 #### 6.4.7 Refresh Cadence & Generation UX
 - **Manual refresh** is the primary mechanism. A single **Refresh** button at the top of the Recommendations view regenerates all three lists (Co-watch, Corey, Jaimie) in parallel. There is no per-list refresh in v1 — this keeps Claude costs predictable, keeps the three lists consistent in age, and avoids refresh-fatigue.
-- **Auto-refresh triggers in v1:**
-  - **Subscription change** — when a user adds or removes an active subscription, the app auto-fires a regeneration of all three lists. This is the only auto-trigger in v1.
-- **Generation runs in the background.** When Refresh is fired (manually or auto):
+- **No auto-refresh triggers in v1.** Changing a streaming subscription does **not** auto-regenerate the lists — a regeneration is three LLM calls, and firing it on every sub toggle is costly and surprising. Instead, the sub change is recorded (`User.subscriptionsUpdatedAt`) and /recs shows a "your subscriptions changed — Refresh to update" note until the user runs a manual Refresh.
+- **Generation runs in the background.** When Refresh is fired:
   - The currently displayed lists stay visible, **dimmed/grayed**, so the user can still browse and inspect old recs while waiting.
   - **Skeleton cards** with shimmer animation appear alongside (above the dimmed list, or as an "Updating…" header section) signaling that new content is incoming.
   - A small **"Refreshing recommendations…" pill** appears in the app header/nav so the user can navigate away (to History, Settings, etc.) and still know a refresh is in flight.
   - The user is **not blocked** — they can navigate freely, edit entries, add shows, change votes on the dimmed (still-current) cards.
   - When generation completes, the new lists fade in to replace the dimmed ones. If the user is off the rec page, the pill switches to **"Recommendations updated — view"** as a tappable affordance.
-- **Stale-list behavior on subscription change** (the brief window between sub edit and regeneration completing): the displayed lists immediately apply a client-side filter:
+- **Stale-list behavior after a subscription change** (the lists stay as-is until a manual Refresh, so they may be out of date with the new sub set): /recs shows a bordered "your subscriptions changed — Refresh to update" note, and the displayed lists apply a client-side filter so they aren't misleading in the meantime:
   - New-show recs on cancelled subs are **hidden**.
   - Continuations on cancelled subs **stay visible**, badged "Unavailable on your subscriptions."
 - **LLM response strategy:** v1 uses a **batch response** — single round-trip, full JSON returned, all cards rendered when the response lands. Response-streaming (cards-as-they-arrive) is deferred to a future iteration to reduce perceived latency (§11 Future Considerations).

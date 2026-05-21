@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { RecScope } from "@prisma/client";
 import {
@@ -58,6 +64,9 @@ type Props = {
   // user-scoped tab (Corey only sees his own buried-disagrees on
   // Corey's Picks).
   viewerUsername: string;
+  // True when subscriptions changed after the latest rec run — shows a
+  // "refresh to update" note (sub changes no longer auto-regenerate).
+  subscriptionsStale: boolean;
 };
 
 // Parses a comma-separated search param into a Set of non-empty trimmed
@@ -101,6 +110,7 @@ export function RecsView({
   partnerDisplayName,
   disagreedShows,
   viewerUsername,
+  subscriptionsStale,
 }: Props) {
   const [active, setActive] = useState<RecScope>("co_watch");
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -143,6 +153,25 @@ export function RecsView({
   // the user's active subs — show those as the chip options. Genres
   // come from the items in the current tab.
   const list = initial[active];
+
+  // Format the "Generated" timestamp on the client so it reflects the
+  // viewer's timezone — formatting during SSR would lock in the server's
+  // UTC clock. Null until mounted; the line tolerates the brief gap.
+  const [generatedLabel, setGeneratedLabel] = useState<string | null>(null);
+  useEffect(() => {
+    if (!list) {
+      setGeneratedLabel(null);
+      return;
+    }
+    setGeneratedLabel(
+      new Date(list.createdAt).toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    );
+  }, [list]);
 
   const availableGenres = useMemo<string[]>(() => {
     if (!list) return [];
@@ -235,6 +264,16 @@ export function RecsView({
           <span>{pending ? "Generating…" : anyList ? "Refresh" : "Generate"}</span>
         </button>
       </header>
+
+      {subscriptionsStale && (
+        <p
+          role="status"
+          className="rounded-md border border-border-strong bg-surface-elevated px-4 py-2.5 font-body text-sm text-ink-secondary"
+        >
+          Your subscriptions changed since these recommendations were
+          generated. Hit Refresh to update them.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <div role="tablist" aria-label="Recommendation lists" className="flex gap-2">
@@ -533,20 +572,12 @@ export function RecsView({
         </section>
       ) : (
         <div className={pending ? "opacity-50" : undefined}>
-          <p
-            className="truncate font-mono text-mono uppercase text-ink-muted"
-            suppressHydrationWarning
-          >
+          <p className="truncate font-mono text-mono uppercase text-ink-muted">
             {/* Secondary context — kept to a single compact line so it
-                never wraps. Short date (no year/seconds), then model. */}
-            Generated{" "}
-            {new Date(list.createdAt).toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}{" "}
-            · {list.modelId}
+                never wraps. Date is client-formatted (viewer's TZ). */}
+            Generated {generatedLabel ?? "…"}
+            {" · "}
+            {list.modelId}
             {list.mood ? ` · mood: ${list.mood}` : ""}
             {anyFilterActive && (
               <>

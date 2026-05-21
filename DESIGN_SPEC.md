@@ -296,7 +296,7 @@ Format: **Name** — purpose. *Variants/props.* States. A11y notes.
 - **FilterSheet** (mobile) — bottom-sheet variant. Triggered by a "Filters" Button in the header. Radix `Dialog` styled as bottom sheet, swipe-down close. A11y: focus trap, Esc closes, scroll restored on close.
 - **NavBar** — see §5.4. Mobile bottom tabs + top header; desktop top nav + secondary tab row inside Recs.
 - **LoginCard** — passcode entry. Identifies user (Corey or Jaimie), prompts shared-secret, submits to set HTTP-only cookie. States: default, submitting, error ("Incorrect passcode"). A11y: form with `<label>`, autofocus, `aria-describedby` for error.
-- **SubscriptionEditor** — toggle list of streaming platforms. On change, runs `toggleSubscriptionAction` then fires a background rec-gen through the layout `RefreshProvider` (PRD §6.4.7 auto-refresh). The layout pill activates immediately so the user sees a refresh is running even while still on /settings. A11y: each platform is a `<button aria-pressed>` toggle.
+- **SubscriptionEditor** — toggle list of streaming platforms. On change, runs `toggleSubscriptionAction` and stops there — toggling a subscription does **not** auto-regenerate recommendations (that's a heavy 3-call LLM run; the user changes subs freely and refreshes when ready). The toggle stamps `User.subscriptionsUpdatedAt`; /recs compares that against the latest run to show a "subscriptions changed — Refresh to update" note (see §5.3). A11y: each platform is a `<button aria-pressed>` toggle.
 - **BudgetStatusCard** — surfaces the current month's logged Anthropic spend against the PRD §10 cap. Three visual states keyed to `BudgetStatus.state` from `lib/llm-budget.ts`: `ok` (accent-tinted progress bar, "On budget" check), `warning` at ≥75% (yellow, "Slow down"), `exceeded` at ≥100% (danger red, "Cap reached — refresh paused"). Always includes a "Resets at the start of next month (UTC)" footnote. The card is read-only; the budget gate itself lives in `generateRecommendations` so a partner navigating without /settings open still gets the typed `budget_exceeded` refresh failure.
 - **EmptyState** — generic, configurable. *Props: `title`, `description`, `actionLabel`, `actionHref` | `onAction`, `illustration?`.* Used by the 5 empty contexts in PRD §6.6.1. Illustrations: woodcut-line glyphs in `--color-text-muted` (see §9.2).
 - **DisagreesInspector** — collapsible "Buried disagrees" panel rendered at the bottom of the viewer's own user-scoped Picks tab (M4 Phase 28). Surfaces every show the viewer has Disagreed on with a tiny poster thumb, the title, and a "Bring back" pill that calls `clearOwnVoteOnShowAction(showId)` to delete the vote. Optimistic removal from the list on click. Dashed-border container, collapsed by default (header reads "Buried disagrees (N)" with a caret). Only renders when `viewerUsername === active scope` so the partner doesn't see the owner's hidden picks.
@@ -412,6 +412,13 @@ What's next on Wembley                            [ ⟳ Refresh ]
 
 Mobile: the masthead stacks (H1 block, then a full-width Refresh beneath the
 accent rule); the tab row sits below with Refine wrapping to its own line.
+
+**Stale-subscriptions note.** When the viewer has toggled a subscription
+since the latest run was generated, a quiet bordered `role="status"` note
+renders between the masthead and the tab row: "Your subscriptions changed
+since these recommendations were generated. Hit Refresh to update them."
+The masthead Refresh button is the action — the note carries no control of
+its own. It clears once a refresh runs (the new run post-dates the toggle).
 
 #### Visual hierarchy (the weight rule)
 

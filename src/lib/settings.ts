@@ -67,7 +67,16 @@ export async function toggleSubscriptionAction(
     });
   }
 
+  // Stamp the change so /recs can tell the current recommendations were
+  // generated against an older subscription set (a removed sub deletes
+  // its row, so this timestamp is the only durable signal).
+  await prisma.user.update({
+    where: { id: session.userId },
+    data: { subscriptionsUpdatedAt: new Date() },
+  });
+
   revalidatePath("/settings");
+  revalidatePath("/recs");
 }
 
 export async function getUserSubscriptions(): Promise<string[]> {

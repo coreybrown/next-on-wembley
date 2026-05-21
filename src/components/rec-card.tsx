@@ -29,7 +29,7 @@ export function RecCard({ item, partnerLabel }: Props) {
     <article
       aria-labelledby={`rec-${item.id}-title`}
       className="
-        group relative flex items-start gap-4
+        group flex items-start gap-4
         rounded-md border border-border bg-surface-elevated
         px-5 py-4
         transition-colors hover:border-border-strong
@@ -37,14 +37,6 @@ export function RecCard({ item, partnerLabel }: Props) {
         focus-within:outline-offset-2
       "
     >
-      <div className="absolute right-4 top-4">
-        <WantToWatchButton
-          itemId={item.id}
-          title={item.title}
-          isContinuation={item.isContinuation}
-          inWatchHistory={item.inWatchHistory}
-        />
-      </div>
       <div className="flex flex-shrink-0 flex-col items-center gap-2">
         <span
           aria-label={`Position ${item.position}`}
@@ -84,7 +76,7 @@ export function RecCard({ item, partnerLabel }: Props) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pr-16">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h3
             id={`rec-${item.id}-title`}
             className="font-display text-lg font-medium italic text-ink"
@@ -190,6 +182,14 @@ export function RecCard({ item, partnerLabel }: Props) {
           partnerLabel={partnerLabel}
         />
       </div>
+      {/* Add-to-Want-to-Watch — a flow-laid-out right column (renders
+          null for continuations), so it never overlaps the description. */}
+      <WantToWatchButton
+        itemId={item.id}
+        title={item.title}
+        isContinuation={item.isContinuation}
+        inWatchHistory={item.inWatchHistory}
+      />
     </article>
   );
 }

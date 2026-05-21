@@ -351,10 +351,26 @@ export async function generateRecommendations(
       continue;
     }
 
+    const resolvedTmdbId = resolved.metadata.tmdbId;
+    const primaryEntry = primaryEntriesByTmdbId.get(resolvedTmdbId);
+    const otherEntry = otherEntriesByTmdbId?.get(resolvedTmdbId);
+
+    // Already-completed shows have nothing left to watch — never
+    // recommend them (the LLM is told this too, but enforce it). On
+    // co_watch, either viewer having completed it is enough to drop.
+    if (
+      primaryEntry?.status === "completed" ||
+      otherEntry?.status === "completed"
+    ) {
+      dropped.push({
+        title: resolved.metadata.title,
+        tmdbId: resolvedTmdbId,
+        reason: "already_completed",
+      });
+      continue;
+    }
+
     if (rec.isContinuation) {
-      const resolvedTmdbId = resolved.metadata.tmdbId;
-      const primaryEntry = primaryEntriesByTmdbId.get(resolvedTmdbId);
-      const otherEntry = otherEntriesByTmdbId?.get(resolvedTmdbId);
       // The LLM occasionally invents continuations for shows nobody has
       // watched. Drop those — they'd otherwise bypass the provider gate
       // and show up as un-badged "continuations" that don't continue
@@ -371,11 +387,20 @@ export async function generateRecommendations(
         ? isValidContinuation(primaryEntry)
         : false;
       const otherValid = otherEntry ? isValidContinuation(otherEntry) : false;
-      if (!primaryValid && !otherValid) {
+      // A continuation belongs on the co_watch list only when BOTH
+      // viewers are mid-show; a show only one person watches is a solo
+      // continuation and stays on that person's list. Solo lists have
+      // no `otherEntry`, so the rule there is just `primaryValid`.
+      const continuationValid =
+        scope === "co_watch" ? primaryValid && otherValid : primaryValid;
+      if (!continuationValid) {
         dropped.push({
           title: resolved.metadata.title,
           tmdbId: resolvedTmdbId,
-          reason: "continuation_no_new_aired_content",
+          reason:
+            scope === "co_watch"
+              ? "continuation_not_co_watched"
+              : "continuation_no_new_aired_content",
         });
         continue;
       }
@@ -514,6 +539,10 @@ export type RecsPageData = {
   // "Buried disagrees" inspector at the bottom of their own tab so
   // they can re-vote and unbury picks they've previously hidden.
   disagreedShows: DisagreedShow[];
+  // True when the user changed their streaming subscriptions after the
+  // most recent recommendation run — /recs shows a "refresh to update"
+  // hint (subscription changes no longer auto-regenerate).
+  subscriptionsStale: boolean;
 };
 
 // Parses Show.genres (comma-separated string per TMDb) into an array,
@@ -550,9 +579,11 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       userSubKeys: [],
       partnerDisplayName: null,
       disagreedShows: [],
+      subscriptionsStale: false,
     };
 
-  const [subs, watchEntries, coreyUser, jaimieUser, disagreeRows] = await Promise.all([
+  const [subs, watchEntries, coreyUser, jaimieUser, disagreeRows, viewerUser] =
+    await Promise.all([
     prisma.userSubscription.findMany({
       where: { userId: session.userId },
       select: { platformKey: true },
@@ -578,6 +609,10 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
       include: {
         show: { select: { id: true, tmdbId: true, title: true, posterUrl: true } },
       },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { subscriptionsUpdatedAt: true },
     }),
   ]);
   const subKeys = subs.map((s) => s.platformKey);
@@ -715,10 +750,23 @@ export async function getLatestRunsForCurrentUser(): Promise<RecsPageData> {
     disagreedAt: row.createdAt,
   }));
 
+  // Stale when subscriptions were last changed after the most recent
+  // run across all scopes. No runs yet → nothing to be stale against.
+  const latestRunAt = scopes
+    .map((s) => result[s]?.createdAt)
+    .filter((d): d is Date => d != null)
+    .reduce<Date | null>((max, d) => (max == null || d > max ? d : max), null);
+  const subsChangedAt = viewerUser?.subscriptionsUpdatedAt ?? null;
+  const subscriptionsStale =
+    subsChangedAt != null &&
+    latestRunAt != null &&
+    subsChangedAt > latestRunAt;
+
   return {
     runs: result,
     userSubKeys: subKeys,
     partnerDisplayName,
     disagreedShows,
+    subscriptionsStale,
   };
 }

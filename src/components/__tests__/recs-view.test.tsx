@@ -62,6 +62,7 @@ describe("RecsView — empty state", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     expect(screen.getByText(/no recommendations yet/i)).toBeInTheDocument();
@@ -86,6 +87,7 @@ describe("RecsView — populated lists", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     expect(
@@ -96,7 +98,7 @@ describe("RecsView — populated lists", () => {
 
   it("supports ArrowLeft/Right keyboard navigation between tabs (a11y)", async () => {
     const user = userEvent.setup();
-    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} disagreedShows={[]} viewerUsername="corey" />);
+    renderWithProvider(<RecsView initial={initial} userSubKeys={[]} partnerDisplayName={null} disagreedShows={[]} viewerUsername="corey" subscriptionsStale={false} />);
     const coWatch = screen.getByRole("tab", { name: /co-watch/i });
     coWatch.focus();
     expect(coWatch).toHaveAttribute("aria-selected", "true");
@@ -121,6 +123,7 @@ describe("RecsView — populated lists", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("tab", { name: /corey's picks/i }));
@@ -137,6 +140,7 @@ describe("RecsView — populated lists", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("tab", { name: /jaimie's picks/i }));
@@ -151,6 +155,7 @@ describe("RecsView — populated lists", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     expect(screen.getByText(/claude-haiku-4-5/i)).toBeInTheDocument();
@@ -172,6 +177,7 @@ describe("RecsView — refresh", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
@@ -192,6 +198,7 @@ describe("RecsView — refresh", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
@@ -214,6 +221,7 @@ describe("RecsView — refresh", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
@@ -236,12 +244,53 @@ describe("RecsView — refresh", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^generate$/i }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /1 of 3 lists failed/i,
     );
+  });
+});
+
+describe("RecsView — stale subscriptions note", () => {
+  const initial = {
+    co_watch: makeRun("co_watch", [makeItem({ title: "Co-watch Show" })]),
+    corey: null,
+    jaimie: null,
+  };
+
+  it("renders the stale note when subscriptionsStale is true", () => {
+    renderWithProvider(
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+        subscriptionsStale={true}
+      />,
+    );
+    expect(
+      screen.getByText(/your subscriptions changed since these/i),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the stale note when subscriptionsStale is false", () => {
+    renderWithProvider(
+      <RecsView
+        initial={initial}
+        userSubKeys={[]}
+        partnerDisplayName={null}
+        disagreedShows={[]}
+        viewerUsername="corey"
+        subscriptionsStale={false}
+      />,
+    );
+    expect(
+      screen.queryByText(/your subscriptions changed since these/i),
+    ).toBeNull();
   });
 });
 
@@ -280,6 +329,7 @@ describe("RecsView — filters", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
@@ -297,6 +347,7 @@ describe("RecsView — filters", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));
@@ -315,6 +366,7 @@ describe("RecsView — filters", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     // Refine button is present and closed.
@@ -335,6 +387,7 @@ describe("RecsView — filters", () => {
         partnerDisplayName={null}
         disagreedShows={[]}
         viewerUsername="corey"
+        subscriptionsStale={false}
       />,
     );
     await user.click(screen.getByRole("button", { name: /^refine/i }));

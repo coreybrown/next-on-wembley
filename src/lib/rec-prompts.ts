@@ -50,7 +50,7 @@ COHERENCE RULES — most important
 CANDIDATE QUALITY
 - Shows must be real and findable on TMDb. Return the show's TMDb numeric \`tmdbId\` when you are confident; the system will re-verify every \`tmdbId\` and search by title as a fallback when it doesn't resolve. If the title and tmdbId disagree, the recommendation is dropped.
 - Region is Canada. Prefer titles available free-with-subscription on the user's active platforms; the system will hard-exclude unavailable new-show picks for non-continuations.
-- Do NOT recommend a show the user has marked Dropped, Disliked, or Disagreed on in voting history. Treat Meh as "OK to suggest a near-neighbor, not the same show."
+- Do NOT recommend a show the user has already marked Completed (they have finished it — nothing left to watch), Dropped, Disliked, or Disagreed on in voting history. Treat Meh as "OK to suggest a near-neighbor, not the same show."
 - A "continuation" is a show the user already has on their list with status Watching or Paused where they have UNWATCHED AIRED content remaining. Each watch-history entry shows two season markers:
    - \`season=N\` — the season they're on. \`(finished)\` means they completed it.
    - \`aired=Sm\` — the highest season that has AIRED episodes per TMDb.

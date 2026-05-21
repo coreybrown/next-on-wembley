@@ -59,6 +59,11 @@ model User {
   // Changing this value triggers a refresh (wired up in M3 Phase 10).
   recModel          RecModel             @default(haiku)
   createdAt         DateTime             @default(now())
+  // Bumped whenever a streaming subscription is toggled. /recs compares
+  // this against the latest RecommendationRun to show a "subscriptions
+  // changed — refresh" hint (toggling a sub off deletes its row, so the
+  // UserSubscription timestamps can't answer this on their own).
+  subscriptionsUpdatedAt DateTime?
   subscriptions     UserSubscription[]
   watchEntries      WatchEntry[]
   triggeredRecRuns  RecommendationRun[]
