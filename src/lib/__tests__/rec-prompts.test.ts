@@ -262,7 +262,10 @@ describe("buildUserPrompt", () => {
       genres: ["Drama", "Comedy"],
     });
     expect(out).toMatch(/preferred genres: drama, comedy/i);
-    expect(out).toMatch(/lean.*toward|still rank by overall fit/i);
+    expect(out).toMatch(/lean the new_show picks toward/i);
+    // Genre also softly re-ranks continuations — without excluding any.
+    expect(out).toMatch(/rank continuations in these genres higher/i);
+    expect(out).toMatch(/never drop a continuation/i);
   });
 
   it("includes a platform restriction line when platforms are given", () => {

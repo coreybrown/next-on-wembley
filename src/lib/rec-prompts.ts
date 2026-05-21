@@ -279,7 +279,7 @@ export function buildUserPrompt(input: BuildUserPromptInput): string {
   if (genres && genres.length > 0) {
     lines.push("");
     lines.push(
-      `Preferred genres: ${genres.join(", ")} — lean the new_show picks toward these, but still rank by overall fit.`,
+      `Preferred genres: ${genres.join(", ")} — lean the new_show picks toward these, and rank continuations in these genres higher. Soft preference only: still weigh overall fit, and never drop a continuation for being off-genre.`,
     );
   }
   if (platforms && platforms.length > 0) {
