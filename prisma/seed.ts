@@ -30,7 +30,7 @@ async function main() {
         passcodeHash,
       },
     });
-    console.log(`Seeded ${u.displayName} (passcode: ${u.passcode})`);
+    console.log(`Seeded ${u.displayName}`);
   }
 }
 
